@@ -52,31 +52,31 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
         {/* Bloco de data */}
         <div className="w-14 min-w-14 flex flex-col items-center justify-center py-4 border-r border-white/[0.06] shrink-0">
           <span className={`text-2xl font-extrabold leading-none tracking-tight ${isDead ? 'text-white/25' : 'text-primary'}`}>{day}</span>
-          <span className={`text-[10px] font-semibold capitalize mt-0.5 ${isDead ? 'text-white/20' : 'text-primary/60'}`}>{mon}</span>
-          <span className="text-[9px] text-white/25 mt-1">{timeStr}</span>
+          <span className={`text-xs font-semibold capitalize mt-0.5 ${isDead ? 'text-white/20' : 'text-primary/60'}`}>{mon}</span>
+          <span className="text-xs text-white/25 mt-1">{timeStr}</span>
         </div>
 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0 px-3.5 py-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <p className={`font-bold text-[13px] leading-snug truncate ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
+              <p className={`font-bold text-sm leading-snug truncate ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
                 {event.title}
               </p>
               {groupName && (
-                <p className="text-[11px] text-white/30 truncate mt-0.5">{groupName}</p>
+                <p className="text-sm text-white/30 truncate mt-0.5">{groupName}</p>
               )}
             </div>
             <EventStatusBadge status={event.status} />
           </div>
 
           <div className="flex items-center gap-3 mt-2">
-            <span className="flex items-center gap-1 text-[11px] text-white/35">
-              <MapPin className="size-3 shrink-0" />
+            <span className="flex items-center gap-1 text-sm text-white/35">
+              <MapPin className="size-3.5 shrink-0" />
               {event.city}
             </span>
-            <span className="flex items-center gap-1 text-[11px] text-white/35">
-              <Users className="size-3 shrink-0" />
+            <span className="flex items-center gap-1 text-sm text-white/35">
+              <Users className="size-3.5 shrink-0" />
               {occupancy}/{event.capacity}
             </span>
           </div>
@@ -91,7 +91,7 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
                   style={{ width: `${Math.min(100, pct * 100)}%` }}
                 />
               </div>
-              <span className={`text-[10px] font-semibold shrink-0 ${isFull ? 'text-red-400' : 'text-white/30'}`}>
+              <span className={`text-xs font-semibold shrink-0 ${isFull ? 'text-red-400' : 'text-white/30'}`}>
                 {isFull ? 'Lotado' : `${event.capacity - occupancy} vagas`}
               </span>
             </div>
@@ -100,7 +100,7 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
 
         {/* Preço */}
         <div className="flex items-center pr-4 pl-1 shrink-0">
-          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+          <span className={`text-sm font-bold px-2.5 py-1 rounded-full border ${
             isDead
               ? 'text-white/25 bg-white/4 border-white/8 line-through'
               : isGratis

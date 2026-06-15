@@ -317,7 +317,7 @@ export default async function HomePage() {
               <Icon className="size-4 text-primary/60 group-hover:text-primary transition-colors" />
               <div>
                 <p className="font-bold text-sm text-white group-hover:text-primary transition-colors">{label}</p>
-                <p className="text-xs text-white/30 mt-0.5 leading-snug">{sub}</p>
+                <p className="text-sm text-white/30 mt-0.5 leading-snug">{sub}</p>
               </div>
             </Link>
           ))}
