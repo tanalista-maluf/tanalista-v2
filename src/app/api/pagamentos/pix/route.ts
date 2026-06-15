@@ -36,6 +36,28 @@ export async function POST(request: NextRequest) {
   const event = (participation as any).events
   if (!event) return NextResponse.json({ error: 'Evento não encontrado' }, { status: 404 })
 
+  // Reutilizar pagamento PIX pendente se já existir
+  const { data: existingPayment } = await admin
+    .from('payments')
+    .select('gateway_transaction_id, gateway_response')
+    .eq('participation_id', participation_id)
+    .eq('status', 'PENDING')
+    .eq('method', 'PIX')
+    .maybeSingle()
+
+  if (existingPayment?.gateway_response) {
+    const gr = existingPayment.gateway_response as any
+    const pixData = gr?.point_of_interaction?.transaction_data
+    if (pixData?.qr_code) {
+      return NextResponse.json({
+        payment_id: existingPayment.gateway_transaction_id,
+        qr_code: pixData.qr_code,
+        qr_code_base64: pixData.qr_code_base64,
+        expires_at: gr?.date_of_expiration ?? new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      })
+    }
+  }
+
   const fees = calculateFees(event.price, 'PIX')
 
   // Escolhe client: se o organizador tem token, usa marketplace; senão usa plataforma
