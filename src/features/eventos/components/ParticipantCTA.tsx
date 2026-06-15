@@ -12,6 +12,7 @@ interface ParticipantCTAProps {
     status: string
     price: number
     user_participation_status: string | null
+    user_participation_id: string | null
     waitlist_position: number | null
     waitlist_count: number
   }
@@ -21,7 +22,7 @@ interface ParticipantCTAProps {
 }
 
 export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) {
-  const { user_participation_status, waitlist_position } = event
+  const { user_participation_status, user_participation_id, waitlist_position } = event
 
   // Já confirmado
   if (user_participation_status === 'CONFIRMED') {
@@ -37,7 +38,7 @@ export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) 
   if (user_participation_status === 'PENDING') {
     return (
       <Link
-        href={`/eventos/${event.id}/pagamento`}
+        href={`/eventos/${event.id}/pagamento?participation_id=${user_participation_id}&method=PIX`}
         className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 hover:bg-yellow-400/20 transition-colors"
       >
         <Clock className="size-3.5" />
