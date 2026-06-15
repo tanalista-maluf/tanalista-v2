@@ -4,7 +4,9 @@ import { formatPrice, formatDateTime } from '@/utils/format'
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? 'disabled')
 }
-const FROM = 'TáNaLista <noreply@tanalista.com.br>'
+const FROM = process.env.RESEND_FROM_EMAIL
+  ? `TáNaLista <${process.env.RESEND_FROM_EMAIL}>`
+  : 'TáNaLista <noreply@tanalista.app>'
 
 function base(title: string, body: string) {
   return `

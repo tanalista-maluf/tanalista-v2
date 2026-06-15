@@ -79,7 +79,11 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
     netCents: net_cents,
     pixKey: pix_key,
     pixKeyType: pix_key_type,
-  }).catch(e => console.error('[WITHDRAWAL] Email error:', e))
+  }).then(() => {
+    console.log(`[WITHDRAWAL] Admin email sent for user ${user.id}`)
+  }).catch(e => {
+    console.error('[WITHDRAWAL] Failed to send admin email:', e?.message ?? e)
+  })
 
   revalidatePath('/carteira')
   return { success: true }
