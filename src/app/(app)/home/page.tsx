@@ -163,14 +163,14 @@ export default async function HomePage() {
       <div className="px-4 space-y-5 pb-6">
         {/* Card Carteira */}
         <div className="wallet-gradient rounded-2xl p-5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-primary/55 mb-1">Saldo disponível</p>
+          <p className="text-xs font-bold uppercase tracking-[0.08em] text-primary/55 mb-1">Saldo disponível</p>
           <p className="text-[32px] font-extrabold text-primary tracking-tight leading-none">{formatBalance(balance)}</p>
-          <p className="text-[11px] text-white/25 mt-1">disponível para inscrições</p>
+          <p className="text-sm text-white/25 mt-1">disponível para inscrições</p>
           <div className="flex gap-2.5 mt-4">
-            <Link href="/carteira" className="flex-1 h-10 rounded-xl flex items-center justify-center text-[12px] font-bold bg-primary text-[#071209] hover:bg-primary/90 transition-colors shadow-[0_0_14px_rgba(74,222,128,0.18)]">
+            <Link href="/carteira" className="flex-1 h-11 rounded-xl flex items-center justify-center text-base font-bold bg-primary text-[#071209] hover:bg-primary/90 transition-colors shadow-[0_0_14px_rgba(74,222,128,0.18)]">
               Adicionar
             </Link>
-            <Link href="/carteira" className="flex-1 h-10 rounded-xl flex items-center justify-center text-[12px] font-semibold bg-white/5 border border-white/8 text-white/55 hover:bg-white/10 hover:text-white/70 transition-colors">
+            <Link href="/carteira" className="flex-1 h-11 rounded-xl flex items-center justify-center text-base font-semibold bg-white/5 border border-white/8 text-white/55 hover:bg-white/10 hover:text-white/70 transition-colors">
               Sacar
             </Link>
           </div>
@@ -179,8 +179,8 @@ export default async function HomePage() {
         {/* Próximos eventos */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-[13px] font-bold text-white/80">Seus eventos</h2>
-            <Link href="/eventos" className="text-[11px] text-primary/80 flex items-center gap-1 hover:text-primary transition-colors">
+            <h2 className="text-sm font-bold text-white/80">Seus eventos</h2>
+            <Link href="/eventos" className="text-xs text-primary/80 flex items-center gap-1 hover:text-primary transition-colors">
               Ver todos <ArrowRight className="size-3" />
             </Link>
           </div>
@@ -191,7 +191,7 @@ export default async function HomePage() {
                 <div className="size-12 rounded-2xl bg-white/4 border border-white/8 flex items-center justify-center mx-auto">
                   <Calendar className="size-5 text-white/20" />
                 </div>
-                <p className="text-[13px] text-white/35">Nenhum evento próximo.</p>
+                <p className="text-sm text-white/35">Nenhum evento próximo.</p>
                 <Link href="/eventos" className={cn(buttonVariants({ size: 'sm' }))}>
                   Explorar eventos
                 </Link>
@@ -206,8 +206,8 @@ export default async function HomePage() {
                         {g.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-semibold text-white truncate">{g.name}</p>
-                        <p className="text-[11px] text-white/30 mt-0.5">{g.member_count} membros{g.category ? ` · ${g.category}` : ''}</p>
+                        <p className="text-sm font-semibold text-white truncate">{g.name}</p>
+                        <p className="text-xs text-white/30 mt-0.5">{g.member_count} membros{g.category ? ` · ${g.category}` : ''}</p>
                       </div>
                       <ArrowRight className="size-4 text-white/15 shrink-0" />
                     </Link>
@@ -243,8 +243,8 @@ export default async function HomePage() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0 px-3.5 py-3">
-                        <p className="font-bold text-[13px] text-white truncate leading-snug">{ev.title}</p>
-                        <p className="text-[11px] text-white/30 truncate mt-0.5">{ev.city}</p>
+                        <p className="font-bold text-sm text-white truncate leading-snug">{ev.title}</p>
+                        <p className="text-xs text-white/30 truncate mt-0.5">{ev.city}</p>
                         {confirmedParticipants.length > 0 && (
                           <AvatarStack participants={confirmedParticipants} total={ev.capacity} />
                         )}
@@ -276,7 +276,7 @@ export default async function HomePage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Activity className="size-3.5 text-primary/70" />
-              <h2 className="text-[13px] font-bold text-white/80">Atividade nos grupos</h2>
+              <h2 className="text-sm font-bold text-white/80">Atividade nos grupos</h2>
             </div>
             <div className="space-y-2">
               {activityFeed.map((item, i) => (
@@ -285,7 +285,7 @@ export default async function HomePage() {
                     <UserAvatar name={item.userName} avatarUrl={item.avatarUrl} size="sm" />
                   </a>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12px] text-white/60 leading-snug">
+                    <p className="text-sm text-white/60 leading-snug">
                       <a href={item.username ? `/u/${item.username}` : '#'} className="font-semibold text-white hover:text-primary transition-colors">
                         {item.userName}
                       </a>
@@ -316,8 +316,8 @@ export default async function HomePage() {
             <Link key={href} href={href} className="card-dark rounded-2xl p-4 space-y-2 group hover:bg-white/[0.05] transition-colors">
               <Icon className="size-4 text-primary/60 group-hover:text-primary transition-colors" />
               <div>
-                <p className="font-bold text-[12px] text-white group-hover:text-primary transition-colors">{label}</p>
-                <p className="text-[10px] text-white/30 mt-0.5 leading-snug">{sub}</p>
+                <p className="font-bold text-sm text-white group-hover:text-primary transition-colors">{label}</p>
+                <p className="text-xs text-white/30 mt-0.5 leading-snug">{sub}</p>
               </div>
             </Link>
           ))}
