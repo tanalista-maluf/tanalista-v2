@@ -13,6 +13,11 @@ export async function redeemCouponAction(code: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
+  // Exige e-mail verificado para evitar contas descartáveis
+  if (!user.email_confirmed_at) {
+    return { error: 'Confirme seu e-mail antes de resgatar cupons.' }
+  }
+
   const admin = createAdminClient()
   const normalizedCode = code.trim().toUpperCase()
 
