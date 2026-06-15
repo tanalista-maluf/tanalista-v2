@@ -52,6 +52,40 @@ function infoBox(lines: string[]) {
   return `<ul style="background:#f4f4f5;border-radius:8px;padding:16px 16px 16px 28px;margin:16px 0;">${rows}</ul>`
 }
 
+// ── Email: solicitação de saque (para o admin processar manualmente) ─────────
+export async function sendWithdrawalRequestAdmin(params: {
+  userName: string
+  userEmail: string
+  amountCents: number
+  feeCents: number
+  netCents: number
+  pixKey: string
+  pixKeyType: string
+}) {
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean)
+  if (!adminEmails.length) return
+
+  const body = base(
+    'Nova solicitação de saque',
+    h2('Nova solicitação de saque') +
+    p(`<strong>${params.userName}</strong> (${params.userEmail}) solicitou um saque.`) +
+    infoBox([
+      `Valor solicitado: <strong>${formatPrice(params.amountCents)}</strong>`,
+      `Taxa (${((params.feeCents / params.amountCents) * 100).toFixed(0)}%): <strong>− ${formatPrice(params.feeCents)}</strong>`,
+      `Valor a transferir: <strong>${formatPrice(params.netCents)}</strong>`,
+      `Chave PIX (${params.pixKeyType.toUpperCase()}): <strong>${params.pixKey}</strong>`,
+    ]) +
+    p('Por favor, realize a transferência PIX manualmente e confirme o pagamento.')
+  )
+
+  await getResend().emails.send({
+    from: FROM,
+    to: adminEmails,
+    subject: `Saque solicitado: ${formatPrice(params.netCents)} → ${params.pixKey}`,
+    html: body,
+  })
+}
+
 // ── Email: lembrete do evento ─────────────────────────────────────────────────
 export async function sendEventReminder(params: {
   to: string
@@ -198,3 +232,4 @@ export async function sendOrganizerEventCompleted(params: {
 
   await getResend().emails.send({ from: FROM, to: params.to, subject: `Evento concluído: ${params.eventTitle}`, html: body })
 }
+

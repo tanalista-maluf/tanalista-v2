@@ -4,15 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendWithdrawalRequestAdmin } from '@/lib/emails'
 
 const WITHDRAWAL_FEE_PCT = 1 // 1% de taxa de saque
-
-const PIX_KEY_TYPE_MAP: Record<string, string> = {
-  cpf:    'CPF',
-  email:  'EMAIL',
-  phone:  'PHONE',
-  random: 'RANDOM_KEY',
-}
 
 const withdrawalSchema = z.object({
   amount_cents: z.number({ error: 'Valor inválido.' }).int().min(500, 'Valor mínimo: R$ 5,00').max(500000, 'Valor máximo: R$ 5.000,00'),
@@ -38,10 +32,9 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verificar saldo suficiente
   const { data: profile } = await supabase
     .from('profiles')
-    .select('wallet_balance')
+    .select('wallet_balance, full_name')
     .eq('id', user.id)
     .single()
 
@@ -51,7 +44,7 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
 
   const admin = createAdminClient()
 
-  // 1. Debitar da carteira antes de enviar (evita duplo saque em retry)
+  // Debitar da carteira
   const { error: debitError } = await admin.rpc('wallet_debit', {
     p_user_id: user.id,
     p_amount: amount_cents,
@@ -61,71 +54,32 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
 
   if (debitError) return { error: 'Erro ao processar saque.' }
 
-  // 2. Disparar transferência PIX via MP
-  try {
-    const mpRes = await fetch('https://api.mercadopago.com/v1/transfers', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.MERCADOPAGO_PLATFORM_ACCESS_TOKEN}`,
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': `withdrawal-${user.id}-${Date.now()}`,
-      },
-      body: JSON.stringify({
-        amount: net_cents / 100,
-        currency_id: 'BRL',
-        receiver: {
-          pix_data: {
-            key: pix_key,
-            key_type: PIX_KEY_TYPE_MAP[pix_key_type],
-          },
-        },
-        description: 'Saque TáNaLista',
-      }),
-    })
+  // Registrar no audit_log
+  await admin.from('audit_logs').insert({
+    user_id: user.id,
+    action: 'WITHDRAWAL_REQUESTED',
+    table_name: 'wallet_transactions',
+    new_data: {
+      amount_cents,
+      fee_cents,
+      net_cents,
+      cpf_last4: cpf.slice(-4),
+      pix_key,
+      pix_key_type,
+    },
+  })
 
-    const mpData = await mpRes.json()
-
-    // Registrar resultado no audit_log
-    await admin.from('audit_logs').insert({
-      user_id: user.id,
-      action: 'WITHDRAWAL_REQUESTED',
-      table_name: 'wallet_transactions',
-      new_data: {
-        amount_cents,
-        fee_cents,
-        net_cents,
-        cpf_last4: cpf.slice(-4),
-        pix_key,
-        pix_key_type,
-        mp_transfer_id: mpData?.id ?? null,
-        mp_status: mpData?.status ?? null,
-        mp_response: mpData,
-      },
-    })
-
-    if (!mpRes.ok) {
-      console.error('[WITHDRAWAL] MP transfer error:', mpData)
-      // Saldo já foi debitado — estorna de volta
-      await admin.rpc('wallet_credit', {
-        p_user_id: user.id,
-        p_amount: amount_cents,
-        p_type: 'REFUND',
-        p_description: 'Estorno de saque — falha na transferência PIX',
-      })
-      const mpError = mpData?.message ?? mpData?.error ?? 'Erro ao processar transferência PIX.'
-      return { error: mpError }
-    }
-  } catch (err) {
-    console.error('[WITHDRAWAL] Network error:', err)
-    // Estornar saldo em caso de falha de rede
-    await admin.rpc('wallet_credit', {
-      p_user_id: user.id,
-      p_amount: amount_cents,
-      p_type: 'REFUND',
-      p_description: 'Estorno de saque — erro de conexão',
-    })
-    return { error: 'Erro de conexão ao processar transferência. Tente novamente.' }
-  }
+  // Notificar admin por e-mail para processar o PIX manualmente
+  const { data: authUser } = await admin.auth.admin.getUserById(user.id)
+  sendWithdrawalRequestAdmin({
+    userName: profile.full_name ?? user.id,
+    userEmail: authUser?.user?.email ?? '',
+    amountCents: amount_cents,
+    feeCents: fee_cents,
+    netCents: net_cents,
+    pixKey: pix_key,
+    pixKeyType: pix_key_type,
+  }).catch(e => console.error('[WITHDRAWAL] Email error:', e))
 
   revalidatePath('/carteira')
   return { success: true }
