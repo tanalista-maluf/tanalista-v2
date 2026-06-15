@@ -135,7 +135,7 @@
   }
   html {
     @apply font-sans;
-    font-size: 17px;
+    font-size: 18px;
     line-height: 1.6;
     -webkit-text-size-adjust: 100%;
   }
