@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,15 @@ import { Controller } from 'react-hook-form'
 import { requestWithdrawalAction } from '@/features/carteira/actions'
 import { formatPrice } from '@/utils/format'
 import { toast } from 'sonner'
-import { CheckCheck } from 'lucide-react'
+import { CheckCheck, Info } from 'lucide-react'
+
+// Taxa de saque: 1% do valor solicitado (cobrada pelo gateway de transferência PIX)
+const WITHDRAWAL_FEE_PCT = 1
+
+function calcFee(amountCents: number) {
+  const fee = Math.round(amountCents * (WITHDRAWAL_FEE_PCT / 100))
+  return { fee, net: amountCents - fee, total: amountCents }
+}
 
 const schema = z.object({
   amount: z.string().min(1, 'Informe o valor.'),
@@ -34,17 +42,21 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
     defaultValues: { pix_key_type: 'cpf' },
   })
 
+  const amountRaw = useWatch({ control, name: 'amount', defaultValue: '' })
+  const amountCents = Math.round(parseFloat(amountRaw.replace(',', '.')) * 100) || 0
+  const { fee, net } = calcFee(amountCents)
+  const showBreakdown = amountCents >= 500
+
   async function onSubmit(data: FormData) {
-    // Converter valor textual (ex: "50,00") para centavos
     const normalized = data.amount.replace(',', '.')
     const amount_cents = Math.round(parseFloat(normalized) * 100)
 
-    if (isNaN(amount_cents)) {
-      toast.error('Valor inválido.')
-      return
-    }
-    if (amount_cents > balance) {
-      toast.error('Valor superior ao saldo disponível.')
+    if (isNaN(amount_cents)) { toast.error('Valor inválido.'); return }
+    if (amount_cents < 500) { toast.error('Valor mínimo: R$ 5,00.'); return }
+
+    const { total } = calcFee(amount_cents)
+    if (total > balance) {
+      toast.error('Saldo insuficiente para cobrir o valor e a taxa.')
       return
     }
 
@@ -78,8 +90,16 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="rounded-lg bg-white/[0.04] p-4 text-sm">
-        Saldo disponível: <strong>{formatPrice(balance)}</strong>
+      <div className="rounded-xl bg-white/[0.04] border border-white/8 p-4 text-sm">
+        Saldo disponível: <strong className="text-primary">{formatPrice(balance)}</strong>
+      </div>
+
+      {/* Aviso de taxa */}
+      <div className="flex items-start gap-2.5 rounded-xl bg-yellow-400/5 border border-yellow-400/15 p-3.5">
+        <Info className="size-4 text-yellow-400 shrink-0 mt-0.5" />
+        <p className="text-sm text-white/60">
+          Saques estão sujeitos a uma taxa de <strong className="text-white">{WITHDRAWAL_FEE_PCT}%</strong>. O valor líquido será transferido para a sua chave PIX.
+        </p>
       </div>
 
       <div className="space-y-1.5">
@@ -92,6 +112,24 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
         />
         {errors.amount && <p className="text-xs text-destructive">{errors.amount.message}</p>}
       </div>
+
+      {/* Breakdown em tempo real */}
+      {showBreakdown && (
+        <div className="rounded-xl bg-white/[0.03] border border-white/8 divide-y divide-white/6 text-sm">
+          <div className="flex justify-between px-4 py-2.5 text-white/50">
+            <span>Valor solicitado</span>
+            <span>{formatPrice(amountCents)}</span>
+          </div>
+          <div className="flex justify-between px-4 py-2.5 text-yellow-400/80">
+            <span>Taxa de saque ({WITHDRAWAL_FEE_PCT}%)</span>
+            <span>− {formatPrice(fee)}</span>
+          </div>
+          <div className="flex justify-between px-4 py-2.5 font-bold text-primary">
+            <span>Você receberá</span>
+            <span>{formatPrice(net)}</span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label>CPF (titular da conta)</Label>
@@ -132,7 +170,7 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Processando...' : 'Solicitar saque'}
+        {isSubmitting ? 'Processando...' : `Solicitar saque de ${showBreakdown ? formatPrice(net) : '—'}`}
       </Button>
     </form>
   )
