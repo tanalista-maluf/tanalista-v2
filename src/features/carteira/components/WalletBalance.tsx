@@ -21,7 +21,7 @@ export function WalletBalance({ balance }: WalletBalanceProps) {
           <ArrowDownLeft className="size-4" />
           Adicionar
         </Link>
-        {balance >= 1000 && (
+        {balance >= 1000 ? (
           <Link
             href="/carteira/saque"
             className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold bg-white/10 text-primary border border-primary/20 hover:bg-white/15 transition-colors flex items-center justify-center gap-1.5"
@@ -29,6 +29,14 @@ export function WalletBalance({ balance }: WalletBalanceProps) {
             <TrendingUp className="size-4" />
             Sacar
           </Link>
+        ) : (
+          <span
+            title="Saldo mínimo para saque: R$ 10,00"
+            className="flex-1 py-2.5 rounded-xl text-center text-sm font-semibold bg-white/4 text-white/20 border border-white/6 cursor-not-allowed flex items-center justify-center gap-1.5"
+          >
+            <TrendingUp className="size-4" />
+            Sacar
+          </span>
         )}
       </div>
     </div>

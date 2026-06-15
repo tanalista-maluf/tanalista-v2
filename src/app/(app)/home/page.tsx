@@ -167,10 +167,10 @@ export default async function HomePage() {
           <p className="text-[32px] font-extrabold text-primary tracking-tight leading-none">{formatBalance(balance)}</p>
           <p className="text-sm text-white/25 mt-1">disponível para inscrições</p>
           <div className="flex gap-2.5 mt-4">
-            <Link href="/carteira" className="flex-1 h-11 rounded-xl flex items-center justify-center text-base font-bold bg-primary text-[#071209] hover:bg-primary/90 transition-colors shadow-[0_0_14px_rgba(74,222,128,0.18)]">
+            <Link href="/carteira/deposito" className="flex-1 h-11 rounded-xl flex items-center justify-center text-base font-bold bg-primary text-[#071209] hover:bg-primary/90 transition-colors shadow-[0_0_14px_rgba(74,222,128,0.18)]">
               Adicionar
             </Link>
-            <Link href="/carteira" className="flex-1 h-11 rounded-xl flex items-center justify-center text-base font-semibold bg-white/5 border border-white/8 text-white/55 hover:bg-white/10 hover:text-white/70 transition-colors">
+            <Link href="/carteira/saque" className="flex-1 h-11 rounded-xl flex items-center justify-center text-base font-semibold bg-white/5 border border-white/8 text-white/55 hover:bg-white/10 hover:text-white/70 transition-colors">
               Sacar
             </Link>
           </div>
