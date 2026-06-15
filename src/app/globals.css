@@ -5,6 +5,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --text-xs: 0.75rem;     /* 13.5px */
+  --text-sm: 0.875rem;    /* 15.75px */
+  --text-base: 1rem;      /* 18px */
+  --text-lg: 1.125rem;    /* 20.25px */
+  --text-xl: 1.25rem;     /* 22.5px */
+  --text-2xl: 1.5rem;     /* 27px */
+  --text-3xl: 1.875rem;   /* 33.75px */
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
