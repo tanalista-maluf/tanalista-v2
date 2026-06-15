@@ -9,8 +9,10 @@ export default function LandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex h-16 items-center justify-between">
-          <span className="text-xl font-bold text-primary" style={{ fontFamily: 'var(--font-heading)' }}>
-            TáNaLista
+          <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
+            <span className="text-primary">Tá</span>
+            <span className="text-white/40 font-light">na</span>
+            <span className="text-primary">Lista</span>
           </span>
           <div className="flex items-center gap-3">
             <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }))}>
@@ -31,14 +33,16 @@ export default function LandingPage() {
             style={{ fontFamily: 'var(--font-heading)' }}
           >
             E aí?{' '}
-            <span className="text-primary">Já tá na lista?</span>
+            <span className="text-primary">Tá </span>
+            <span className="text-white/40 font-light">na</span>
+            <span className="text-primary"> Lista?</span>
           </h1>
           <p className="mx-auto max-w-2xl text-lg sm:text-xl text-muted-foreground mb-10">
             Organize eventos em grupo com confirmação de pagamento. Chega de WhatsApp para descobrir quem realmente vai comparecer.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/cadastro" className={cn(buttonVariants({ size: 'lg' }), 'text-base px-8')}>
-              Começar grátis
+              Cadastre-se
             </Link>
             <Link href="/login" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'text-base px-8')}>
               Já tenho conta
@@ -100,17 +104,17 @@ const features = [
   {
     icon: CheckCircle,
     title: 'Confirmação real',
-    description: 'Só conta quem pagou. Sem "vou tentar aparecer".',
+    description: 'Chega de correr atrás de confirmação e pagamentos.',
   },
   {
     icon: Users,
     title: 'Grupos organizados',
-    description: 'Crie grupos para seus amigos, clubes ou comunidades.',
+    description: 'Eventos sociais, festas, partidas de futebol, e muito mais. Tudo o que o seu grupo precisar.',
   },
   {
     icon: CreditCard,
     title: 'Pagamento integrado',
-    description: 'PIX ou cartão de crédito, com repasse automático ao organizador.',
+    description: 'Aceite pagamentos via cartão ou PIX.',
   },
   {
     icon: Bell,
