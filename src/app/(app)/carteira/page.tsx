@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getWalletData, getWalletTransactions } from '@/features/carteira/queries'
 import { WalletBalance } from '@/features/carteira/components/WalletBalance'
 import { TransactionList } from '@/features/carteira/components/TransactionList'
+import { RedeemCouponForm } from '@/features/cupons/components/RedeemCouponForm'
 
 export default async function CarteiraPage() {
   const supabase = await createClient()
@@ -24,6 +25,8 @@ export default async function CarteiraPage() {
       </div>
 
       <WalletBalance balance={wallet?.balance ?? 0} />
+
+      <RedeemCouponForm />
 
       <div>
         <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest mb-3">Histórico</h2>
