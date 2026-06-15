@@ -39,7 +39,7 @@ export function EventPayoutTable({ events }: EventPayoutTableProps) {
         return (
           <Link
             key={event.id}
-            href={`/eventos/${event.id}`}
+            href={`/financeiro/${event.id}`}
             className="flex items-start gap-3 p-4 card-dark rounded-2xl hover:bg-white/[0.06] transition-colors block"
           >
             <div className="flex-1 min-w-0 space-y-1">
@@ -50,6 +50,17 @@ export function EventPayoutTable({ events }: EventPayoutTableProps) {
                 </span>
               </div>
               <p className="text-xs text-white/35">{formatDate(event.starts_at)}</p>
+
+              {event.capacity > 0 && (
+                <div className="pt-1 space-y-1">
+                  <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${Math.min((event.confirmed_count / event.capacity) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-2 pt-1">
                 <div>
