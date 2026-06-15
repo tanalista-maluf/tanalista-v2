@@ -18,18 +18,19 @@ export async function POST(request: NextRequest) {
 
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET!
 
-  const validation = validateMPWebhook(rawBody, signature, requestId, timestamp, secret)
-  if (!validation.valid) {
-    console.warn('[WEBHOOK] Invalid signature:', validation.reason)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-  }
-
   // ── 2. Parse do body ────────────────────────────────────────────────────
   let event: { type?: string; data?: { id?: string } }
   try {
     event = JSON.parse(rawBody)
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const dataId = event.data?.id ?? null
+  const validation = validateMPWebhook(rawBody, signature, requestId, timestamp, secret, dataId)
+  if (!validation.valid) {
+    console.warn('[WEBHOOK] Invalid signature:', validation.reason)
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
   // Aceita imediatamente para liberar o webhook (MP re-envia se não responder em < 2s)

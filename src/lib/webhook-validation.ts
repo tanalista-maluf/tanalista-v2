@@ -16,6 +16,7 @@ export function validateMPWebhook(
   requestId: string | null,
   timestamp: string | null,
   secret: string,
+  dataId?: string | null,
 ): WebhookValidationResult {
   if (!signature || !requestId || !timestamp) {
     return { valid: false, reason: 'Missing signature headers' }
@@ -39,8 +40,9 @@ export function validateMPWebhook(
   const receivedHash = parts['v1']
   if (!receivedHash) return { valid: false, reason: 'Missing v1 in signature' }
 
-  // Construir o payload de assinatura conforme documentação MP
-  const manifest = `id:${requestId};request-id:${requestId};ts:${timestamp};`
+  // Construir o payload de assinatura conforme documentação MP:
+  // id:<data.id>;request-id:<x-request-id>;ts:<x-timestamp>;
+  const manifest = `id:${dataId ?? ''};request-id:${requestId};ts:${timestamp};`
   const expectedHash = createHmac('sha256', secret)
     .update(manifest)
     .digest('hex')
