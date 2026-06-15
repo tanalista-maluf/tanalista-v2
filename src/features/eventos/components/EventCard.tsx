@@ -1,0 +1,116 @@
+import Link from 'next/link'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { MapPin, Users, Clock } from 'lucide-react'
+import { EventStatusBadge } from './EventStatusBadge'
+
+interface EventCardProps {
+  event: {
+    id: string
+    title: string
+    city: string
+    address: string
+    starts_at: string
+    price: number
+    capacity: number
+    status: string
+    category: string | null
+  }
+  confirmedCount?: number
+  groupName?: string
+}
+
+function formatPrice(cents: number) {
+  if (cents === 0) return 'Gratuito'
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function getAccentColor(status: string, pct: number) {
+  if (['CANCELLED', 'COMPLETED'].includes(status)) return 'bg-white/15'
+  if (pct >= 1) return 'bg-red-400'
+  if (pct >= 0.8) return 'bg-yellow-400'
+  return 'bg-gradient-to-b from-primary to-emerald-500'
+}
+
+export function EventCard({ event, confirmedCount, groupName }: EventCardProps) {
+  const startsAt = new Date(event.starts_at)
+  const day = startsAt.getDate()
+  const mon = format(startsAt, 'MMM', { locale: ptBR }).replace('.', '')
+  const timeStr = format(startsAt, 'HH:mm', { locale: ptBR })
+  const occupancy = confirmedCount ?? 0
+  const pct = event.capacity > 0 ? occupancy / event.capacity : 0
+  const isFull = pct >= 1
+  const isGratis = event.price === 0
+  const isDead = ['CANCELLED', 'COMPLETED'].includes(event.status)
+
+  return (
+    <Link href={`/eventos/${event.id}`} className="block">
+      <div className="card-dark rounded-2xl flex items-stretch overflow-hidden">
+        {/* Accent bar lateral */}
+        <div className={`card-accent-bar ${getAccentColor(event.status, pct)}`} />
+
+        {/* Bloco de data */}
+        <div className="w-14 min-w-14 flex flex-col items-center justify-center py-4 border-r border-white/[0.06] shrink-0">
+          <span className={`text-2xl font-extrabold leading-none tracking-tight ${isDead ? 'text-white/25' : 'text-primary'}`}>{day}</span>
+          <span className={`text-[10px] font-semibold capitalize mt-0.5 ${isDead ? 'text-white/20' : 'text-primary/60'}`}>{mon}</span>
+          <span className="text-[9px] text-white/25 mt-1">{timeStr}</span>
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 min-w-0 px-3.5 py-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className={`font-bold text-[13px] leading-snug truncate ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
+                {event.title}
+              </p>
+              {groupName && (
+                <p className="text-[11px] text-white/30 truncate mt-0.5">{groupName}</p>
+              )}
+            </div>
+            <EventStatusBadge status={event.status} />
+          </div>
+
+          <div className="flex items-center gap-3 mt-2">
+            <span className="flex items-center gap-1 text-[11px] text-white/35">
+              <MapPin className="size-3 shrink-0" />
+              {event.city}
+            </span>
+            <span className="flex items-center gap-1 text-[11px] text-white/35">
+              <Users className="size-3 shrink-0" />
+              {occupancy}/{event.capacity}
+            </span>
+          </div>
+
+          {event.capacity > 0 && (
+            <div className="mt-2.5 flex items-center gap-2">
+              <div className="flex-1 h-1 bg-white/8 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    isFull ? 'bg-red-400' : pct >= 0.8 ? 'bg-yellow-400' : 'bg-primary'
+                  }`}
+                  style={{ width: `${Math.min(100, pct * 100)}%` }}
+                />
+              </div>
+              <span className={`text-[10px] font-semibold shrink-0 ${isFull ? 'text-red-400' : 'text-white/30'}`}>
+                {isFull ? 'Lotado' : `${event.capacity - occupancy} vagas`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Preço */}
+        <div className="flex items-center pr-4 pl-1 shrink-0">
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+            isDead
+              ? 'text-white/25 bg-white/4 border-white/8 line-through'
+              : isGratis
+              ? 'text-yellow-400 bg-yellow-400/8 border-yellow-400/18'
+              : 'text-primary bg-primary/8 border-primary/18'
+          }`}>
+            {formatPrice(event.price)}
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}

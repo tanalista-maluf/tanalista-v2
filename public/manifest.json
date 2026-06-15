@@ -1,0 +1,35 @@
+{
+  "name": "TáNaLista",
+  "short_name": "TáNaLista",
+  "description": "Organize eventos em grupo com confirmação de pagamento.",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#0D1A14",
+  "theme_color": "#0D1A14",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon-72.png",  "sizes": "72x72",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any" },
+    { "src": "/icon-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "categories": ["lifestyle", "social"],
+  "shortcuts": [
+    {
+      "name": "Explorar eventos",
+      "short_name": "Eventos",
+      "url": "/eventos",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Criar evento",
+      "short_name": "Criar",
+      "url": "/eventos/novo",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}

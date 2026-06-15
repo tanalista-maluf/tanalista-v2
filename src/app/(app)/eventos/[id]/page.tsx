@@ -1,0 +1,457 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect, notFound } from 'next/navigation'
+import { getEventById } from '@/features/eventos/queries'
+import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
+import { EventRules } from '@/features/eventos/components/EventRules'
+import { OrganizerActions } from '@/features/eventos/components/OrganizerActions'
+import { ParticipantCTA } from '@/features/eventos/components/ParticipantCTA'
+import { formatDateTime, formatPrice } from '@/utils/format'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ParticipantList } from '@/features/participacoes/components/ParticipantList'
+import { CheckInScanner } from '@/features/eventos/components/CheckInScanner'
+import { EventMural } from '@/features/mural/components/EventMural'
+import { getEventComments } from '@/features/mural/queries'
+import { getEventPolls } from '@/features/mural/queries-polls'
+import { ShareEventButton } from '@/features/eventos/components/ShareEventButton'
+import { AddToCalendar } from '@/features/eventos/components/AddToCalendar'
+import { ParticipantQRCode } from '@/features/eventos/components/ParticipantQRCode'
+import { EventRating } from '@/features/avaliacoes/components/EventRating'
+import { getEventRatingSummary, getUserRating } from '@/features/avaliacoes/actions'
+import Link from 'next/link'
+import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered } from 'lucide-react'
+import { ChangeTeamButton } from '@/features/eventos/components/ChangeTeamButton'
+import { EventGallery } from '@/features/galeria/components/EventGallery'
+import { getEventPhotos } from '@/features/galeria/queries'
+import { WaitlistManagement } from '@/features/fila/components/WaitlistManagement'
+import { WaitlistStatus } from '@/features/fila/components/WaitlistStatus'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { Suspense } from 'react'
+
+export default async function EventDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { id } = await params
+  const [event, initialComments, initialPolls, ratingSummary, photos, { data: teamsRaw }] = await Promise.all([
+    getEventById(id, user.id),
+    getEventComments(id),
+    getEventPolls(id, user.id),
+    getEventRatingSummary(id),
+    getEventPhotos(id),
+    supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
+  ])
+  if (!event) notFound()
+
+  const spotsLeft = event.capacity - event.confirmed_count
+  const isFull = spotsLeft <= 0
+  const isOpen = event.status === 'OPEN'
+  const canJoin = isOpen && !isFull && !event.user_participation_status && !event.is_organizer
+  const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED' && !event.is_organizer
+  const isFinished = event.status === 'COMPLETED'
+  const canRate = isConfirmedParticipant && isFinished
+  const canUploadPhoto = (isConfirmedParticipant || event.is_organizer) && isFinished
+  const userRating = canRate ? await getUserRating(id, user.id) : null
+
+  // Fila de espera
+  const isOnWaitlist = !event.user_participation_status && !event.is_organizer && event.waitlist_position !== null
+  let waitlistEntry: { id: string; status: string; position: number; notified_at: string | null; expires_at: string | null; team_id: string | null } | null = null
+  if (isOnWaitlist) {
+    const { data: we } = await supabase
+      .from('waitlist_entries')
+      .select('id, status, position, notified_at, expires_at, team_id')
+      .eq('event_id', id)
+      .eq('user_id', user.id)
+      .in('status', ['WAITING', 'NOTIFIED'])
+      .maybeSingle()
+    waitlistEntry = we
+  }
+
+  // Enriquecer times com contagem de confirmados
+  let teams: { id: string; name: string; capacity: number; confirmed_count: number }[] = []
+  if (teamsRaw && teamsRaw.length > 0) {
+    const counts = await Promise.all(
+      teamsRaw.map(async (t) => {
+        const { count } = await supabase
+          .from('participations')
+          .select('*', { count: 'exact', head: true })
+          .eq('team_id', t.id)
+          .eq('status', 'CONFIRMED')
+        return { ...t, confirmed_count: count ?? 0 }
+      })
+    )
+    teams = counts
+  }
+
+  // Time atual do usuário (para participante confirmado)
+  const userTeam = (event as any).user_team_id
+    ? teams.find((t) => t.id === (event as any).user_team_id) ?? null
+    : null
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const group = (event as any).groups
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const organizer = (event as any)['profiles']
+
+  return (
+    <main className="flex-1 max-w-2xl mx-auto w-full">
+      {/* Hero com gradiente */}
+      <div className="relative px-4 pt-4 pb-5" style={{ background: 'radial-gradient(ellipse 120% 100% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 65%)' }}>
+        {/* Nav */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Link href="/eventos" className="size-8 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 transition-all">
+              <ChevronLeft className="size-4" />
+            </Link>
+            {group && (
+              <Link href={`/grupos/${event.group_id}`} className="text-[12px] font-semibold text-primary/80 hover:text-primary transition-colors">
+                {group.name}
+              </Link>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <AddToCalendar
+              title={event.title}
+              description={event.description ?? ''}
+              startsAt={event.starts_at}
+              endsAt={event.ends_at}
+              address={event.address}
+              city={event.city}
+              eventId={id}
+            />
+            <ShareEventButton eventId={id} />
+          </div>
+        </div>
+
+        {/* Categoria + Status */}
+        <div className="flex items-center gap-2 mb-2">
+          {event.category && (
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-primary/60 bg-primary/8 border border-primary/15 px-2.5 py-1 rounded-full">
+              {event.category}
+            </span>
+          )}
+          <EventStatusBadge status={event.status} />
+        </div>
+
+        {/* Título */}
+        <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+          {event.title}
+        </h1>
+
+        {/* Meta strip */}
+        <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.02]">
+          <div className="px-3 py-2.5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Data</p>
+            <p className="text-[12px] font-bold text-white mt-0.5">{format(new Date(event.starts_at), "dd/MM", { locale: ptBR })}</p>
+            <p className="text-[10px] text-white/40">{format(new Date(event.starts_at), "EEEE", { locale: ptBR })}</p>
+          </div>
+          <div className="px-3 py-2.5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Horário</p>
+            <p className="text-[12px] font-bold text-white mt-0.5">{format(new Date(event.starts_at), "HH:mm")}</p>
+            {event.ends_at && <p className="text-[10px] text-white/40">até {format(new Date(event.ends_at), "HH:mm")}</p>}
+          </div>
+          <div className="px-3 py-2.5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Vagas</p>
+            <p className="text-[12px] font-bold text-white mt-0.5">{Math.max(0, event.capacity - event.confirmed_count)}</p>
+            <p className="text-[10px] text-white/40">{event.confirmed_count}/{event.capacity}</p>
+          </div>
+        </div>
+
+        {/* Barra de capacidade */}
+        <div className="mt-3">
+          <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                event.confirmed_count >= event.capacity ? 'bg-red-400' :
+                event.confirmed_count / event.capacity >= 0.8 ? 'bg-yellow-400' : 'bg-primary'
+              }`}
+              style={{ width: `${Math.min(100, (event.confirmed_count / event.capacity) * 100)}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1.5">
+            <div className="flex items-center gap-1.5 text-[10px] text-white/35">
+              <MapPin className="size-3 shrink-0" />
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.address}, ${event.city}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors"
+              >
+                {event.address}, {event.city}
+              </a>
+            </div>
+            {event.waitlist_count > 0 && (
+              <span className="text-[10px] text-white/30">{event.waitlist_count} na fila</span>
+            )}
+          </div>
+        </div>
+
+        {/* Preço + CTA */}
+        <div className="mt-4 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.07em] text-white/30">por pessoa</p>
+            <p className="text-[28px] font-extrabold text-primary tracking-tight leading-none mt-0.5">{formatPrice(event.price)}</p>
+          </div>
+          <div>
+            {event.is_organizer ? (
+              <OrganizerActions event={{
+                id: event.id,
+                status: event.status,
+                title: event.title,
+                group_id: event.group_id ?? undefined,
+                address: event.address ?? undefined,
+                city: event.city ?? undefined,
+                price: event.price,
+                capacity: event.capacity,
+                min_participants: event.min_participants,
+              }} />
+            ) : (
+              <ParticipantCTA
+                event={event}
+                canJoin={canJoin}
+                isFull={isFull}
+                userId={user.id}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Prazo */}
+        {isOpen && (
+          <p className="text-[11px] text-white/25 mt-3">
+            Inscrições até{' '}
+            <span className="text-white/40">{format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Abas */}
+      <div className="px-4 pb-6 space-y-4">
+      <Tabs defaultValue="detalhes">
+        <TabsList className="w-full bg-white/[0.03] border border-white/[0.07] overflow-x-auto flex-nowrap rounded-2xl p-1 gap-1">
+          <TabsTrigger value="detalhes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Detalhes</TabsTrigger>
+
+          <TabsTrigger value="participantes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Participantes</TabsTrigger>
+
+          {isFinished && event.is_organizer && (
+            <TabsTrigger value="checkin" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <QrCode className="size-3" />Check-in
+            </TabsTrigger>
+          )}
+          {isFinished && (
+            <TabsTrigger value="regras" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Regras</TabsTrigger>
+          )}
+          {isFinished && (
+            <TabsTrigger value="fotos" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <Images className="size-3" />Fotos
+            </TabsTrigger>
+          )}
+          {isFinished && (
+            <TabsTrigger value="mural" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <MessageSquare className="size-3" />Mural
+            </TabsTrigger>
+          )}
+          {isFinished && (
+            <TabsTrigger value="avaliacoes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <Star className="size-3" />Avaliações
+            </TabsTrigger>
+          )}
+
+          {/* Fila de espera — visível para organizador (quando há fila) ou para quem está na fila */}
+          {!isFinished && event.is_organizer && event.waitlist_count > 0 && (
+            <TabsTrigger value="fila" className="flex-1 data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex items-center gap-1">
+              <ListOrdered className="size-3.5" />Fila ({event.waitlist_count})
+            </TabsTrigger>
+          )}
+          {!isFinished && isOnWaitlist && (
+            <TabsTrigger value="fila" className="flex-1 data-[state=active]:bg-primary/20 data-[state=active]:text-primary flex items-center gap-1">
+              <ListOrdered className="size-3.5" />Fila
+            </TabsTrigger>
+          )}
+
+          {/* A realizar: Ingresso (inscrito) → Regras → Mural */}
+          {!isFinished && isConfirmedParticipant && (
+            <TabsTrigger value="ingresso" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <QrCode className="size-3" />Ingresso
+            </TabsTrigger>
+          )}
+          {!isFinished && (
+            <TabsTrigger value="regras" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Regras</TabsTrigger>
+          )}
+          {!isFinished && (
+            <TabsTrigger value="mural" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <MessageSquare className="size-3" />Mural
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="detalhes" className="space-y-4 pt-3">
+          {event.description ? (
+            <p className="text-[13px] text-white/60 whitespace-pre-wrap leading-relaxed">{event.description}</p>
+          ) : (
+            <p className="text-[13px] text-white/25 italic">Sem descrição adicional.</p>
+          )}
+
+          {organizer && (
+            <div className="text-[11px] text-white/25 border-t border-white/[0.06] pt-3">
+              Organizado por{' '}
+              <a href={`/u/${organizer.username}`} className="text-primary/80 hover:text-primary transition-colors font-semibold">
+                @{organizer.username}
+              </a>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="participantes" className="pt-3 space-y-3">
+          <p className="text-[11px] text-white/30 font-medium">
+            {event.confirmed_count} confirmados · {event.waitlist_count} na fila
+          </p>
+          <Suspense fallback={<ParticipantListSkeleton />}>
+            <ParticipantList eventId={id} isOrganizer={event.is_organizer} />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="mural" className="pt-4">
+          {(isConfirmedParticipant || event.is_organizer) ? (
+            <EventMural
+              eventId={id}
+              currentUserId={user.id}
+              isOrganizer={event.is_organizer}
+              initialComments={initialComments}
+              initialPolls={initialPolls}
+            />
+          ) : (
+            <div className="text-center py-10 text-white/30 text-sm">
+              Apenas participantes confirmados podem acessar o mural.
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="regras" className="pt-4">
+          <EventRules event={event} />
+        </TabsContent>
+
+        {isConfirmedParticipant && (
+          <TabsContent value="ingresso" className="pt-4 space-y-4">
+            {userTeam && (
+              <div className="card-dark rounded-2xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="size-4 text-primary" />
+                  <div>
+                    <p className="text-xs text-white/40">Seu time</p>
+                    <p className="font-semibold text-white">{userTeam.name}</p>
+                  </div>
+                </div>
+                {isOpen && (
+                  <ChangeTeamButton
+                    participationId={event.user_participation_id!}
+                    currentTeamId={userTeam.id}
+                    currentTeamName={userTeam.name}
+                    teams={teams}
+                    changesUsed={(event as any).user_team_changes_used ?? 0}
+                  />
+                )}
+              </div>
+            )}
+            <ParticipantQRCode
+              participationId={event.user_participation_id!}
+              eventTitle={event.title}
+              checkedInAt={(event as any).user_checked_in_at}
+            />
+          </TabsContent>
+        )}
+
+        {event.is_organizer && (
+          <TabsContent value="checkin" className="pt-4">
+            <CheckInScanner eventId={id} />
+          </TabsContent>
+        )}
+
+        {isFinished && (
+          <TabsContent value="avaliacoes" className="pt-4">
+            <EventRating
+              eventId={id}
+              average={ratingSummary.average}
+              count={ratingSummary.count}
+              ratings={ratingSummary.ratings as never}
+              userRating={userRating}
+              isParticipant={canRate}
+            />
+          </TabsContent>
+        )}
+        {isFinished && (
+          <TabsContent value="fotos" className="pt-4">
+            <EventGallery
+              eventId={id}
+              photos={photos as any}
+              canUpload={canUploadPhoto}
+              currentUserId={user.id}
+              isOrganizer={event.is_organizer}
+            />
+          </TabsContent>
+        )}
+
+        {/* Fila de espera */}
+        {!isFinished && event.is_organizer && (
+          <TabsContent value="fila" className="pt-4 space-y-3">
+            <p className="text-xs text-white/40">{event.waitlist_count} pessoa{event.waitlist_count !== 1 ? 's' : ''} na fila</p>
+            <WaitlistManagement eventId={id} />
+          </TabsContent>
+        )}
+        {!isFinished && isOnWaitlist && waitlistEntry && (
+          <TabsContent value="fila" className="pt-4 space-y-4">
+            {waitlistEntry.team_id && teams.length > 0 && (() => {
+              const waitlistTeam = teams.find((t) => t.id === waitlistEntry!.team_id)
+              return waitlistTeam ? (
+                <div className="card-dark rounded-2xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="size-4 text-primary" />
+                    <div>
+                      <p className="text-xs text-white/40">Fila do time</p>
+                      <p className="font-semibold text-white">{waitlistTeam.name}</p>
+                    </div>
+                  </div>
+                  <ChangeTeamButton
+                    waitlistId={waitlistEntry.id}
+                    currentTeamId={waitlistTeam.id}
+                    currentTeamName={waitlistTeam.name}
+                    teams={teams}
+                    isWaitlist
+                  />
+                </div>
+              ) : null
+            })()}
+            <WaitlistStatus
+              entry={waitlistEntry}
+              eventId={id}
+              eventPrice={event.price}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
+      </div>
+    </main>
+  )
+}
+
+function ParticipantListSkeleton() {
+  return (
+    <div className="space-y-2 animate-pulse">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 card-dark rounded-xl p-3">
+          <div className="size-8 rounded-full bg-white/10 shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 bg-white/10 rounded w-32" />
+            <div className="h-2.5 bg-white/5 rounded w-20" />
+          </div>
+          <div className="h-5 bg-white/5 rounded-full w-20" />
+        </div>
+      ))}
+    </div>
+  )
+}
