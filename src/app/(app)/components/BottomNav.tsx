@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Calendar, Users, User } from 'lucide-react'
+import { Home, Calendar, Users, User, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { href: '/home',    icon: Home,     label: 'Início' },
-  { href: '/eventos', icon: Calendar, label: 'Eventos' },
-  { href: '/grupos',  icon: Users,    label: 'Grupos' },
-  { href: '/perfil',  icon: User,     label: 'Perfil' },
+  { href: '/home',     icon: Home,     label: 'Início' },
+  { href: '/eventos',  icon: Calendar, label: 'Eventos' },
+  { href: '/grupos',   icon: Users,    label: 'Grupos' },
+  { href: '/carteira', icon: Wallet,   label: 'Carteira' },
+  { href: '/perfil',   icon: User,     label: 'Perfil' },
 ]
 
 export function BottomNav() {
@@ -25,7 +26,7 @@ export function BottomNav() {
               key={href}
               href={href}
               className={cn(
-                'flex flex-col items-center gap-1 px-4 py-2 rounded-2xl transition-all duration-200',
+                'flex flex-col items-center gap-1 px-3 py-2 rounded-2xl transition-all duration-200',
                 active
                   ? 'bg-primary/8'
                   : 'hover:bg-white/4'
