@@ -59,7 +59,10 @@ export async function redeemCouponAction(code: string) {
     p_description: `Cupom resgatado: ${normalizedCode}`,
   })
 
-  if (creditError) return { error: 'Erro ao creditar cupom.' }
+  if (creditError) {
+    console.error('[COUPON] wallet_credit error:', creditError)
+    return { error: 'Erro ao creditar cupom: ' + creditError.message }
+  }
 
   // Registrar uso e incrementar contador atomicamente
   await Promise.all([
