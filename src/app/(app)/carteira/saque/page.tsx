@@ -15,7 +15,7 @@ export default async function SaquePage() {
   const wallet = await getWalletData()
   const balance = wallet?.balance ?? 0
 
-  if (balance < 1000) {
+  if (balance < 500) {
     return (
       <main className="max-w-md mx-auto px-4 py-8 space-y-6">
         <div className="flex items-center gap-3">
@@ -27,7 +27,7 @@ export default async function SaquePage() {
         <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/5 p-4">
           <AlertCircle className="size-5 text-warning shrink-0 mt-0.5" />
           <p className="text-sm">
-            Saldo mínimo para saque: <strong>R$ 10,00</strong>. Adicione saldo à sua carteira para sacar.
+            Saldo mínimo para saque: <strong>R$ 5,00</strong>. Adicione saldo à sua carteira para sacar.
           </p>
         </div>
       </main>

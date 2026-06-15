@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const withdrawalSchema = z.object({
-  amount_cents: z.number({ error: 'Valor inválido.' }).int().min(1000, 'Valor mínimo: R$ 10,00').max(500000, 'Valor máximo: R$ 5.000,00'),
+  amount_cents: z.number({ error: 'Valor inválido.' }).int().min(500, 'Valor mínimo: R$ 5,00').max(500000, 'Valor máximo: R$ 5.000,00'),
   cpf: z.string().regex(/^\d{11}$/, 'CPF inválido — informe 11 dígitos sem pontuação.'),
   pix_key: z.string().min(1, 'Chave PIX é obrigatória.').max(200),
   pix_key_type: z.enum(['cpf', 'email', 'phone', 'random']),
