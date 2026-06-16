@@ -166,28 +166,26 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
       {/* Datas */}
       <section className="space-y-4">
         <h3 className="font-semibold text-sm">Datas e horários</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="starts_at">Início *</Label>
-            <Input
-              id="starts_at"
-              type="datetime-local"
-              disabled={isLocked}
-              aria-invalid={!!errors.starts_at}
-              {...register('starts_at')}
-            />
-            {errors.starts_at && <p className="text-xs text-destructive">{errors.starts_at.message}</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ends_at">Término</Label>
-            <Input
-              id="ends_at"
-              type="datetime-local"
-              disabled={isLocked}
-              {...register('ends_at')}
-            />
-            {errors.ends_at && <p className="text-xs text-destructive">{errors.ends_at.message}</p>}
-          </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="starts_at">Início *</Label>
+          <Input
+            id="starts_at"
+            type="datetime-local"
+            disabled={isLocked}
+            aria-invalid={!!errors.starts_at}
+            {...register('starts_at')}
+          />
+          {errors.starts_at && <p className="text-xs text-destructive">{errors.starts_at.message}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="ends_at">Término</Label>
+          <Input
+            id="ends_at"
+            type="datetime-local"
+            disabled={isLocked}
+            {...register('ends_at')}
+          />
+          {errors.ends_at && <p className="text-xs text-destructive">{errors.ends_at.message}</p>}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="registration_deadline">Prazo de inscrição *</Label>

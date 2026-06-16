@@ -44,39 +44,42 @@ export default async function FinanceiroPage({
       </div>
 
       {/* Filtro de período */}
-      <form method="GET" className="flex items-end gap-2 flex-wrap">
-        <div className="flex-1 min-w-[130px] space-y-1">
-          <label className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">De</label>
-          <input
-            type="date"
-            name="from"
-            defaultValue={from ?? ''}
-            className="w-full rounded-xl bg-white/[0.05] border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/40 transition-colors"
-          />
+      <form method="GET" className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">De</label>
+            <input
+              type="date"
+              name="from"
+              defaultValue={from ?? ''}
+              className="w-full rounded-xl bg-white/[0.05] border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/40 transition-colors"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Até</label>
+            <input
+              type="date"
+              name="to"
+              defaultValue={to ?? ''}
+              className="w-full rounded-xl bg-white/[0.05] border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/40 transition-colors"
+            />
+          </div>
         </div>
-        <div className="flex-1 min-w-[130px] space-y-1">
-          <label className="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Até</label>
-          <input
-            type="date"
-            name="to"
-            defaultValue={to ?? ''}
-            className="w-full rounded-xl bg-white/[0.05] border border-white/10 px-3 py-2 text-sm text-white focus:outline-none focus:border-primary/40 transition-colors"
-          />
-        </div>
-        <button
-          type="submit"
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
-        >
-          <Filter className="size-3.5" />
-          Filtrar
-        </button>
-        {isFiltered && (
-          <Link
-            href="/financeiro"
-            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 text-sm font-semibold hover:bg-white/10 transition-colors"
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
           >
-            Limpar
-          </Link>
+            <Filter className="size-3.5" />
+            Filtrar
+          </button>
+          {isFiltered && (
+            <Link
+              href="/financeiro"
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/50 text-sm font-semibold hover:bg-white/10 transition-colors"
+            >
+              Limpar
+            </Link>
         )}
       </form>
 
