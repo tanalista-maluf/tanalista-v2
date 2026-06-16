@@ -229,34 +229,10 @@ export default async function EventosPage({
       {/* Sub-barra: Organizando / Participando */}
       <SubBar isMeus={isMeus} sub={sub} buildHref={buildHref} />
 
-      {/* Chips de categoria — só na aba Todos */}
-      {!isMeus && (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
-          {CATEGORIES.map(({ label, value }) => {
-            const isActive = activeCategory === value
-            return (
-              <Link
-                key={value}
-                href={buildHref({ category: value || undefined, cursor_created_at: undefined, cursor_id: undefined })}
-                className={cn(
-                  'shrink-0 px-4 py-1.5 rounded-full text-sm font-medium border transition-colors',
-                  isActive
-                    ? 'bg-primary text-background border-primary'
-                    : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:text-white'
-                )}
-              >
-                {label}
-              </Link>
-            )
-          })}
-        </div>
-      )}
-
       {/* Busca */}
       <form method="GET" className="space-y-2">
         {params.tab && <input type="hidden" name="tab" value={params.tab} />}
         {isMeus && <input type="hidden" name="sub" value={sub} />}
-        {params.category && <input type="hidden" name="category" value={params.category} />}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/30" />
@@ -270,11 +246,24 @@ export default async function EventosPage({
           </button>
         </div>
         {!isMeus && (
-          <div className="flex gap-2 items-center">
-            <Input type="date" name="date_from" defaultValue={params.date_from} className="flex-1 text-white/60 text-sm" />
-            <span className="text-white/30 text-xs shrink-0">até</span>
-            <Input type="date" name="date_to" defaultValue={params.date_to} className="flex-1 text-white/60 text-sm" />
-          </div>
+          <>
+            <select
+              name="category"
+              defaultValue={activeCategory}
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm text-white/60 focus:outline-none focus:border-primary/40 transition-colors"
+            >
+              {CATEGORIES.map(({ label, value }) => (
+                <option key={value} value={value} className="bg-[#0d1a14] text-white">
+                  {value === '' ? `Categoria: ${label}` : label}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2 items-center">
+              <Input type="date" name="date_from" defaultValue={params.date_from} className="flex-1 text-white/60 text-sm" />
+              <span className="text-white/30 text-xs shrink-0">até</span>
+              <Input type="date" name="date_to" defaultValue={params.date_to} className="flex-1 text-white/60 text-sm" />
+            </div>
+          </>
         )}
       </form>
 
