@@ -30,7 +30,7 @@ export interface FeeBreakdown {
 export function calculateFees(
   amountCents: number,
   method: 'PIX' | 'CREDIT_CARD' | 'WALLET',
-  platformFeePercent = 5,
+  platformFeePercent = 5.99,
 ): FeeBreakdown {
   const gatewayPercent = method === 'PIX' ? 0.99 : method === 'CREDIT_CARD' ? 2.99 : 0
 

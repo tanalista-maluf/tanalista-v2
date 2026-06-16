@@ -362,24 +362,28 @@ export async function removeParticipantAction(participationId: string, eventId: 
 
   const admin = createAdminClient()
 
-  // Buscar participação
+  // Buscar participação com valor pago e cupom
   const { data: participation } = await admin
     .from('participations')
-    .select('user_id, status')
+    .select('user_id, status, discount_cents, coupon_id')
     .eq('id', participationId)
     .eq('event_id', eventId)
     .single()
 
   if (!participation) return { error: 'Participação não encontrada.' }
 
-  // Reembolso se estava confirmado e evento tem preço
+  // Reembolso: devolve apenas o valor efetivamente pago (descontando cupom)
   if (participation.status === 'CONFIRMED' && event.price > 0) {
-    await admin.rpc('wallet_credit', {
-      p_user_id: participation.user_id,
-      p_amount: event.price,
-      p_type: 'REFUND',
-      p_description: `Removido do evento: ${event.title}`,
-    })
+    const refundAmount = Math.max(0, event.price - (participation.discount_cents ?? 0))
+    if (refundAmount > 0) {
+      await admin.rpc('wallet_credit', {
+        p_user_id: participation.user_id,
+        p_amount: refundAmount,
+        p_type: 'REFUND',
+        p_description: `Removido do evento: ${event.title}`,
+      })
+    }
+    // Cupom já utilizado não é devolvido (foi consumido na inscrição)
   }
 
   // Remover participação
