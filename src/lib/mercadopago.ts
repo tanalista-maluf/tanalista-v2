@@ -32,7 +32,8 @@ export function calculateFees(
   method: 'PIX' | 'CREDIT_CARD' | 'WALLET',
   platformFeePercent = 5.99,
 ): FeeBreakdown {
-  const gatewayPercent = method === 'PIX' ? 0.99 : method === 'CREDIT_CARD' ? 2.99 : 0
+  // WALLET usa mesma taxa de gateway do PIX (plataforma recupera custo do depósito)
+  const gatewayPercent = method === 'CREDIT_CARD' ? 2.99 : 0.99
 
   const platform_fee = Math.round(amountCents * (platformFeePercent / 100))
   const gateway_fee  = Math.round(amountCents * (gatewayPercent / 100))

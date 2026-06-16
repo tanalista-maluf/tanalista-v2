@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWaitlistNotified } from '@/lib/emails'
+import { calculateFees } from '@/lib/mercadopago'
 
 // ── Inscrição no evento ──────────────────────────────────────────────────────
 
@@ -145,14 +146,32 @@ export async function joinEventAction(
     }
 
     // Criar/atualizar participação como CONFIRMADA
+    let walletParticipationId: string
     if (existing) {
       await admin.from('participations').update({ status: 'CONFIRMED', ...(teamId ? { team_id: teamId } : {}) }).eq('id', existing.id)
+      walletParticipationId = existing.id
     } else {
-      await admin.from('participations').insert({
+      const { data: created } = await admin.from('participations').insert({
         event_id: eventId,
         user_id: user.id,
         status: 'CONFIRMED',
         ...(teamId ? { team_id: teamId } : {}),
+      }).select('id').single()
+      walletParticipationId = created?.id ?? ''
+    }
+
+    // Registrar pagamento na tabela payments para incluir no repasse ao organizador
+    // gateway_fee = 0.99% (mesmo que PIX — plataforma recupera custo do depósito)
+    if (walletParticipationId && effectivePrice > 0) {
+      const fees = calculateFees(effectivePrice, 'WALLET')
+      await admin.from('payments').insert({
+        participation_id: walletParticipationId,
+        payer_id: user.id,
+        amount: effectivePrice,
+        platform_fee: fees.platform_fee,
+        gateway_fee: fees.gateway_fee,
+        method: 'WALLET',
+        status: 'APPROVED',
       })
     }
 
