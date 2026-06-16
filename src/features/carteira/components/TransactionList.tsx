@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, RefreshCw, Wallet } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, RefreshCw, Wallet, Gift } from 'lucide-react'
 import { formatBalance, formatDateTime } from '@/utils/format'
 
 interface Transaction {
@@ -20,6 +20,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof ArrowDownLeft; i
   REFUND: { label: 'Estorno', icon: RefreshCw, isCredit: true },
   WITHDRAWAL: { label: 'Saque', icon: ArrowUpRight, isCredit: false },
   PAYOUT: { label: 'Repasse', icon: ArrowDownLeft, isCredit: true },
+  BONUS:  { label: 'Crédito', icon: Gift, isCredit: true },
 }
 
 export function TransactionList({ transactions }: TransactionListProps) {
