@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { Camera, X, Loader2, ImageOff, Download, ChevronLeft, ChevronRight } from 'lucide-react'
-import { uploadEventPhotoAction, deleteEventPhotoAction } from '../actions'
+import { saveEventPhotoAction, deleteEventPhotoAction } from '../actions'
 import { toast } from 'sonner'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { format } from 'date-fns'
@@ -31,9 +31,8 @@ interface Props {
   storageUsage: StorageUsage
 }
 
-async function compressImage(file: File, maxSizeKB = 800): Promise<File> {
+async function compressImage(file: File, maxSizeKB = 900): Promise<File> {
   if (file.size <= maxSizeKB * 1024) return file
-
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
@@ -46,10 +45,8 @@ async function compressImage(file: File, maxSizeKB = 800): Promise<File> {
         if (width > height) { height = Math.round(height * maxDim / width); width = maxDim }
         else { width = Math.round(width * maxDim / height); height = maxDim }
       }
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, width, height)
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
       canvas.toBlob(
         (blob) => resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file),
         'image/jpeg', 0.82
@@ -57,6 +54,30 @@ async function compressImage(file: File, maxSizeKB = 800): Promise<File> {
     }
     img.src = url
   })
+}
+
+async function uploadToCloudinary(file: File, eventId: string): Promise<{ publicId: string; secureUrl: string; fileSize: number }> {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!
+  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('upload_preset', preset)
+  fd.append('folder', `tanalista/eventos/${eventId}`)
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: fd,
+  })
+
+  if (!res.ok) throw new Error('Erro no upload para Cloudinary')
+
+  const data = await res.json()
+  return {
+    publicId: data.public_id,
+    secureUrl: data.secure_url,
+    fileSize: data.bytes,
+  }
 }
 
 export function EventGallery({ eventId, photos: initial, canUpload, currentUserId, isOrganizer, storageUsage: initialUsage }: Props) {
@@ -72,34 +93,34 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
 
     setUploading(true)
     try {
       const compressed = await compressImage(file)
-      const fd = new FormData()
-      fd.append('photo', compressed)
-      const result = await uploadEventPhotoAction(eventId, fd)
+      const { publicId, secureUrl, fileSize } = await uploadToCloudinary(compressed, eventId)
+      const result = await saveEventPhotoAction(eventId, { publicId, secureUrl, fileSize })
 
       if (result.error) {
         toast.error(result.error)
       } else {
         toast.success('Foto enviada!')
-        const newPhoto: Photo = {
+        setPhotos(prev => [{
           id: Date.now().toString(),
-          storage_path: result.url!,
-          file_size: compressed.size,
+          storage_path: secureUrl,
+          file_size: fileSize,
           created_at: new Date().toISOString(),
           profiles: null,
-        }
-        setPhotos(prev => [newPhoto, ...prev])
+        }, ...prev])
         setUsage(prev => {
-          const newUsed = prev.usedMB + compressed.size / 1024 / 1024
+          const newUsed = prev.usedMB + fileSize / 1024 / 1024
           return { ...prev, usedMB: +newUsed.toFixed(1), percent: Math.min(100, Math.round(newUsed / prev.limitMB * 100)) }
         })
       }
+    } catch {
+      toast.error('Erro ao enviar foto. Tente novamente.')
     } finally {
       setUploading(false)
-      e.target.value = ''
     }
   }
 
@@ -143,35 +164,28 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
 
   return (
     <div className="space-y-4">
-      {/* Barra de uso de storage */}
+      {/* Barra de uso */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] text-white/30 font-medium uppercase tracking-wide">Armazenamento do evento</span>
+          <span className="text-[10px] text-white/30 font-medium uppercase tracking-wide">Armazenamento</span>
           <span className="text-[10px] text-white/40">{usage.usedMB} MB / {usage.limitMB} MB</span>
         </div>
         <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
           <div className={`h-full rounded-full transition-all ${storageColor}`} style={{ width: `${usage.percent}%` }} />
         </div>
-        <p className="text-[9px] text-white/20">Fotos disponíveis por 1 mês após o evento. Após esse período são excluídas automaticamente.</p>
+        <p className="text-[9px] text-white/20">Fotos ficam disponíveis por 1 mês após o evento.</p>
       </div>
 
-      {/* Botão de upload */}
       {canUpload && (
         <div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handleUpload}
-          />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleUpload} />
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading || usage.percent >= 100}
             className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-40"
           >
             {uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
-            {uploading ? 'Comprimindo e enviando...' : 'Adicionar foto'}
+            {uploading ? 'Enviando...' : 'Adicionar foto'}
           </button>
         </div>
       )}
@@ -194,14 +208,8 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
               <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 {photo.profiles && (
                   <div className="flex items-center gap-1">
-                    <UserAvatar
-                      name={photo.profiles.full_name ?? photo.profiles.username ?? '?'}
-                      avatarUrl={photo.profiles.avatar_url ?? null}
-                      size="xs"
-                    />
-                    <span className="text-[9px] text-white/70 truncate">
-                      {photo.profiles.full_name ?? photo.profiles.username}
-                    </span>
+                    <UserAvatar name={photo.profiles.full_name ?? photo.profiles.username ?? '?'} avatarUrl={photo.profiles.avatar_url ?? null} size="xs" />
+                    <span className="text-[9px] text-white/70 truncate">{photo.profiles.full_name ?? photo.profiles.username}</span>
                   </div>
                 )}
               </div>
@@ -209,7 +217,7 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
                 <button
                   onClick={() => handleDelete(photo.id, photo.file_size)}
                   disabled={deletingId === photo.id}
-                  className="absolute top-1 right-1 size-5 rounded-full bg-black/70 flex items-center justify-center text-white/60 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                  className="absolute top-1 right-1 size-5 rounded-full bg-black/70 flex items-center justify-center text-white/60 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   {deletingId === photo.id ? <Loader2 className="size-2.5 animate-spin" /> : <X className="size-2.5" />}
                 </button>
@@ -221,20 +229,12 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
 
       {/* Lightbox */}
       {lightboxPhoto && lightboxIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-black/95 flex flex-col"
-          onClick={() => setLightboxIndex(null)}
-        >
-          {/* Header */}
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col" onClick={() => setLightboxIndex(null)}>
           <div className="flex items-center justify-between px-4 py-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               {lightboxPhoto.profiles && (
                 <>
-                  <UserAvatar
-                    name={lightboxPhoto.profiles.full_name ?? lightboxPhoto.profiles.username ?? '?'}
-                    avatarUrl={lightboxPhoto.profiles.avatar_url ?? null}
-                    size="xs"
-                  />
+                  <UserAvatar name={lightboxPhoto.profiles.full_name ?? lightboxPhoto.profiles.username ?? '?'} avatarUrl={lightboxPhoto.profiles.avatar_url ?? null} size="xs" />
                   <div>
                     <p className="text-[11px] font-semibold text-white/80">{lightboxPhoto.profiles.full_name ?? lightboxPhoto.profiles.username}</p>
                     <p className="text-[10px] text-white/30">{format(new Date(lightboxPhoto.created_at), "d 'de' MMM", { locale: ptBR })}</p>
@@ -243,57 +243,34 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleDownload(lightboxPhoto.storage_path)}
-                className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
-                title="Baixar foto"
-              >
+              <button onClick={() => handleDownload(lightboxPhoto.storage_path)} className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
                 <Download className="size-4" />
               </button>
-              {(isOrganizer || lightboxPhoto.profiles === null) && (
-                <button
-                  onClick={() => handleDelete(lightboxPhoto.id, lightboxPhoto.file_size)}
-                  disabled={deletingId === lightboxPhoto.id}
-                  className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-red-400 transition-colors disabled:opacity-50"
-                >
+              {(isOrganizer || lightboxPhoto.profiles === null || lightboxPhoto.profiles === undefined) && (
+                <button onClick={() => handleDelete(lightboxPhoto.id, lightboxPhoto.file_size)} disabled={deletingId === lightboxPhoto.id} className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-red-400 transition-colors disabled:opacity-50">
                   {deletingId === lightboxPhoto.id ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
                 </button>
               )}
-              <button
-                onClick={() => setLightboxIndex(null)}
-                className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
-              >
+              <button onClick={() => setLightboxIndex(null)} className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
                 <X className="size-4" />
               </button>
             </div>
           </div>
 
-          {/* Imagem */}
           <div className="flex-1 flex items-center justify-center relative px-4" onClick={e => e.stopPropagation()}>
             {lightboxIndex > 0 && (
-              <button
-                onClick={() => navLightbox(-1)}
-                className="absolute left-2 size-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors z-10"
-              >
+              <button onClick={() => navLightbox(-1)} className="absolute left-2 size-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white z-10">
                 <ChevronLeft className="size-5" />
               </button>
             )}
-            <img
-              src={lightboxPhoto.storage_path}
-              alt=""
-              className="max-w-full max-h-full rounded-xl object-contain"
-            />
+            <img src={lightboxPhoto.storage_path} alt="" className="max-w-full max-h-full rounded-xl object-contain" />
             {lightboxIndex < photos.length - 1 && (
-              <button
-                onClick={() => navLightbox(1)}
-                className="absolute right-2 size-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors z-10"
-              >
+              <button onClick={() => navLightbox(1)} className="absolute right-2 size-8 rounded-full bg-white/10 flex items-center justify-center text-white/60 hover:text-white z-10">
                 <ChevronRight className="size-5" />
               </button>
             )}
           </div>
 
-          {/* Counter */}
           <div className="text-center py-3">
             <span className="text-[11px] text-white/30">{lightboxIndex + 1} / {photos.length}</span>
           </div>
