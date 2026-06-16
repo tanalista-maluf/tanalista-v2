@@ -1,7 +1,7 @@
 import { formatBalance, formatDate } from '@/utils/format'
 import { EventFinancial } from '@/features/financeiro/queries'
 import Link from 'next/link'
-import { ChevronRight, BarChart2 } from 'lucide-react'
+import { ChevronRight, BarChart2, CheckCircle } from 'lucide-react'
 
 const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
   OPEN: { label: 'Aberto', cls: 'text-primary bg-primary/10 border-primary/25' },
@@ -43,11 +43,17 @@ export function EventPayoutTable({ events }: EventPayoutTableProps) {
             className="flex items-start gap-3 p-4 card-dark rounded-2xl hover:bg-white/[0.06] transition-colors block"
           >
             <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-sm font-semibold text-white truncate">{event.title}</p>
                 <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg border shrink-0 ${cfg.cls}`}>
                   {cfg.label}
                 </span>
+                {event.payout_claimed_at && (
+                  <span className="flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-lg border text-primary bg-primary/10 border-primary/20 shrink-0">
+                    <CheckCircle className="size-2.5" />
+                    Resgatado
+                  </span>
+                )}
               </div>
               <p className="text-xs text-white/35">{formatDate(event.starts_at)}</p>
 

@@ -7,6 +7,7 @@ export interface EventFinancial {
   status: string
   price: number
   capacity: number
+  payout_claimed_at?: string | null
   confirmed_count: number
   gross_revenue: number
   platform_fees: number
@@ -22,7 +23,7 @@ export async function getOrganizerFinancials(): Promise<EventFinancial[]> {
   // Buscar eventos do organizador com dados financeiros
   const { data: events } = await supabase
     .from('events')
-    .select('id, title, starts_at, status, price, capacity')
+    .select('id, title, starts_at, status, price, capacity, payout_claimed_at')
     .eq('organizer_id', user.id)
     .neq('status', 'DRAFT')
     .order('starts_at', { ascending: false })
@@ -80,7 +81,7 @@ export interface EventParticipant {
 }
 
 export async function getEventFinancialDetail(eventId: string): Promise<{
-  event: EventFinancial | null
+  event: (EventFinancial & { payout_claimed_at: string | null }) | null
   participants: EventParticipant[]
   byMethod: Record<string, { count: number; total: number }>
 }> {
@@ -90,7 +91,7 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
 
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, starts_at, status, price, capacity')
+    .select('id, title, starts_at, status, price, capacity, payout_claimed_at')
     .eq('id', eventId)
     .eq('organizer_id', user.id)
     .maybeSingle()
@@ -132,7 +133,7 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   const platformFees = (feePaymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.platform_fee ?? 0), 0)
   const gatewayFees  = (feePaymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.gateway_fee ?? 0), 0)
 
-  const eventFinancial: EventFinancial = {
+  const eventFinancial = {
     ...event,
     confirmed_count: partIds.length,
     gross_revenue: gross,

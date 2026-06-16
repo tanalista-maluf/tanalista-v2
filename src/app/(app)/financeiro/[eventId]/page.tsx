@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getEventFinancialDetail } from '@/features/financeiro/queries'
 import { formatBalance, formatDate } from '@/utils/format'
 import Link from 'next/link'
-import { ArrowLeft, Users, DollarSign, TrendingUp, Wallet, CreditCard, QrCode, Gift } from 'lucide-react'
+import { ArrowLeft, Users, DollarSign, Wallet, CreditCard, QrCode, Gift } from 'lucide-react'
+import { ClaimPayoutButton } from '@/features/financeiro/components/ClaimPayoutButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -100,6 +101,13 @@ export default async function EventFinanceiroPage({ params }: { params: Promise<
           </div>
         </div>
       )}
+
+      {/* Botão de resgate */}
+      <ClaimPayoutButton
+        eventId={event.id}
+        netCents={event.net_revenue}
+        alreadyClaimed={!!event.payout_claimed_at}
+      />
 
       {/* Lista de participantes */}
       <div>
