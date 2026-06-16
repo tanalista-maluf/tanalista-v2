@@ -80,7 +80,8 @@ export default async function FinanceiroPage({
             >
               Limpar
             </Link>
-        )}
+          )}
+        </div>
       </form>
 
       {/* Cards principais */}
