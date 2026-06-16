@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
   }
 
   const event = (participation as any).events
-  const fees = calculateFees(event.price, 'CREDIT_CARD')
+  const effectivePrice = Math.max(0, event.price - ((participation as any).discount_cents ?? 0))
+  const fees = calculateFees(effectivePrice, 'CREDIT_CARD')
 
   const mpClient = event.mp_access_token
     ? getOrganizerMPClient(event.mp_access_token)
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
   try {
     const mpPayment = await payment.create({
       body: {
-        transaction_amount: event.price / 100,
+        transaction_amount: effectivePrice / 100,
         description: `Inscrição: ${event.title}`,
         token,
         installments: installments ?? 1,
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     const { data: dbPayment } = await admin.from('payments').insert({
       participation_id,
       payer_id: user.id,
-      amount: event.price,
+      amount: effectivePrice,
       platform_fee: fees.platform_fee,
       gateway_fee: fees.gateway_fee,
       method: 'CREDIT_CARD',

@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const fees = calculateFees(event.price, 'PIX')
+  const effectivePrice = Math.max(0, event.price - ((participation as any).discount_cents ?? 0))
+  const fees = calculateFees(effectivePrice, 'PIX')
 
   // Escolhe client: se o organizador tem token, usa marketplace; senão usa plataforma
   const mpClient = event.mp_access_token
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
     const mpPayment = await payment.create({
       body: {
-        transaction_amount: event.price / 100, // MP usa reais, não centavos
+        transaction_amount: effectivePrice / 100, // MP usa reais, não centavos
         description: `Inscrição: ${event.title}`,
         payment_method_id: 'pix',
         payer: {
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     const { data: dbPayment } = await admin.from('payments').insert({
       participation_id,
       payer_id: user.id,
-      amount: event.price,
+      amount: effectivePrice,
       platform_fee: fees.platform_fee,
       gateway_fee: fees.gateway_fee,
       method: 'PIX',

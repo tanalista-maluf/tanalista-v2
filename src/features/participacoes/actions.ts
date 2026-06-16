@@ -161,20 +161,25 @@ export async function joinEventAction(
   }
 
   // PIX ou cartão: criar participação PENDING e redirecionar para pagamento
+  const discountCents = event.price - effectivePrice
+  const couponFields = appliedCouponId
+    ? { discount_cents: discountCents, coupon_id: appliedCouponId }
+    : {}
+
   let participationId: string
 
   if (existing) {
-    const { data: updated } = await supabase
+    const { data: updated } = await admin
       .from('participations')
-      .update({ status: 'PENDING', ...(teamId ? { team_id: teamId } : {}) })
+      .update({ status: 'PENDING', ...couponFields, ...(teamId ? { team_id: teamId } : {}) })
       .eq('id', existing.id)
       .select('id')
       .single()
     participationId = updated?.id ?? existing.id
   } else {
-    const { data: created } = await supabase
+    const { data: created } = await admin
       .from('participations')
-      .insert({ event_id: eventId, user_id: user.id, status: 'PENDING', ...(teamId ? { team_id: teamId } : {}) })
+      .insert({ event_id: eventId, user_id: user.id, status: 'PENDING', ...couponFields, ...(teamId ? { team_id: teamId } : {}) })
       .select('id')
       .single()
     participationId = created?.id ?? ''
@@ -182,7 +187,7 @@ export async function joinEventAction(
 
   if (!participationId) return { error: 'Erro ao criar inscrição.' }
 
-  // Registrar uso do cupom mesmo para PIX/cartão (será validado no webhook se necessário)
+  // Registrar uso do cupom
   if (appliedCouponId) {
     const { data: coupon } = await admin.from('coupons').select('uses_count').eq('id', appliedCouponId).single()
     await Promise.all([
@@ -192,8 +197,7 @@ export async function joinEventAction(
   }
 
   revalidatePath(`/eventos/${eventId}`)
-  const discountParam = effectivePrice < event.price ? `&discount=${event.price - effectivePrice}` : ''
-  redirect(`/eventos/${eventId}/pagamento?participation_id=${participationId}&method=${method}${discountParam}`)
+  redirect(`/eventos/${eventId}/pagamento?participation_id=${participationId}&method=${method}`)
 }
 
 // ── Cancelamento de inscrição ────────────────────────────────────────────────
