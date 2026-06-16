@@ -28,7 +28,7 @@ async function getStats() {
     admin.from('participations').select('*', { count: 'exact', head: true }).eq('status', 'CONFIRMED'),
     admin.from('payments').select('amount, platform_fee').eq('status', 'APPROVED').gte('created_at', thirtyDaysAgo),
     admin.from('events')
-      .select('id, title, status, starts_at, confirmed_count, capacity, organizer_id, profiles!events_organizer_id_fkey(full_name, username)')
+      .select('id, title, status, starts_at, capacity, organizer_id, profiles!events_organizer_id_fkey(full_name, username)')
       .order('created_at', { ascending: false })
       .limit(8),
     admin.from('profiles')
