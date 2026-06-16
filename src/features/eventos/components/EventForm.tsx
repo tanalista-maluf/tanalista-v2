@@ -19,7 +19,7 @@ const CATEGORIES = [
   'Gastronomia', 'Negócios', 'Ensino', 'Música', 'Social', 'Outros',
 ]
 
-const SPORTS_CATEGORIES = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha'])
+const SPORTS_CATEGORIES = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball'])
 
 interface EventFormProps {
   eventId?: string
