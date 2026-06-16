@@ -58,29 +58,74 @@ export default async function PublicProfilePage({
 
   if (!profile) notFound()
 
-  // Eventos organizados (OPEN, CONFIRMED, COMPLETED)
-  const { data: organizedEvents } = await supabase
-    .from('events')
-    .select('*, groups(name), participations(status)')
-    .eq('organizer_id', profile.id)
-    .in('status', ['OPEN', 'CONFIRMED', 'COMPLETED'])
-    .order('starts_at', { ascending: false })
-    .limit(6)
+  // Busca em paralelo
+  const [
+    { data: organizedEvents },
+    { data: groupMemberships },
+    { count: totalEventsOrganized },
+    { data: participationRows },
+    { data: ratingsData },
+    { count: totalParticipations },
+  ] = await Promise.all([
+    // Eventos organizados
+    admin
+      .from('events')
+      .select('*, groups(name), participations(status)')
+      .eq('organizer_id', profile.id)
+      .in('status', ['OPEN', 'CONFIRMED', 'COMPLETED'])
+      .order('starts_at', { ascending: false })
+      .limit(6),
 
-  // Grupos que participa
-  const { data: groupMemberships } = await admin
-    .from('group_members')
-    .select('groups(id, name, category, city)')
-    .eq('user_id', profile.id)
-    .limit(6)
+    // Grupos
+    admin
+      .from('group_members')
+      .select('groups(id, name, category, city)')
+      .eq('user_id', profile.id)
+      .limit(6),
 
-  // Contagem de avaliações recebidas como organizador
-  const { count: totalEvents } = await supabase
-    .from('events')
-    .select('*', { count: 'exact', head: true })
-    .eq('organizer_id', profile.id)
-    .eq('status', 'COMPLETED')
+    // Total eventos realizados como organizador
+    admin
+      .from('events')
+      .select('*', { count: 'exact', head: true })
+      .eq('organizer_id', profile.id)
+      .eq('status', 'COMPLETED'),
 
+    // Últimas 5 participações confirmadas (como participante, não organizador)
+    admin
+      .from('participations')
+      .select('event_id, created_at, events(id, title, starts_at, status, category, capacity, groups(name), participations(status))')
+      .eq('user_id', profile.id)
+      .eq('status', 'CONFIRMED')
+      .order('created_at', { ascending: false })
+      .limit(5),
+
+    // Avaliação média dos eventos que organizou
+    admin
+      .from('event_ratings')
+      .select('rating, events!inner(organizer_id)')
+      .eq('events.organizer_id', profile.id),
+
+    // Total de eventos que participou
+    admin
+      .from('participations')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', profile.id)
+      .eq('status', 'CONFIRMED'),
+  ])
+
+  // Filtra participações de eventos que a pessoa não organizou
+  const attendedEvents = (participationRows ?? [])
+    .map((p: any) => p.events)
+    .filter((e: any) => e && e.organizer_id !== profile.id)
+    .slice(0, 5)
+
+  // Média de avaliação como organizador
+  const ratings = (ratingsData ?? []).map((r: any) => r.rating).filter(Boolean)
+  const avgRating = ratings.length > 0
+    ? Math.round((ratings.reduce((s: number, r: number) => s + r, 0) / ratings.length) * 10) / 10
+    : null
+
+  const totalEvents = totalEventsOrganized ?? 0
   const isOwnProfile = currentUser.id === profile.id
 
   return (
@@ -120,21 +165,28 @@ export default async function PublicProfilePage({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="card-dark rounded-2xl p-4 text-center">
-          <p className="text-xl font-bold text-white">{totalEvents ?? 0}</p>
-          <p className="text-xs text-white/35 mt-0.5">Eventos realizados</p>
+      <div className="grid grid-cols-4 gap-2">
+        <div className="card-dark rounded-2xl p-3 text-center">
+          <p className="text-xl font-bold text-white">{totalEvents}</p>
+          <p className="text-[10px] text-white/35 mt-0.5 leading-tight">Eventos organizados</p>
         </div>
-        <div className="card-dark rounded-2xl p-4 text-center">
+        <div className="card-dark rounded-2xl p-3 text-center">
+          <p className="text-xl font-bold text-white">{totalParticipations ?? 0}</p>
+          <p className="text-[10px] text-white/35 mt-0.5 leading-tight">Participações</p>
+        </div>
+        <div className="card-dark rounded-2xl p-3 text-center">
           <p className="text-xl font-bold text-white">{groupMemberships?.length ?? 0}</p>
-          <p className="text-xs text-white/35 mt-0.5">Grupos</p>
+          <p className="text-[10px] text-white/35 mt-0.5 leading-tight">Grupos</p>
         </div>
-        <div className="card-dark rounded-2xl p-4 text-center">
+        <div className="card-dark rounded-2xl p-3 text-center">
           <p className="flex items-center justify-center gap-1 text-xl font-bold text-white">
-            <Star className="size-4 text-yellow-400" />
-            —
+            {avgRating !== null ? (
+              <><Star className="size-3.5 text-yellow-400 fill-yellow-400" />{avgRating}</>
+            ) : (
+              <span className="text-white/25">—</span>
+            )}
           </p>
-          <p className="text-xs text-white/35 mt-0.5">Avaliação</p>
+          <p className="text-[10px] text-white/35 mt-0.5 leading-tight">Avaliação</p>
         </div>
       </div>
 
@@ -151,6 +203,23 @@ export default async function PublicProfilePage({
               const confirmedCount = participations.filter((p: { status: string }) => p.status === 'CONFIRMED').length
               return (
                 <EventCard key={e.id} event={e} confirmedCount={confirmedCount} groupName={e.groups?.name} />
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Eventos participados */}
+      {attendedEvents.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
+            <Users className="size-3.5" /> Participou
+          </h2>
+          <div className="space-y-2">
+            {attendedEvents.map((event: any) => {
+              const confirmedCount = (event.participations ?? []).filter((p: any) => p.status === 'CONFIRMED').length
+              return (
+                <EventCard key={event.id} event={event} confirmedCount={confirmedCount} groupName={event.groups?.name} />
               )
             })}
           </div>
