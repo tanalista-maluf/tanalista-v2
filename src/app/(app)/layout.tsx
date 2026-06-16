@@ -3,6 +3,12 @@ import { Suspense } from 'react'
 import { NotificationBell } from '@/features/notificacoes/components/NotificationBell'
 import { BottomNav } from './components/BottomNav'
 import { PullToRefresh } from '@/components/ui/pull-to-refresh'
+import { getUnreadCount } from '@/features/notificacoes/queries'
+
+async function BellWrapper() {
+  const count = await getUnreadCount()
+  return <NotificationBell initialCount={count} />
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,7 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <span className="text-[17px] font-extrabold tracking-tight text-primary">Lista</span>
           </Link>
           <Suspense fallback={<div className="size-9" />}>
-            <NotificationBell />
+            <BellWrapper />
           </Suspense>
         </div>
       </header>
