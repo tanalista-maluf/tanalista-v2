@@ -56,7 +56,7 @@ export default async function EventDetailPage({
   const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED' && !event.is_organizer
   const isFinished = event.status === 'COMPLETED'
   const canRate = isConfirmedParticipant && isFinished
-  const canUploadPhoto = (isConfirmedParticipant || event.is_organizer) && isFinished
+  const canUploadPhoto = isConfirmedParticipant || event.is_organizer
   const userRating = canRate ? await getUserRating(id, user.id) : null
 
   // Fila de espera
@@ -260,7 +260,7 @@ export default async function EventDetailPage({
           {isFinished && (
             <TabsTrigger value="regras" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Regras</TabsTrigger>
           )}
-          {isFinished && (
+          {(isConfirmedParticipant || event.is_organizer) && (
             <TabsTrigger value="fotos" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <Images className="size-3" />Fotos
             </TabsTrigger>
@@ -398,7 +398,7 @@ export default async function EventDetailPage({
             />
           </TabsContent>
         )}
-        {isFinished && (
+        {(isConfirmedParticipant || event.is_organizer) && (
           <TabsContent value="fotos" className="pt-4">
             <EventGallery
               eventId={id}
