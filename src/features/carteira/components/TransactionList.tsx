@@ -39,6 +39,12 @@ export function TransactionList({ transactions }: TransactionListProps) {
         const config = TYPE_CONFIG[tx.type] ?? TYPE_CONFIG.PAYMENT
         const Icon = config.icon
         const { isCredit } = config
+        const absAmount = Math.abs(tx.amount)
+
+        // DEPOSIT vindo de evento = "Resgate", vindo de recarga = "Recarga"
+        const label = tx.type === 'DEPOSIT' && tx.description?.toLowerCase().includes('receita')
+          ? 'Resgate'
+          : config.label
 
         return (
           <div
@@ -50,7 +56,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white">{config.label}</p>
+              <p className="text-sm font-medium text-white">{label}</p>
               {tx.description && (
                 <p className="text-xs text-white/40 truncate">{tx.description}</p>
               )}
@@ -59,7 +65,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
 
             <div className="text-right shrink-0">
               <p className={`text-sm font-semibold ${isCredit ? 'text-primary' : 'text-red-400'}`}>
-                {isCredit ? '+' : '−'} {formatBalance(tx.amount)}
+                {isCredit ? '+' : '−'} {formatBalance(absAmount)}
               </p>
               <p className="text-xs text-white/30">
                 Saldo: {formatBalance(tx.balance_after)}
