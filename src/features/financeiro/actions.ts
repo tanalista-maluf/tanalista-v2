@@ -14,12 +14,13 @@ export async function claimEventPayoutAction(eventId: string) {
   // Verifica que o evento pertence ao organizador e busca dados financeiros
   const { data: event } = await admin
     .from('events')
-    .select('id, title, organizer_id, payout_claimed_at')
+    .select('id, title, organizer_id, starts_at, payout_claimed_at')
     .eq('id', eventId)
     .eq('organizer_id', user.id)
     .maybeSingle()
 
   if (!event) return { error: 'Evento não encontrado.' }
+  if (new Date() <= new Date(event.starts_at)) return { error: 'O resgate só está disponível após a realização do evento.' }
   if (event.payout_claimed_at) return { error: 'Receita deste evento já foi resgatada.' }
 
   // Busca participações confirmadas para calcular receita líquida

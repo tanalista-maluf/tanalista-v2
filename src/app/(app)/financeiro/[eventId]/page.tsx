@@ -107,6 +107,7 @@ export default async function EventFinanceiroPage({ params }: { params: Promise<
         eventId={event.id}
         netCents={event.net_revenue}
         alreadyClaimed={!!event.payout_claimed_at}
+        startsAt={event.starts_at}
       />
 
       {/* Lista de participantes */}
