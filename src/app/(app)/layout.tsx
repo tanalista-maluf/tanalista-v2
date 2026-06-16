@@ -35,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <circle cx="39" cy="36" r="9" fill="#4ADE80"/>
               <path d="M34.5 36.2l3 3 5-5.5" stroke="#0D1A14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span className="text-[17px] font-extrabold tracking-tight text-primary" style={{ fontFamily: 'var(--font-heading)' }}>TáNaLista</span>
+            <span className="text-[17px] font-extrabold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}><span className="text-primary">Tá</span><span className="text-white/40 font-light">na</span><span className="text-primary">Lista</span></span>
           </Link>
           <Suspense fallback={<div className="size-9" />}>
             <BellWrapper />
