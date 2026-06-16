@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { joinEventAction, joinWaitlistAction } from '../actions'
+import { validateCouponForEventAction } from '@/features/cupons/actions'
 import { Button } from '@/components/ui/button'
-import { Loader2, Wallet, QrCode, CreditCard, ListPlus } from 'lucide-react'
+import { Loader2, Wallet, QrCode, CreditCard, ListPlus, Tag, Check, X } from 'lucide-react'
 import { formatPrice } from '@/utils/format'
 import { toast } from 'sonner'
 import { TeamSelector } from '@/features/eventos/components/TeamSelector'
@@ -42,10 +43,30 @@ export function InscricaoForm({
   const [selected, setSelected] = useState<PaymentMethod>('PIX')
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(teams?.[0]?.id ?? null)
   const [loading, setLoading] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponLoading, setCouponLoading] = useState(false)
+  const [couponDiscount, setCouponDiscount] = useState(0)
+  const [couponApplied, setCouponApplied] = useState(false)
+  const [couponError, setCouponError] = useState('')
 
   const isExempt = isOrganizer && organizerExempt
   const isFree = eventPrice === 0
   const hasTeams = teams && teams.length > 0
+  const finalPrice = Math.max(0, eventPrice - couponDiscount)
+
+  async function applyCoupon() {
+    if (!couponCode.trim()) return
+    setCouponLoading(true)
+    setCouponError('')
+    const result = await validateCouponForEventAction(couponCode, eventPrice)
+    setCouponLoading(false)
+    if (result.error) {
+      setCouponError(result.error)
+    } else {
+      setCouponDiscount(result.discount_cents ?? 0)
+      setCouponApplied(true)
+    }
+  }
 
   // Fila de espera
   if (wantWaitlist || (isFull && !isExempt)) {
@@ -186,10 +207,61 @@ export function InscricaoForm({
         </div>
       )}
 
+      {/* Campo de cupom */}
+      {!couponApplied ? (
+        <div className="space-y-1.5">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+              <input
+                type="text"
+                placeholder="Código de desconto (opcional)"
+                value={couponCode}
+                onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-primary/40 transition-colors"
+              />
+            </div>
+            <button
+              onClick={applyCoupon}
+              disabled={couponLoading || !couponCode.trim()}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-semibold text-white/60 hover:text-primary hover:border-primary/30 transition-colors disabled:opacity-40"
+            >
+              {couponLoading ? <Loader2 className="size-3.5 animate-spin" /> : 'Aplicar'}
+            </button>
+          </div>
+          {couponError && <p className="text-xs text-red-400">{couponError}</p>}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between rounded-xl bg-primary/8 border border-primary/20 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Check className="size-4 text-primary" />
+            <span className="text-primary font-semibold">{couponCode}</span>
+            <span className="text-white/40">— desconto de {formatPrice(couponDiscount)}</span>
+          </div>
+          <button onClick={() => { setCouponApplied(false); setCouponDiscount(0); setCouponCode('') }}>
+            <X className="size-4 text-white/30 hover:text-white/60" />
+          </button>
+        </div>
+      )}
+
       {/* Resumo */}
-      <div className="rounded-lg bg-white/[0.04] p-3 flex items-center justify-between text-sm">
-        <span className="text-white/50">Total a pagar</span>
-        <span className="font-bold text-primary text-lg">{formatPrice(eventPrice)}</span>
+      <div className="rounded-lg bg-white/[0.04] p-3 space-y-1.5">
+        {couponDiscount > 0 && (
+          <div className="flex items-center justify-between text-xs text-white/40">
+            <span>Subtotal</span>
+            <span>{formatPrice(eventPrice)}</span>
+          </div>
+        )}
+        {couponDiscount > 0 && (
+          <div className="flex items-center justify-between text-xs text-primary">
+            <span>Desconto</span>
+            <span>−{formatPrice(couponDiscount)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-white/50">Total a pagar</span>
+          <span className="font-bold text-primary text-lg">{formatPrice(finalPrice)}</span>
+        </div>
       </div>
 
       <Button
@@ -197,7 +269,7 @@ export function InscricaoForm({
         disabled={loading || (hasTeams && !selectedTeamId)}
         onClick={async () => {
           setLoading(true)
-          const result = await joinEventAction(eventId, selected, selectedTeamId ?? undefined)
+          const result = await joinEventAction(eventId, selected, selectedTeamId ?? undefined, couponApplied ? couponCode : undefined)
           setLoading(false)
           if (result?.error) toast.error(result.error)
         }}

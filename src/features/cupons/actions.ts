@@ -107,3 +107,38 @@ export async function toggleCouponAction(id: string, active: boolean) {
   await admin.from('coupons').update({ active }).eq('id', id)
   revalidatePath('/admin/cupons')
 }
+
+// ── Validar cupom para inscrição (sem consumir) ──────────────────────────────
+export async function validateCouponForEventAction(code: string, eventPrice: number) {
+  if (!code?.trim()) return { error: 'Informe o código.' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const normalizedCode = code.trim().toUpperCase()
+
+  const { data: coupon } = await admin
+    .from('coupons')
+    .select('id, amount_cents, expires_at, max_uses, uses_count')
+    .eq('code', normalizedCode)
+    .eq('active', true)
+    .maybeSingle()
+
+  if (!coupon) return { error: 'Cupom inválido ou expirado.' }
+  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return { error: 'Cupom expirado.' }
+  if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) return { error: 'Cupom esgotado.' }
+
+  const { data: alreadyUsed } = await admin
+    .from('coupon_uses')
+    .select('id')
+    .eq('coupon_id', coupon.id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (alreadyUsed) return { error: 'Você já utilizou este cupom.' }
+
+  const discount = Math.min(coupon.amount_cents, eventPrice)
+  return { success: true, discount_cents: discount, coupon_id: coupon.id }
+}

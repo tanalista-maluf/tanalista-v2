@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Recarga de carteira — usa credenciais DA PLATAFORMA (não do organizador)
 // Doc 15 Adendo 02: não há organizer em uma recarga
@@ -13,6 +14,12 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Rate limit: 5 tentativas por usuário por 10 minutos
+  const rl = checkRateLimit(`deposit:${user.id}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Muitas tentativas. Aguarde alguns minutos.' }, { status: 429 })
+  }
 
   const body = await request.json()
   const { amount_cents } = body

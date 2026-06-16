@@ -11,7 +11,8 @@ import { sendWaitlistNotified } from '@/lib/emails'
 export async function joinEventAction(
   eventId: string,
   method: 'PIX' | 'CREDIT_CARD' | 'WALLET',
-  teamId?: string
+  teamId?: string,
+  couponCode?: string
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -79,10 +80,39 @@ export async function joinEventAction(
     redirect(`/eventos/${eventId}?joined=1`)
   }
 
+  // Aplicar cupom de desconto se fornecido
+  const admin = createAdminClient()
+  let effectivePrice = event.price
+  let appliedCouponId: string | null = null
+
+  if (couponCode && event.price > 0) {
+    const normalizedCode = couponCode.trim().toUpperCase()
+    const { data: coupon } = await admin
+      .from('coupons')
+      .select('id, amount_cents, expires_at, max_uses, uses_count')
+      .eq('code', normalizedCode)
+      .eq('active', true)
+      .maybeSingle()
+
+    if (coupon &&
+      (!coupon.expires_at || new Date(coupon.expires_at) >= new Date()) &&
+      (coupon.max_uses === null || coupon.uses_count < coupon.max_uses)) {
+      const { data: alreadyUsed } = await admin
+        .from('coupon_uses')
+        .select('id')
+        .eq('coupon_id', coupon.id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!alreadyUsed) {
+        effectivePrice = Math.max(0, event.price - coupon.amount_cents)
+        appliedCouponId = coupon.id
+      }
+    }
+  }
+
   // Débito da carteira: confirma imediatamente
   if (method === 'WALLET') {
-    const admin = createAdminClient()
-
     // Verificar saldo
     const { data: profile } = await supabase
       .from('profiles')
@@ -90,20 +120,29 @@ export async function joinEventAction(
       .eq('id', user.id)
       .single()
 
-    if (!profile || profile.wallet_balance < event.price) {
+    if (!profile || profile.wallet_balance < effectivePrice) {
       return { error: 'Saldo insuficiente na carteira.', code: 'INSUFFICIENT_BALANCE' }
     }
 
     // Debitar carteira atomicamente
     const { error: debitError } = await admin.rpc('wallet_debit', {
       p_user_id: user.id,
-      p_amount: event.price,
+      p_amount: effectivePrice,
       p_type: 'PAYMENT',
       p_description: `Inscrição no evento`,
       p_event_id: eventId,
     })
 
     if (debitError) return { error: 'Erro ao processar pagamento pela carteira.' }
+
+    // Registrar uso do cupom
+    if (appliedCouponId) {
+      const { data: coupon } = await admin.from('coupons').select('uses_count').eq('id', appliedCouponId).single()
+      await Promise.all([
+        admin.from('coupon_uses').insert({ coupon_id: appliedCouponId, user_id: user.id }),
+        admin.from('coupons').update({ uses_count: (coupon?.uses_count ?? 0) + 1 }).eq('id', appliedCouponId),
+      ])
+    }
 
     // Criar/atualizar participação como CONFIRMADA
     if (existing) {
@@ -143,8 +182,18 @@ export async function joinEventAction(
 
   if (!participationId) return { error: 'Erro ao criar inscrição.' }
 
+  // Registrar uso do cupom mesmo para PIX/cartão (será validado no webhook se necessário)
+  if (appliedCouponId) {
+    const { data: coupon } = await admin.from('coupons').select('uses_count').eq('id', appliedCouponId).single()
+    await Promise.all([
+      admin.from('coupon_uses').insert({ coupon_id: appliedCouponId, user_id: user.id }),
+      admin.from('coupons').update({ uses_count: (coupon?.uses_count ?? 0) + 1 }).eq('id', appliedCouponId),
+    ])
+  }
+
   revalidatePath(`/eventos/${eventId}`)
-  redirect(`/eventos/${eventId}/pagamento?participation_id=${participationId}&method=${method}`)
+  const discountParam = effectivePrice < event.price ? `&discount=${event.price - effectivePrice}` : ''
+  redirect(`/eventos/${eventId}/pagamento?participation_id=${participationId}&method=${method}${discountParam}`)
 }
 
 // ── Cancelamento de inscrição ────────────────────────────────────────────────

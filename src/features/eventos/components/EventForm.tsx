@@ -51,6 +51,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
   const recurrence = useWatch({ control, name: 'recurrence' })
   const category = useWatch({ control, name: 'category' })
   const useTeams = useWatch({ control, name: 'use_teams' })
+  const priceRaw = useWatch({ control, name: 'price' })
   const isSports = SPORTS_CATEGORIES.has(category ?? '')
 
   const { fields: teamFields, append: appendTeam, remove: removeTeam } = useFieldArray({
@@ -218,6 +219,19 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
               {...register('price')}
             />
             {errors.price && <p className="text-xs text-destructive">{errors.price.message}</p>}
+            {(() => {
+              const cents = Math.round(parseFloat(String(priceRaw).replace(',', '.')) * 100)
+              if (!isNaN(cents) && cents > 0) {
+                const fee = Math.round(cents * 0.05)
+                const net = cents - fee
+                return (
+                  <p className="text-[10px] text-white/35 leading-relaxed">
+                    Taxa plataforma (5%): R$ {(fee/100).toFixed(2).replace('.',',')} · Você recebe: <span className="text-primary font-semibold">R$ {(net/100).toFixed(2).replace('.',',')}</span>
+                  </p>
+                )
+              }
+              return null
+            })()}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="capacity">Capacidade *</Label>

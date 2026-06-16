@@ -5,16 +5,96 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Loader2, Copy, CheckCheck } from 'lucide-react'
+import { Loader2, Copy, CheckCheck, RefreshCw } from 'lucide-react'
 import Image from 'next/image'
 
 const PRESET_AMOUNTS = [10, 25, 50, 100, 200]
 
-export function DepositForm() {
-  const [amount, setAmount]     = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [pixData, setPixData]   = useState<{ qr_code: string; qr_code_base64: string } | null>(null)
-  const [copied, setCopied]     = useState(false)
+interface PendingPix {
+  qr_code: string
+  qr_code_base64: string
+  amount: number
+  expires_at: string
+}
+
+interface Props {
+  pendingPix?: PendingPix | null
+}
+
+function PixView({ pixData, onNew }: { pixData: { qr_code: string; qr_code_base64: string; amount?: number; expires_at?: string }; onNew: () => void }) {
+  const [copied, setCopied] = useState(false)
+
+  async function copyCode() {
+    await navigator.clipboard.writeText(pixData.qr_code)
+    setCopied(true)
+    toast.success('Código PIX copiado!')
+    setTimeout(() => setCopied(false), 3000)
+  }
+
+  return (
+    <div className="space-y-5">
+      {pixData.amount && (
+        <div className="text-center">
+          <p className="text-xs text-white/40">Valor</p>
+          <p className="text-2xl font-bold text-primary">
+            {(pixData.amount / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </p>
+          {pixData.expires_at && (
+            <p className="text-xs text-white/30 mt-0.5">
+              Expira às {new Date(pixData.expires_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+        </div>
+      )}
+
+      <p className="text-sm text-center text-white/50">
+        Escaneie o QR Code ou copie o código abaixo para concluir a recarga.
+      </p>
+
+      {pixData.qr_code_base64 && (
+        <div className="flex justify-center">
+          <div className="rounded-xl border-2 border-primary/20 p-3 bg-white">
+            <Image
+              src={`data:image/png;base64,${pixData.qr_code_base64}`}
+              alt="QR Code PIX"
+              width={200}
+              height={200}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={pixData.qr_code}
+          className="flex-1 rounded-lg border bg-white/[0.04] px-3 py-2 text-xs text-white/50 truncate"
+        />
+        <Button size="icon" variant="outline" onClick={copyCode}>
+          {copied ? <CheckCheck className="size-4 text-primary" /> : <Copy className="size-4" />}
+        </Button>
+      </div>
+
+      <ol className="space-y-1.5 text-sm text-white/50 list-decimal list-inside">
+        <li>Abra o app do seu banco</li>
+        <li>Acesse a área PIX → Ler QR Code</li>
+        <li>Confirme o pagamento</li>
+        <li>O saldo será creditado automaticamente</li>
+      </ol>
+
+      <Button variant="outline" className="w-full" onClick={onNew}>
+        <RefreshCw className="size-4 mr-2" />
+        Nova recarga
+      </Button>
+    </div>
+  )
+}
+
+export function DepositForm({ pendingPix }: Props) {
+  const [amount, setAmount] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string; amount?: number; expires_at?: string } | null>(null)
+  const [showPending, setShowPending] = useState(true)
 
   async function handleSubmit() {
     const value = parseFloat(amount.replace(',', '.'))
@@ -43,57 +123,22 @@ export function DepositForm() {
     }
   }
 
-  async function copyCode() {
-    if (!pixData?.qr_code) return
-    await navigator.clipboard.writeText(pixData.qr_code)
-    setCopied(true)
-    toast.success('Código PIX copiado!')
-    setTimeout(() => setCopied(false), 3000)
-  }
-
-  if (pixData) {
+  // Mostrar PIX pendente do servidor
+  if (pendingPix && showPending && !pixData) {
     return (
-      <div className="space-y-5">
-        <p className="text-sm text-center text-white/50">
-          Escaneie o QR Code ou copie o código abaixo para concluir a recarga.
-        </p>
-
-        {pixData.qr_code_base64 && (
-          <div className="flex justify-center">
-            <div className="rounded-xl border-2 border-primary/20 p-3 bg-white">
-              <Image
-                src={`data:image/png;base64,${pixData.qr_code_base64}`}
-                alt="QR Code PIX"
-                width={200}
-                height={200}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <input
-            readOnly
-            value={pixData.qr_code}
-            className="flex-1 rounded-lg border bg-white/[0.04] px-3 py-2 text-xs text-white/50 truncate"
-          />
-          <Button size="icon" variant="outline" onClick={copyCode}>
-            {copied ? <CheckCheck className="size-4 text-primary" /> : <Copy className="size-4" />}
-          </Button>
+      <div className="space-y-4">
+        <div className="rounded-xl bg-yellow-400/8 border border-yellow-400/20 px-4 py-3 text-center">
+          <p className="text-xs font-semibold text-yellow-300">PIX pendente encontrado</p>
+          <p className="text-xs text-white/40 mt-0.5">Você tem um PIX não pago. Conclua ou gere uma nova recarga.</p>
         </div>
-
-        <ol className="space-y-1.5 text-sm text-white/50 list-decimal list-inside">
-          <li>Abra o app do seu banco</li>
-          <li>Acesse a área PIX → Ler QR Code</li>
-          <li>Confirme o pagamento</li>
-          <li>O saldo será creditado automaticamente</li>
-        </ol>
-
-        <Button variant="outline" className="w-full" onClick={() => setPixData(null)}>
-          Nova recarga
-        </Button>
+        <PixView pixData={pendingPix} onNew={() => setShowPending(false)} />
       </div>
     )
+  }
+
+  // Mostrar PIX recém-gerado
+  if (pixData) {
+    return <PixView pixData={pixData} onNew={() => setPixData(null)} />
   }
 
   return (

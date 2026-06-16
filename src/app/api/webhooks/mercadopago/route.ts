@@ -41,12 +41,21 @@ export async function POST(request: NextRequest) {
     if (event.type === 'payment') {
       await handlePaymentEvent(event.data?.id, admin)
     }
-    // 'merchant_order' e outros tipos são ignorados silenciosamente
-    // Outros tipos (subscription, etc.) podem ser adicionados aqui
   } catch (err) {
-    console.error('[WEBHOOK] Processing error:', err)
-    // Retorna 200 mesmo em erro para evitar re-envio em loop do MP
-    // O erro fica no log para análise
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    console.error('[WEBHOOK] Processing error:', errorMsg)
+    // Dead-letter: persiste falha no banco para análise e reprocessamento manual
+    try {
+      await admin.from('webhook_failures').insert({
+        source: 'mercadopago',
+        event_type: event.type ?? 'unknown',
+        payload: JSON.parse(rawBody),
+        error: errorMsg,
+      })
+    } catch (logErr) {
+      console.error('[WEBHOOK] Failed to log dead-letter:', logErr)
+    }
+    // Retorna 200 para evitar re-envio em loop pelo MP
   }
 
   return NextResponse.json({ received: true })

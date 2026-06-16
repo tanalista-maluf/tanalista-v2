@@ -16,19 +16,24 @@ export interface EventFinancial {
   net_revenue: number
 }
 
-export async function getOrganizerFinancials(): Promise<EventFinancial[]> {
+export async function getOrganizerFinancials(opts?: { from?: string; to?: string }): Promise<EventFinancial[]> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  // Buscar eventos do organizador com dados financeiros
-  const { data: events } = await supabase
+  let query = supabase
     .from('events')
     .select('id, title, starts_at, status, price, capacity, payout_claimed_at')
     .eq('organizer_id', user.id)
     .neq('status', 'DRAFT')
     .order('starts_at', { ascending: false })
     .limit(50)
+
+  if (opts?.from) query = query.gte('starts_at', opts.from)
+  if (opts?.to)   query = query.lte('starts_at', opts.to + 'T23:59:59')
+
+  // Buscar eventos do organizador com dados financeiros
+  const { data: events } = await query
 
   if (!events || events.length === 0) return []
 
@@ -167,8 +172,8 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   return { event: eventFinancial, participants, byMethod }
 }
 
-export async function getOrganizerSummary() {
-  const events = await getOrganizerFinancials()
+export async function getOrganizerSummary(opts?: { from?: string; to?: string }) {
+  const events = await getOrganizerFinancials(opts)
 
   const totalGross    = events.reduce((s, e) => s + e.gross_revenue, 0)
   const totalNet      = events.reduce((s, e) => s + e.net_revenue, 0)
