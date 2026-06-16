@@ -127,7 +127,7 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
 
   const eventFinancial: EventFinancial = {
     ...event,
-    confirmed_count: count ?? 0,
+    confirmed_count: partIds.length,
     gross_revenue: gross,
     platform_fees: platformFees,
     gateway_fees: gatewayFees,
