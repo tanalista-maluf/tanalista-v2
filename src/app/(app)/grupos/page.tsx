@@ -1,3 +1,5 @@
+export const revalidate = 30
+
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'

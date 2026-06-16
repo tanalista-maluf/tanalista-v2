@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Html5Qrcode } from 'html5-qrcode'
+import type { Html5Qrcode as Html5QrcodeType } from 'html5-qrcode'
 import { checkInAction } from '../actions-checkin'
 import { CheckCircle, XCircle, Camera, Loader2 } from 'lucide-react'
 import { UserAvatar } from '@/components/ui/user-avatar'
@@ -22,7 +22,7 @@ interface Props {
 type ScanState = 'idle' | 'scanning' | 'processing' | 'success' | 'error'
 
 export function CheckInScanner({ eventId }: Props) {
-  const scannerRef = useRef<Html5Qrcode | null>(null)
+  const scannerRef = useRef<Html5QrcodeType | null>(null)
   const [state, setState] = useState<ScanState>('idle')
   const [result, setResult] = useState<CheckInResult | null>(null)
   const processingRef = useRef(false)
@@ -41,6 +41,7 @@ export function CheckInScanner({ eventId }: Props) {
 
     await stopScanner()
 
+    const { Html5Qrcode } = await import('html5-qrcode')
     const scanner = new Html5Qrcode('qr-reader')
     scannerRef.current = scanner
 

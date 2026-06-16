@@ -1,3 +1,5 @@
+export const revalidate = 30
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getEvents } from '@/features/eventos/queries'
