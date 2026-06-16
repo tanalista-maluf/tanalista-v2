@@ -146,22 +146,64 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
 
   if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
 
-  // Evento OPEN com participantes: permitir edição de campos não-críticos apenas
+  const admin = createAdminClient()
+
+  // Busca participantes confirmados para notificar
+  async function notifyParticipants(title: string, body: string) {
+    const { data: parts } = await admin
+      .from('participations')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('status', 'CONFIRMED')
+    if (!parts?.length) return
+    const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
+    await Promise.all(parts.map((p) =>
+      createNotificationAdmin({
+        userId: p.user_id,
+        type: 'EVENT_UPDATED',
+        title,
+        body,
+        data: { event_id: eventId },
+      })
+    ))
+  }
+
   // Campos críticos (preço, capacidade, data) só são editáveis em DRAFT
   const isCriticalLocked = event.status !== 'DRAFT'
   if (isCriticalLocked) {
-    // Apenas descrição e endereço podem ser atualizados
+    const { data: current } = await supabase
+      .from('events')
+      .select('title, description, address')
+      .eq('id', eventId)
+      .single()
+
     const { error } = await supabase
       .from('events')
       .update({ description: data.description || null, address: data.address })
       .eq('id', eventId)
     if (error) return { error: 'Erro ao atualizar evento.' }
+
+    // Notifica só se o endereço mudou
+    if (current && data.address !== current.address) {
+      await notifyParticipants(
+        'Endereço do evento alterado',
+        `O local de "${current.title}" foi atualizado para: ${data.address}`
+      )
+    }
+
     revalidatePath(`/eventos/${eventId}`)
     return { success: true }
   }
 
   const starts_at = new Date(data.starts_at)
   const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
+
+  // Busca valores anteriores para detectar mudanças relevantes
+  const { data: current } = await supabase
+    .from('events')
+    .select('title, starts_at, address')
+    .eq('id', eventId)
+    .single()
 
   const { error } = await supabase
     .from('events')
@@ -184,6 +226,29 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
     .eq('id', eventId)
 
   if (error) return { error: 'Erro ao atualizar evento.' }
+
+  // Notifica participantes se data ou endereço mudaram
+  if (current) {
+    const dateChanged = data.starts_at !== current.starts_at
+    const addressChanged = data.address !== current.address
+    if (dateChanged && addressChanged) {
+      await notifyParticipants(
+        'Evento atualizado',
+        `Data e local de "${data.title}" foram alterados. Confira os novos detalhes.`
+      )
+    } else if (dateChanged) {
+      const newDate = new Date(data.starts_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+      await notifyParticipants(
+        'Data do evento alterada',
+        `"${data.title}" foi reagendado para ${newDate}.`
+      )
+    } else if (addressChanged) {
+      await notifyParticipants(
+        'Local do evento alterado',
+        `O endereço de "${data.title}" foi atualizado para: ${data.address}`
+      )
+    }
+  }
 
   revalidatePath(`/eventos/${eventId}`)
   return { success: true }

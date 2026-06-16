@@ -41,6 +41,7 @@ export type WalletTransactionType =
 export type NotificationType =
   | 'EVENT_CONFIRMED'
   | 'EVENT_CANCELLED'
+  | 'EVENT_UPDATED'
   | 'EVENT_REMINDER'
   | 'WAITLIST_NOTIFIED'
   | 'WAITLIST_EXPIRED'
