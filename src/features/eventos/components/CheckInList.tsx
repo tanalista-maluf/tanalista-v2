@@ -39,7 +39,9 @@ export async function CheckInList({ eventId }: Props) {
 
       <div className="card-dark rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
         {[...checkedIn, ...notCheckedIn].map((p) => {
-          const profile = p.profiles as { full_name: string | null; username: string | null; avatar_url: string | null } | null
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const raw = p.profiles as any
+          const profile = (Array.isArray(raw) ? raw[0] : raw) as { full_name: string | null; username: string | null; avatar_url: string | null } | null
           const done = !!p.checked_in_at
           return (
             <div key={p.id} className="flex items-center gap-3 px-4 py-3">
