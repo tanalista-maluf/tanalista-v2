@@ -20,14 +20,25 @@ export default async function AdminSaquesPage() {
 
   const { data: withdrawals } = await admin
     .from('withdrawals')
-    .select('*, profiles(full_name, username)')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(100)
 
-  const pending = (withdrawals ?? []).filter(w => w.status === 'PENDING')
-  const done    = (withdrawals ?? []).filter(w => w.status !== 'PENDING')
+  const userIds = [...new Set((withdrawals ?? []).map(w => w.user_id))]
+  const { data: profiles } = userIds.length > 0
+    ? await admin.from('profiles').select('id, full_name, username').in('id', userIds)
+    : { data: [] }
+  const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
 
-  const totalPending = pending.reduce((s, w) => s + w.net_cents, 0)
+  const withdrawalsWithProfiles = (withdrawals ?? []).map(w => ({
+    ...w,
+    profiles: profileMap[w.user_id] ?? null,
+  }))
+
+  const pending = withdrawalsWithProfiles.filter(w => w.status === 'PENDING')
+  const done    = withdrawalsWithProfiles.filter(w => w.status !== 'PENDING')
+
+  const totalPending = pending.reduce((s, w) => s + (w.net_cents ?? 0), 0)
 
   return (
     <div className="space-y-8">
