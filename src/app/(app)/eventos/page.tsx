@@ -34,14 +34,17 @@ function sortEventsByProximity<T extends { starts_at: string }>(list: T[]): T[] 
 
 const CATEGORIES = [
   { label: 'Todos', value: '' },
-  { label: 'Esportes', value: 'Esportes' },
-  { label: 'Tecnologia', value: 'Tecnologia' },
-  { label: 'Social', value: 'Social' },
+  { label: 'Futebol', value: 'Futebol' },
+  { label: 'Basquete', value: 'Basquete' },
+  { label: 'Vôlei', value: 'Vôlei' },
+  { label: 'Airsoft & Paintball', value: 'Airsoft & Paintball' },
+  { label: 'Corrida & Trilha', value: 'Corrida & Trilha' },
   { label: 'Gastronomia', value: 'Gastronomia' },
-  { label: 'Arte & Cultura', value: 'Arte & Cultura' },
   { label: 'Negócios', value: 'Negócios' },
+  { label: 'Ensino', value: 'Ensino' },
   { label: 'Música', value: 'Música' },
-  { label: 'Saúde', value: 'Saúde' },
+  { label: 'Social', value: 'Social' },
+  { label: 'Outros', value: 'Outros' },
 ]
 
 function SubBar({ isMeus, sub, buildHref }: {

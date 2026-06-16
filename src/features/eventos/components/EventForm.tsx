@@ -15,9 +15,11 @@ import { Separator } from '@/components/ui/separator'
 import { Loader2, Repeat2, Plus, Trash2, Users } from 'lucide-react'
 
 const CATEGORIES = [
-  'Esportes', 'Gastronomia', 'Viagens', 'Música', 'Cinema', 'Teatro',
-  'Arte', 'Tecnologia', 'Negócios', 'Saúde', 'Educação', 'Outros',
+  'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
+  'Gastronomia', 'Negócios', 'Ensino', 'Música', 'Social', 'Outros',
 ]
+
+const SPORTS_CATEGORIES = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha'])
 
 interface EventFormProps {
   eventId?: string
@@ -49,7 +51,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
   const recurrence = useWatch({ control, name: 'recurrence' })
   const category = useWatch({ control, name: 'category' })
   const useTeams = useWatch({ control, name: 'use_teams' })
-  const isSports = category === 'Esportes'
+  const isSports = SPORTS_CATEGORIES.has(category ?? '')
 
   const { fields: teamFields, append: appendTeam, remove: removeTeam } = useFieldArray({
     control,
