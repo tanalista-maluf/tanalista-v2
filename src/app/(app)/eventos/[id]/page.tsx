@@ -21,7 +21,7 @@ import Link from 'next/link'
 import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered } from 'lucide-react'
 import { ChangeTeamButton } from '@/features/eventos/components/ChangeTeamButton'
 import { EventGallery } from '@/features/galeria/components/EventGallery'
-import { getEventPhotos } from '@/features/galeria/queries'
+import { getEventPhotos, getEventStorageUsage } from '@/features/galeria/queries'
 import { WaitlistManagement } from '@/features/fila/components/WaitlistManagement'
 import { WaitlistStatus } from '@/features/fila/components/WaitlistStatus'
 import { format } from 'date-fns'
@@ -38,12 +38,13 @@ export default async function EventDetailPage({
   if (!user) redirect('/login')
 
   const { id } = await params
-  const [event, initialComments, initialPolls, ratingSummary, photos, { data: teamsRaw }] = await Promise.all([
+  const [event, initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
     getEventById(id, user.id),
     getEventComments(id),
     getEventPolls(id, user.id),
     getEventRatingSummary(id),
     getEventPhotos(id),
+    getEventStorageUsage(id),
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
   ])
   if (!event) notFound()
@@ -405,6 +406,7 @@ export default async function EventDetailPage({
               canUpload={canUploadPhoto}
               currentUserId={user.id}
               isOrganizer={event.is_organizer}
+              storageUsage={storageUsage}
             />
           </TabsContent>
         )}
