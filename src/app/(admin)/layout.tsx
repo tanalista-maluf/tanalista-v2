@@ -38,6 +38,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Admin
             </span>
           </div>
+          <a
+            href="/home"
+            className="ml-auto text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            ← Sair do painel
+          </a>
           <nav className="flex items-center gap-1 text-xs">
             {NAV.map(({ href, label, badge }) => (
               <a
