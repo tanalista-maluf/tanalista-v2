@@ -25,7 +25,7 @@ export function ShareEventButton({ eventId }: Props) {
   return (
     <button
       onClick={handleShare}
-      className="flex items-center gap-1.5 text-xs text-white/40 hover:text-primary transition-colors"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-white/60 hover:text-primary hover:border-primary/30 hover:bg-primary/8 transition-colors"
     >
       {copied ? <Check className="size-3.5 text-primary" /> : <Share2 className="size-3.5" />}
       {copied ? 'Link copiado!' : 'Compartilhar'}

@@ -64,7 +64,7 @@ export function AddToCalendar({ title, description, startsAt, endsAt, address, c
     <div className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 text-xs text-white/40 hover:text-primary transition-colors"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-white/60 hover:text-primary hover:border-primary/30 hover:bg-primary/8 transition-colors"
       >
         <CalendarPlus className="size-3.5" />
         Adicionar ao calendário

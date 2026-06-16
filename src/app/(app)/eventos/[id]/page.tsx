@@ -114,18 +114,6 @@ export default async function EventDetailPage({
               </Link>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <AddToCalendar
-              title={event.title}
-              description={event.description ?? ''}
-              startsAt={event.starts_at}
-              endsAt={event.ends_at}
-              address={event.address}
-              city={event.city}
-              eventId={id}
-            />
-            <ShareEventButton eventId={id} />
-          </div>
         </div>
 
         {/* Categoria + Status */}
@@ -189,6 +177,20 @@ export default async function EventDetailPage({
               <span className="text-[10px] text-white/30">{event.waitlist_count} na fila</span>
             )}
           </div>
+
+          {/* Ações rápidas */}
+          <div className="flex items-center justify-end gap-2 mt-3">
+            <AddToCalendar
+              title={event.title}
+              description={event.description ?? ''}
+              startsAt={event.starts_at}
+              endsAt={event.ends_at}
+              address={event.address}
+              city={event.city}
+              eventId={id}
+            />
+            <ShareEventButton eventId={id} />
+          </div>
         </div>
 
         {/* Preço + CTA */}
@@ -230,15 +232,26 @@ export default async function EventDetailPage({
         )}
       </div>
 
+      {/* Banner de avaliação pós-evento */}
+      {canRate && !userRating && (
+        <div className="mx-4 mb-2 rounded-2xl border border-yellow-400/25 bg-yellow-400/8 px-4 py-3 flex items-center gap-3">
+          <span className="text-xl">⭐</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-yellow-300 leading-tight">Como foi o evento?</p>
+            <p className="text-xs text-white/40 mt-0.5">Avalie sua experiência e ajude outros participantes.</p>
+          </div>
+        </div>
+      )}
+
       {/* Abas */}
       <div className="px-4 pb-6 space-y-4">
-      <Tabs defaultValue="detalhes">
+      <Tabs defaultValue={canRate && !userRating ? 'avaliacoes' : 'detalhes'}>
         <TabsList className="w-full bg-white/[0.03] border border-white/[0.07] overflow-x-auto flex-nowrap rounded-2xl p-1 gap-1">
           <TabsTrigger value="detalhes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Detalhes</TabsTrigger>
 
           <TabsTrigger value="participantes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Participantes</TabsTrigger>
 
-          {isFinished && event.is_organizer && (
+          {event.is_organizer && (
             <TabsTrigger value="checkin" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <QrCode className="size-3" />Check-in
             </TabsTrigger>
