@@ -4,7 +4,8 @@ import { getOrganizerSummary } from '@/features/financeiro/queries'
 import { EventPayoutTable } from '@/features/financeiro/components/EventPayoutTable'
 import { ExportFinanceiroButton } from '@/features/financeiro/components/ExportFinanceiroButton'
 import { formatBalance } from '@/utils/format'
-import { TrendingUp, DollarSign, Receipt, Calendar, Users, Ticket } from 'lucide-react'
+import { TrendingUp, Calendar, Users, Ticket, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,11 +25,16 @@ export default async function FinanceiroPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
-          Financeiro
-        </h1>
-        <p className="text-sm text-white/40">Receitas e estatísticas dos seus eventos</p>
+      <div className="flex items-center gap-3">
+        <Link href="/home" className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+          <ArrowLeft className="size-4 text-white/60" />
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
+            Financeiro
+          </h1>
+          <p className="text-sm text-white/40">Receitas e estatísticas dos seus eventos</p>
+        </div>
       </div>
 
       {/* Cards principais */}
