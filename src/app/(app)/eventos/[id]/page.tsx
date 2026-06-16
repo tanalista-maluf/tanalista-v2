@@ -9,6 +9,7 @@ import { formatDateTime, formatPrice } from '@/utils/format'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ParticipantList } from '@/features/participacoes/components/ParticipantList'
 import { CheckInScanner } from '@/features/eventos/components/CheckInScanner'
+import { CheckInList } from '@/features/eventos/components/CheckInList'
 import { EventMural } from '@/features/mural/components/EventMural'
 import { getEventComments } from '@/features/mural/queries'
 import { getEventPolls } from '@/features/mural/queries-polls'
@@ -381,8 +382,9 @@ export default async function EventDetailPage({
         )}
 
         {event.is_organizer && (
-          <TabsContent value="checkin" className="pt-4">
+          <TabsContent value="checkin" className="pt-4 space-y-6">
             <CheckInScanner eventId={id} />
+            <CheckInList eventId={id} />
           </TabsContent>
         )}
 
