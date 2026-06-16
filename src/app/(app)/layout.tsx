@@ -4,10 +4,20 @@ import { NotificationBell } from '@/features/notificacoes/components/Notificatio
 import { BottomNav } from './components/BottomNav'
 import { PullToRefresh } from '@/components/ui/pull-to-refresh'
 import { getUnreadCount } from '@/features/notificacoes/queries'
+import { createClient } from '@/lib/supabase/server'
+
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean)
 
 async function BellWrapper() {
   const count = await getUnreadCount()
   return <NotificationBell initialCount={count} />
+}
+
+async function NavWrapper() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = ADMIN_EMAILS.includes(user?.email ?? '')
+  return <BottomNav isAdmin={isAdmin} />
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -35,7 +45,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <BottomNav />
+      <Suspense fallback={<BottomNav />}>
+        <NavWrapper />
+      </Suspense>
     </div>
   )
 }

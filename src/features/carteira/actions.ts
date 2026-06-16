@@ -54,19 +54,16 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
 
   if (debitError) return { error: 'Erro ao processar saque.' }
 
-  // Registrar no audit_log
-  await admin.from('audit_logs').insert({
+  // Registrar saque na tabela dedicada (para o painel admin)
+  await admin.from('withdrawals').insert({
     user_id: user.id,
-    action: 'WITHDRAWAL_REQUESTED',
-    table_name: 'wallet_transactions',
-    new_data: {
-      amount_cents,
-      fee_cents,
-      net_cents,
-      cpf_last4: cpf.slice(-4),
-      pix_key,
-      pix_key_type,
-    },
+    amount_cents,
+    fee_cents,
+    net_cents,
+    cpf,
+    pix_key,
+    pix_key_type,
+    status: 'PENDING',
   })
 
   // Notificar admin por e-mail para processar o PIX manualmente
