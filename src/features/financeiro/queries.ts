@@ -33,32 +33,31 @@ export async function getOrganizerFinancials(): Promise<EventFinancial[]> {
   // Para cada evento, buscar totais de pagamentos aprovados
   const results = await Promise.all(
     events.map(async (event) => {
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('amount, platform_fee, gateway_fee')
-        .eq('status', 'APPROVED')
-        .in(
-          'participation_id',
-          supabase
-            .from('participations')
-            .select('id')
-            .eq('event_id', event.id)
-            .eq('status', 'CONFIRMED') as any
-        )
-
-      const { count } = await supabase
+      const { data: partRows } = await supabase
         .from('participations')
-        .select('*', { count: 'exact', head: true })
+        .select('id')
         .eq('event_id', event.id)
         .eq('status', 'CONFIRMED')
 
-      const gross        = payments?.reduce((s, p) => s + (p.amount ?? 0), 0) ?? 0
-      const platformFees = payments?.reduce((s, p) => s + (p.platform_fee ?? 0), 0) ?? 0
-      const gatewayFees  = payments?.reduce((s, p) => s + (p.gateway_fee ?? 0), 0) ?? 0
+      const partIds = (partRows ?? []).map((p) => p.id)
+      const confirmedCount = partIds.length
+
+      let gross = 0, platformFees = 0, gatewayFees = 0
+      if (partIds.length > 0) {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('amount, platform_fee, gateway_fee')
+          .eq('status', 'APPROVED')
+          .in('participation_id', partIds)
+
+        gross        = payments?.reduce((s, p) => s + (p.amount ?? 0), 0) ?? 0
+        platformFees = payments?.reduce((s, p) => s + (p.platform_fee ?? 0), 0) ?? 0
+        gatewayFees  = payments?.reduce((s, p) => s + (p.gateway_fee ?? 0), 0) ?? 0
+      }
 
       return {
         ...event,
-        confirmed_count: count ?? 0,
+        confirmed_count: confirmedCount,
         gross_revenue:   gross,
         platform_fees:   platformFees,
         gateway_fees:    gatewayFees,
@@ -111,24 +110,20 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
     .eq('status', 'CONFIRMED')
     .order('created_at', { ascending: true })
 
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('amount, platform_fee, gateway_fee')
-    .eq('status', 'APPROVED')
-    .in(
-      'participation_id',
-      supabase.from('participations').select('id').eq('event_id', eventId).eq('status', 'CONFIRMED') as any
-    )
+  const partIds = (participations ?? []).map((p: any) => p.id)
 
-  const { count } = await supabase
-    .from('participations')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('status', 'CONFIRMED')
+  let gross = 0, platformFees = 0, gatewayFees = 0
+  if (partIds.length > 0) {
+    const { data: payments } = await supabase
+      .from('payments')
+      .select('amount, platform_fee, gateway_fee')
+      .eq('status', 'APPROVED')
+      .in('participation_id', partIds)
 
-  const gross        = payments?.reduce((s, p) => s + (p.amount ?? 0), 0) ?? 0
-  const platformFees = payments?.reduce((s, p) => s + (p.platform_fee ?? 0), 0) ?? 0
-  const gatewayFees  = payments?.reduce((s, p) => s + (p.gateway_fee ?? 0), 0) ?? 0
+    gross        = payments?.reduce((s, p) => s + (p.amount ?? 0), 0) ?? 0
+    platformFees = payments?.reduce((s, p) => s + (p.platform_fee ?? 0), 0) ?? 0
+    gatewayFees  = payments?.reduce((s, p) => s + (p.gateway_fee ?? 0), 0) ?? 0
+  }
 
   const eventFinancial: EventFinancial = {
     ...event,
