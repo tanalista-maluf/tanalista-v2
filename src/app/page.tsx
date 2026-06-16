@@ -9,11 +9,17 @@ export default function LandingPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex h-16 items-center justify-between">
-          <span className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
-            <span className="text-primary">Tá</span>
-            <span className="text-white/40 font-light">na</span>
-            <span className="text-primary">Lista</span>
-          </span>
+          <Link href="/" className="flex items-center gap-2">
+            <svg width="28" height="28" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+              <rect width="56" height="56" rx="14" fill="#4ADE8018"/>
+              <rect x="16" y="18" width="20" height="2.5" rx="1.25" fill="#4ADE80"/>
+              <rect x="16" y="24.5" width="14" height="2.5" rx="1.25" fill="#4ADE8066"/>
+              <rect x="16" y="31" width="16" height="2.5" rx="1.25" fill="#4ADE8066"/>
+              <circle cx="39" cy="36" r="9" fill="#4ADE80"/>
+              <path d="M34.5 36.2l3 3 5-5.5" stroke="#0D1A14" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="text-[17px] font-extrabold tracking-tight text-primary" style={{ fontFamily: 'var(--font-heading)' }}>TáNaLista</span>
+          </Link>
           <div className="flex items-center gap-3">
             <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }))}>
               Entrar
