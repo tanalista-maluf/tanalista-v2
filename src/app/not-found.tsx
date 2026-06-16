@@ -6,9 +6,9 @@ export default function NotFound() {
       <p className="text-7xl font-extrabold text-primary/20 leading-none select-none" style={{ fontFamily: 'var(--font-heading)' }}>
         404
       </p>
-      <h1 className="text-xl font-bold text-white mt-4">Página não encontrada</h1>
+      <h1 className="text-xl font-bold text-white mt-4">Essa página foi embora antes do evento começar</h1>
       <p className="text-sm text-white/40 mt-2 max-w-xs">
-        O link que você acessou não existe ou foi removido.
+        Cancelou a inscrição e nem avisou. Típico.
       </p>
       <Link
         href="/home"
