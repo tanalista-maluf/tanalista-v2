@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export interface EventFinancial {
   id: string
@@ -89,6 +90,8 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { event: null, participants: [], byMethod: {} }
 
+  const admin = createAdminClient()
+
   const { data: event } = await supabase
     .from('events')
     .select('id, title, starts_at, status, price, capacity, payout_claimed_at')
@@ -98,8 +101,8 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
 
   if (!event) return { event: null, participants: [], byMethod: {} }
 
-  // Participações confirmadas (sem join — queries separadas são mais confiáveis)
-  const { data: partRows } = await supabase
+  // Participações confirmadas
+  const { data: partRows } = await admin
     .from('participations')
     .select('id, user_id, created_at')
     .eq('event_id', eventId)
@@ -109,16 +112,13 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   const partIds = (partRows ?? []).map((p) => p.id)
   const userIds = [...new Set((partRows ?? []).map((p) => p.user_id))]
 
-  // Buscar perfis e pagamentos em paralelo
-  const [profilesResult, paymentsResult, feePaymentsResult] = await Promise.all([
+  // Buscar perfis (admin para bypassar RLS) e pagamentos em paralelo
+  const [profilesResult, paymentsResult] = await Promise.all([
     userIds.length > 0
-      ? supabase.from('profiles').select('id, full_name, email').in('id', userIds)
+      ? admin.from('profiles').select('id, full_name, username').in('id', userIds)
       : Promise.resolve({ data: [] }),
     partIds.length > 0
-      ? supabase.from('payments').select('participation_id, amount, payment_method, status').eq('status', 'APPROVED').in('participation_id', partIds)
-      : Promise.resolve({ data: [] }),
-    partIds.length > 0
-      ? supabase.from('payments').select('amount, platform_fee, gateway_fee').eq('status', 'APPROVED').in('participation_id', partIds)
+      ? admin.from('payments').select('participation_id, amount, platform_fee, gateway_fee, method').eq('status', 'APPROVED').in('participation_id', partIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -129,9 +129,9 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
     (paymentsResult.data ?? []).map((p: any) => [p.participation_id, p])
   )
 
-  const gross        = (feePaymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.amount ?? 0), 0)
-  const platformFees = (feePaymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.platform_fee ?? 0), 0)
-  const gatewayFees  = (feePaymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.gateway_fee ?? 0), 0)
+  const gross        = (paymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.amount ?? 0), 0)
+  const platformFees = (paymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.platform_fee ?? 0), 0)
+  const gatewayFees  = (paymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.gateway_fee ?? 0), 0)
 
   const eventFinancial = {
     ...event,
@@ -148,10 +148,10 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
     return {
       participation_id: p.id,
       user_id: p.user_id,
-      name: profile?.full_name ?? '—',
-      email: profile?.email ?? '—',
+      name: profile?.full_name ?? profile?.username ?? '—',
+      email: profile?.username ?? p.user_id.slice(0, 8),
       joined_at: p.created_at,
-      payment_method: payment?.payment_method ?? null,
+      payment_method: payment?.method ?? null,
       payment_amount: payment?.amount ?? null,
     }
   })
