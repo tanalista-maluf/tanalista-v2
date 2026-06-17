@@ -318,7 +318,7 @@ const perrengues = [
   {
     icon: XCircle,
     title: '"Tô dentro!" — e sumiu',
-    description: 'A pessoa coloca o nome, confirma no zap e no dia do evento simplesmente não aparece. E a conta fica divida entre menos gente.',
+    description: 'A pessoa coloca o nome, confirma no zap e no dia do evento simplesmente não aparece. E a conta fica dividida entre menos gente.',
   },
   {
     icon: Clock,
