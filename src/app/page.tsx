@@ -104,7 +104,7 @@ export default function LandingPage() {
               ))}
             </div>
             {/* Linha 2: 2 cards centralizados */}
-            <div className="hidden sm:grid sm:grid-cols-2 gap-5 sm:w-2/3 sm:mx-auto">
+            <div className="hidden sm:grid sm:grid-cols-2 gap-5 sm:w-2/3 sm:mx-auto mt-5">
               {perrengues.slice(3).map((p) => (
                 <div key={p.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
