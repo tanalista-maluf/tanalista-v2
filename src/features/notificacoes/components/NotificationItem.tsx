@@ -17,6 +17,7 @@ interface Notification {
 }
 
 const TYPE_ICON: Record<string, typeof Bell> = {
+  NEW_EVENT:              Calendar,
   WAITLIST_PROMOTED:      Calendar,
   PARTICIPATION_CONFIRMED: CheckCheck,
   EVENT_CANCELLED:        AlertCircle,

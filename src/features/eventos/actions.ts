@@ -129,6 +129,29 @@ export async function createEventAction(data: EventSchema) {
     await admin.from('events').update({ recurrence_rule: rrule }).eq('id', event.id)
   }
 
+  // Notificar membros do grupo sobre o novo evento
+  const adminClient = createAdminClient()
+  const { data: members } = await adminClient
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', data.group_id)
+    .neq('user_id', user.id)
+
+  if (members && members.length > 0) {
+    const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
+    await Promise.all(
+      members.map((m) =>
+        createNotificationAdmin({
+          userId: m.user_id,
+          type: 'NEW_EVENT',
+          title: 'Novo evento no grupo',
+          body: data.title,
+          data: { event_id: event.id },
+        })
+      )
+    )
+  }
+
   revalidatePath('/eventos')
   redirect(`/eventos/${event.id}`)
 }
