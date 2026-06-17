@@ -9,8 +9,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, AlertCircle, CheckCircle2, Wallet } from 'lucide-react'
+import { Loader2, AlertCircle, CheckCircle2, Wallet, ImagePlus, X } from 'lucide-react'
 import { formatPrice } from '@/utils/format'
+import Image from 'next/image'
+
+async function uploadToCloudinary(file: File): Promise<string> {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!
+  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('upload_preset', preset)
+  fd.append('folder', 'marketplace')
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: fd })
+  if (!res.ok) throw new Error('Erro no upload da imagem')
+  const json = await res.json()
+  return json.secure_url as string
+}
 
 interface Props {
   groupId: string
@@ -23,6 +37,8 @@ const LISTING_COST = 100
 
 export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: Props) {
   const [serverResult, setServerResult] = useState<{ error?: string; insufficientBalance?: boolean; isDraft?: boolean } | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const {
     register,
@@ -46,6 +62,26 @@ export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: 
       'payment_methods',
       current.includes(method) ? current.filter(m => m !== method) : [...current, method]
     )
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const url = await uploadToCloudinary(file)
+      setValue('photo_url', url)
+      setPhotoPreview(url)
+    } catch {
+      setServerResult({ error: 'Erro ao enviar imagem. Tente novamente.' })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function removePhoto() {
+    setValue('photo_url', '')
+    setPhotoPreview(null)
   }
 
   async function onSubmit(data: ListingSchema) {
@@ -205,9 +241,34 @@ export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: 
 
       {/* Foto */}
       <div className="space-y-1.5">
-        <Label htmlFor="photo_url">URL da foto <span className="text-white/40 text-xs">(opcional)</span></Label>
-        <Input id="photo_url" placeholder="https://..." {...register('photo_url')} />
-        {errors.photo_url && <p className="text-xs text-destructive">URL inválida</p>}
+        <Label>Foto <span className="text-white/40 text-xs">(opcional)</span></Label>
+        <input type="hidden" {...register('photo_url')} />
+        {photoPreview ? (
+          <div className="relative rounded-xl overflow-hidden h-44 w-full bg-white/5">
+            <Image src={photoPreview} alt="Preview" fill className="object-cover" />
+            <button
+              type="button"
+              onClick={removePhoto}
+              className="absolute top-2 right-2 size-7 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors"
+            >
+              <X className="size-3.5 text-white" />
+            </button>
+          </div>
+        ) : (
+          <label className={[
+            'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 h-32 cursor-pointer transition-colors hover:border-primary/30 hover:bg-primary/5',
+            uploading ? 'opacity-60 pointer-events-none' : '',
+          ].join(' ')}>
+            {uploading
+              ? <Loader2 className="size-6 text-white/40 animate-spin" />
+              : <ImagePlus className="size-6 text-white/30" />
+            }
+            <span className="text-xs text-white/40">
+              {uploading ? 'Enviando...' : 'Clique para adicionar foto'}
+            </span>
+            <input type="file" accept="image/*" className="sr-only" onChange={handlePhotoChange} disabled={uploading} />
+          </label>
+        )}
       </div>
 
       {/* Contato */}
