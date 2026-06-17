@@ -41,7 +41,7 @@ export async function getUserParticipations(userId: string) {
     .from('participations')
     .select(`
       *,
-      events(id, title, starts_at, city, status, price, cover_url,
+      events(id, slug, title, starts_at, city, status, price, cover_url,
         groups(name),
         participations(status, profiles(full_name, avatar_url)))
     `)

@@ -12,22 +12,23 @@ function centsToPriceString(cents: number): string {
 export default async function EditarEventoPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { id } = await params
-  const event = await getEventById(id, user.id)
+  const { slug } = await params
+  const event = await getEventById(slug, user.id)
   if (!event || !event.is_organizer) notFound()
 
+  const eventSlug = event.slug ?? event.id
   const isLocked = event.status !== 'DRAFT'
 
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href={`/eventos/${id}`} className="text-white/50 hover:text-white">
+        <Link href={`/eventos/${eventSlug}`} className="text-white/50 hover:text-white">
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -36,7 +37,7 @@ export default async function EditarEventoPage({
       </div>
 
       <EventForm
-        eventId={id}
+        eventId={event.id}
         groupId={event.group_id}
         isLocked={isLocked}
         defaultValues={{

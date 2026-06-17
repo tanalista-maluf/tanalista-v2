@@ -7,6 +7,7 @@ import { EventStatusBadge } from './EventStatusBadge'
 interface EventCardProps {
   event: {
     id: string
+    slug?: string | null
     title: string
     city: string
     address: string
@@ -44,7 +45,7 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
   const isDead = ['CANCELLED', 'COMPLETED'].includes(event.status)
 
   return (
-    <Link href={`/eventos/${event.id}`} className="block">
+    <Link href={`/eventos/${event.slug ?? event.id}`} className="block">
       <div className="card-dark rounded-2xl flex items-stretch overflow-hidden">
         {/* Accent bar lateral */}
         <div className={`card-accent-bar ${getAccentColor(event.status, pct)}`} />

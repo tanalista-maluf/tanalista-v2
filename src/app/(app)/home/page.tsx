@@ -95,7 +95,7 @@ export default async function HomePage() {
   if (groupIds.length > 0) {
     const { data: recentParticipations } = await admin
       .from('participations')
-      .select('id, created_at, user_id, status, events(id, title, group_id, groups(name)), profiles(full_name, username, avatar_url)')
+      .select('id, created_at, user_id, status, events(id, slug, title, group_id, groups(name)), profiles(full_name, username, avatar_url)')
       .neq('user_id', user.id)
       .eq('status', 'CONFIRMED')
       .in('event_id',
@@ -113,17 +113,17 @@ export default async function HomePage() {
         username: p.profiles.username ?? '',
         avatarUrl: p.profiles.avatar_url,
         eventTitle: p.events.title,
-        eventId: p.events.id,
+        eventId: p.events.slug ?? p.events.id,
         groupName: p.events.groups?.name ?? '',
         when: formatDistanceToNow(new Date(p.created_at), { addSuffix: true, locale: ptBR }),
       }))
   }
 
-  let suggestedGroups: { id: string; name: string; category: string | null; member_count: number }[] = []
+  let suggestedGroups: { id: string; slug: string | null; name: string; category: string | null; member_count: number }[] = []
   if (upcoming.length === 0 && profile.city) {
     const { data: suggested } = await supabase
       .from('groups')
-      .select('id, name, category, member_count')
+      .select('id, slug, name, category, member_count')
       .eq('city', profile.city)
       .eq('visibility', 'PUBLIC')
       .not('id', 'in', `(${groupIds.length > 0 ? groupIds.join(',') : '00000000-0000-0000-0000-000000000000'})`)
@@ -203,7 +203,7 @@ export default async function HomePage() {
                 <div className="space-y-2">
                   <p className="text-[11px] text-white/25 font-medium">Grupos perto de você em {profile.city}</p>
                   {suggestedGroups.map(g => (
-                    <Link key={g.id} href={`/grupos/${g.id}`} className="flex items-center gap-3 card-dark rounded-2xl p-3.5 hover:bg-white/[0.05] transition-colors">
+                    <Link key={g.id} href={`/grupos/${g.slug ?? g.id}`} className="flex items-center gap-3 card-dark rounded-2xl p-3.5 hover:bg-white/[0.05] transition-colors">
                       <div className="size-10 rounded-xl bg-primary/8 border border-primary/15 flex items-center justify-center text-primary font-extrabold text-[15px] shrink-0">
                         {g.name.charAt(0).toUpperCase()}
                       </div>
@@ -231,7 +231,7 @@ export default async function HomePage() {
                   .map((pp: any) => ({ name: pp.profiles?.full_name ?? '?', avatarUrl: pp.profiles?.avatar_url ?? null }))
 
                 return (
-                  <Link key={p.id} href={`/eventos/${ev.id}`} className="block">
+                  <Link key={p.id} href={`/eventos/${ev.slug ?? ev.id}`} className="block">
                     <div className="card-dark rounded-2xl flex items-stretch overflow-hidden">
                       {/* Accent bar */}
                       <div className={`card-accent-bar ${countdown.urgent ? 'bg-yellow-400' : 'bg-gradient-to-b from-primary to-emerald-500'}`} />

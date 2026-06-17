@@ -9,6 +9,7 @@ import { CheckCircle, Clock, ListPlus } from 'lucide-react'
 interface ParticipantCTAProps {
   event: {
     id: string
+    slug?: string | null
     status: string
     price: number
     user_participation_status: string | null
@@ -38,7 +39,7 @@ export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) 
   if (user_participation_status === 'PENDING') {
     return (
       <Link
-        href={`/eventos/${event.id}/pagamento?participation_id=${user_participation_id}&method=PIX`}
+        href={`/eventos/${event.slug ?? event.id}/pagamento?participation_id=${user_participation_id}&method=PIX`}
         className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 hover:bg-yellow-400/20 transition-colors"
       >
         <Clock className="size-3.5" />
@@ -70,7 +71,7 @@ export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) 
   if (canJoin) {
     return (
       <Link
-        href={`/eventos/${event.id}/inscricao`}
+        href={`/eventos/${event.slug ?? event.id}/inscricao`}
         className={cn(buttonVariants())}
       >
         Inscrever-se
@@ -82,7 +83,7 @@ export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) 
   if (isFull) {
     return (
       <Link
-        href={`/eventos/${event.id}/inscricao?waitlist=1`}
+        href={`/eventos/${event.slug ?? event.id}/inscricao?waitlist=1`}
         className={cn(buttonVariants({ variant: 'outline' }))}
       >
         <ListPlus className="size-4" />

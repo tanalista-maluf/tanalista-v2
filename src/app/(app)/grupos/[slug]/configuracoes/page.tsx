@@ -8,20 +8,22 @@ import { ChevronLeft } from 'lucide-react'
 export default async function GroupSettingsPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { id } = await params
-  const group = await getGroupById(id, user.id)
+  const { slug } = await params
+  const group = await getGroupById(slug, user.id)
   if (!group || !group.is_owner) notFound()
+
+  const groupSlug = group.slug ?? group.id
 
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href={`/grupos/${id}`} className="text-white/50 hover:text-white">
+        <Link href={`/grupos/${groupSlug}`} className="text-white/50 hover:text-white">
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -30,7 +32,7 @@ export default async function GroupSettingsPage({
       </div>
 
       <GroupForm
-        groupId={id}
+        groupId={group.id}
         defaultValues={{
           name: group.name,
           description: group.description ?? '',

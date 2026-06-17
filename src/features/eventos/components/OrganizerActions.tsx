@@ -17,6 +17,7 @@ import { Loader2, X, Pencil, Copy } from 'lucide-react'
 interface OrganizerActionsProps {
   event: {
     id: string
+    slug?: string | null
     status: string
     title?: string
     group_id?: string
@@ -67,7 +68,7 @@ export function OrganizerActions({ event }: OrganizerActionsProps) {
         </Link>
       ) : (
         <Link
-          href={`/eventos/${event.id}/editar`}
+          href={`/eventos/${event.slug ?? event.id}/editar`}
           className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
         >
           <Pencil className="size-3.5" />

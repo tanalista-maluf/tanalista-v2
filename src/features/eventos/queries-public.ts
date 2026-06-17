@@ -1,23 +1,28 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export async function getPublicEvent(id: string) {
+const PUB_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function getPublicEvent(slugOrId: string) {
   const admin = createAdminClient()
 
+  const isUUID = PUB_UUID_RE.test(slugOrId)
   const { data: event, error } = await admin
     .from('events')
     .select(`
-      id, title, description, address, city, category, status,
+      id, slug, title, description, address, city, category, status,
       price, capacity, min_participants, starts_at, ends_at,
       registration_deadline, cover_url, created_at,
       groups(id, name),
       profiles!events_organizer_id_fkey(full_name, username),
       participations(status, profiles(full_name, avatar_url))
     `)
-    .eq('id', id)
+    .eq(isUUID ? 'id' : 'slug', slugOrId)
     .neq('status', 'DRAFT')
-    .single()
+    .maybeSingle()
 
-  if (error || !event) return null
+  if (!event) return null
+
+  if (error) return null
 
   const participations = (event.participations ?? []) as unknown as Array<{ status: string; profiles: { full_name: string; avatar_url?: string | null } | null }>
   const confirmed = participations.filter(p => p.status === 'CONFIRMED')

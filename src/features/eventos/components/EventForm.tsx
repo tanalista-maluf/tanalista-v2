@@ -220,11 +220,11 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
             {(() => {
               const cents = Math.round(parseFloat(String(priceRaw).replace(',', '.')) * 100)
               if (!isNaN(cents) && cents > 0) {
-                const fee = Math.round(cents * 0.05)
+                const fee = Math.round(cents * 0.0599)
                 const net = cents - fee
                 return (
                   <p className="text-[10px] text-white/35 leading-relaxed">
-                    Taxa plataforma (5%): R$ {(fee/100).toFixed(2).replace('.',',')} · Você recebe: <span className="text-primary font-semibold">R$ {(net/100).toFixed(2).replace('.',',')}</span>
+                    Taxa plataforma (5,99%): R$ {(fee/100).toFixed(2).replace('.',',')} · Você recebe: <span className="text-primary font-semibold">R$ {(net/100).toFixed(2).replace('.',',')}</span>
                   </p>
                 )
               }
@@ -314,7 +314,6 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
                       <button
                         key={opt.value}
                         type="button"
-                        disabled={isLocked}
                         onClick={() => field.onChange(opt.value)}
                         className={[
                           'w-full flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors',

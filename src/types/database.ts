@@ -26,6 +26,7 @@ export interface GroupRow {
   id: string
   owner_id: string
   name: string
+  slug: string | null
   description: string | null
   avatar_url: string | null
   visibility: 'PUBLIC' | 'PRIVATE'
@@ -49,6 +50,7 @@ export interface EventRow {
   group_id: string
   organizer_id: string
   title: string
+  slug: string | null
   description: string | null
   cover_url: string | null
   address: string

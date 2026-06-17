@@ -4,35 +4,36 @@ import { getEventById } from '@/features/eventos/queries'
 import { InscricaoForm } from '@/features/participacoes/components/InscricaoForm'
 import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
 import { formatPrice, formatDateTime } from '@/utils/format'
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, MapPin, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
 
 export default async function InscricaoPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
   searchParams: Promise<{ waitlist?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { id } = await params
+  const { slug } = await params
   const sp = await searchParams
   const wantWaitlist = sp.waitlist === '1'
 
-  const event = await getEventById(id, user.id)
+  const event = await getEventById(slug, user.id)
   if (!event) notFound()
 
-  if (event.status !== 'OPEN') redirect(`/eventos/${id}`)
-  if (event.is_organizer && !event.organizer_exempt) redirect(`/eventos/${id}`)
+  const eventSlug = event.slug ?? event.id
+
+  if (event.status !== 'OPEN') redirect(`/eventos/${eventSlug}`)
+  if (event.is_organizer && !event.organizer_exempt) redirect(`/eventos/${eventSlug}`)
 
   // Buscar saldo da carteira e times do evento em paralelo
   const [{ data: profile }, { data: teamsRaw }] = await Promise.all([
     supabase.from('profiles').select('wallet_balance').eq('id', user.id).single(),
-    supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
+    supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', event.id).order('position'),
   ])
 
   const walletBalance = (profile as any)?.wallet_balance ?? 0
@@ -56,7 +57,7 @@ export default async function InscricaoPage({
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-6">
       <div className="flex items-center gap-3">
-        <Link href={`/eventos/${id}`} className="text-white/50 hover:text-white">
+        <Link href={`/eventos/${eventSlug}`} className="text-white/50 hover:text-white">
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -88,7 +89,7 @@ export default async function InscricaoPage({
 
       {/* Formulário de inscrição */}
       <InscricaoForm
-        eventId={id}
+        eventId={event.id}
         eventPrice={event.price}
         walletBalance={walletBalance}
         isOrganizer={event.is_organizer}

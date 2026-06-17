@@ -62,14 +62,17 @@ export async function getGroups(opts: {
   }
 }
 
-export async function getGroupById(id: string, userId?: string) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function getGroupById(slugOrId: string, userId?: string) {
   const supabase = await createClient()
 
+  const isUUID = UUID_RE.test(slugOrId)
   const { data: group, error } = await supabase
     .from('groups')
     .select('*')
-    .eq('id', id)
-    .single()
+    .eq(isUUID ? 'id' : 'slug', slugOrId)
+    .maybeSingle()
 
   if (error || !group) return null
 
@@ -78,7 +81,7 @@ export async function getGroupById(id: string, userId?: string) {
     const { data } = await supabase
       .from('group_members')
       .select('*')
-      .eq('group_id', id)
+      .eq('group_id', group.id)
       .eq('user_id', userId)
       .maybeSingle()
     membership = data

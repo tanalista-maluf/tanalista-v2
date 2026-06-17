@@ -239,7 +239,7 @@ export default async function PublicProfilePage({
               return (
                 <Link
                   key={g.id}
-                  href={`/grupos/${g.id}`}
+                  href={`/grupos/${g.slug ?? g.id}`}
                   className="flex items-center gap-3 card-dark rounded-2xl p-4 hover:bg-white/[0.06] transition-colors"
                 >
                   <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg shrink-0">

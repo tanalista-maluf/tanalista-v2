@@ -11,7 +11,7 @@ interface GroupCardProps {
 
 export function GroupCard({ group, isMember, isOwner }: GroupCardProps) {
   return (
-    <Link href={`/grupos/${group.id}`} className="block">
+    <Link href={`/grupos/${group.slug ?? group.id}`} className="block">
       <div className="card-dark rounded-2xl p-4 hover:border-primary/30 transition-all space-y-3">
         {/* Cabeçalho */}
         <div className="flex items-start gap-3">

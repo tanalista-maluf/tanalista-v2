@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { slugify } from '@/lib/utils'
 import type { EventSchema } from './schemas'
 
 // Preço em string "R$ xx,xx" → centavos
@@ -14,6 +15,23 @@ function parsePriceToCents(price: string): number {
 // Calcula waitlist_capacity: MAX(1, CEIL(capacity * 0.10))
 function calcWaitlistCapacity(capacity: number): number {
   return Math.max(1, Math.ceil(capacity * 0.1))
+}
+
+async function generateUniqueEventSlug(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  title: string,
+  excludeId?: string
+): Promise<string> {
+  const base = slugify(title) || 'evento'
+  let candidate = base
+  let suffix = 2
+  while (true) {
+    let q = supabase.from('events').select('id').eq('slug', candidate)
+    if (excludeId) q = q.neq('id', excludeId)
+    const { data } = await q.maybeSingle()
+    if (!data) return candidate
+    candidate = `${base}${suffix++}`
+  }
 }
 
 export async function createEventAction(data: EventSchema) {
@@ -34,12 +52,15 @@ export async function createEventAction(data: EventSchema) {
   const starts_at = new Date(data.starts_at)
   const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
 
+  const slug = await generateUniqueEventSlug(supabase, data.title)
+
   const { data: event, error } = await supabase
     .from('events')
     .insert({
       group_id: data.group_id,
       organizer_id: user.id,
       title: data.title,
+      slug,
       description: data.description || null,
       address: data.address,
       city: data.city,
@@ -56,7 +77,7 @@ export async function createEventAction(data: EventSchema) {
       visibility: data.visibility ?? 'PUBLIC',
       status: 'OPEN',
     })
-    .select('id')
+    .select('id, slug')
     .single()
 
   if (error || !event) return { error: 'Erro ao criar evento.' }
@@ -153,7 +174,7 @@ export async function createEventAction(data: EventSchema) {
   }
 
   revalidatePath('/eventos')
-  redirect(`/eventos/${event.id}`)
+  redirect(`/eventos/${event.slug ?? event.id}`)
 }
 
 export async function updateEventAction(eventId: string, data: EventSchema) {
@@ -197,13 +218,17 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   if (isCriticalLocked) {
     const { data: current } = await supabase
       .from('events')
-      .select('title, description, address')
+      .select('title, description, address, slug')
       .eq('id', eventId)
       .single()
 
+    const newSlug = current?.title !== data.title
+      ? await generateUniqueEventSlug(supabase, data.title, eventId)
+      : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, eventId))
+
     const { error } = await supabase
       .from('events')
-      .update({ description: data.description || null, address: data.address })
+      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', slug: newSlug })
       .eq('id', eventId)
     if (error) return { error: 'Erro ao atualizar evento.' }
 
@@ -225,14 +250,19 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   // Busca valores anteriores para detectar mudanças relevantes
   const { data: current } = await supabase
     .from('events')
-    .select('title, starts_at, address')
+    .select('title, starts_at, address, slug')
     .eq('id', eventId)
     .single()
+
+  const updatedSlug = current?.title !== data.title
+    ? await generateUniqueEventSlug(supabase, data.title, eventId)
+    : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, eventId))
 
   const { error } = await supabase
     .from('events')
     .update({
       title: data.title,
+      slug: updatedSlug,
       description: data.description || null,
       address: data.address,
       city: data.city,
@@ -246,6 +276,7 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       registration_deadline: data.registration_deadline,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
+      visibility: data.visibility ?? 'PUBLIC',
     })
     .eq('id', eventId)
 

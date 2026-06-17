@@ -12,7 +12,7 @@ export default function GroupInvitePage({ params }: { params: Promise<{ token: s
   const { token } = use(params)
   const router = useRouter()
   const [state, setState] = useState<'loading' | 'success' | 'already' | 'error'>('loading')
-  const [groupId, setGroupId] = useState<string | null>(null)
+  const [groupRef, setGroupRef] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string>('')
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export default function GroupInvitePage({ params }: { params: Promise<{ token: s
         setState('error')
         return
       }
-      setGroupId(res.groupId)
+      setGroupRef((res as any).groupSlug ?? (res as any).groupId ?? null)
       setState(res.alreadyMember ? 'already' : 'success')
     })
   }, [token])
@@ -46,7 +46,7 @@ export default function GroupInvitePage({ params }: { params: Promise<{ token: s
               <p className="text-lg font-bold text-white">Bem-vindo ao grupo!</p>
               <p className="text-sm text-white/50 mt-1">Você entrou com sucesso.</p>
             </div>
-            <Link href={`/grupos/${groupId}`} className={cn(buttonVariants(), 'w-full gap-2')}>
+            <Link href={`/grupos/${groupRef}`} className={cn(buttonVariants(), 'w-full gap-2')}>
               <Users className="size-4" />
               Ver grupo
             </Link>
@@ -62,7 +62,7 @@ export default function GroupInvitePage({ params }: { params: Promise<{ token: s
               <p className="text-lg font-bold text-white">Você já é membro</p>
               <p className="text-sm text-white/50 mt-1">Já faz parte deste grupo.</p>
             </div>
-            <Link href={`/grupos/${groupId}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-full border-white/10')}>
+            <Link href={`/grupos/${groupRef}`} className={cn(buttonVariants({ variant: 'outline' }), 'w-full border-white/10')}>
               Ver grupo
             </Link>
           </>

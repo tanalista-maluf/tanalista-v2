@@ -4,25 +4,24 @@ import { getGroupById } from '@/features/grupos/queries'
 import { getGroupListings, getUserListingsInGroup } from '@/features/marketplace/queries'
 import { ListingCard } from '@/features/marketplace/components/ListingCard'
 import { ListingFormSheet } from '@/features/marketplace/components/ListingFormSheet'
-import { ChevronLeft, ShoppingBag, Plus } from 'lucide-react'
+import { ChevronLeft, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import { buttonVariants } from '@/components/ui/button'
 
-export default async function MarketplacePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: groupId } = await params
+export default async function MarketplacePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const group = await getGroupById(groupId, user.id)
+  const group = await getGroupById(slug, user.id)
   if (!group) notFound()
-  if (!group.is_member) redirect(`/grupos/${groupId}`)
+  const groupSlug = group.slug ?? group.id
+  if (!group.is_member) redirect(`/grupos/${groupSlug}`)
 
   const [listings, myActive, profileData] = await Promise.all([
-    getGroupListings(groupId, user.id),
-    getUserListingsInGroup(groupId, user.id),
+    getGroupListings(group.id, user.id),
+    getUserListingsInGroup(group.id, user.id),
     supabase.from('profiles').select('wallet_balance').eq('id', user.id).single(),
   ])
 
@@ -33,7 +32,7 @@ export default async function MarketplacePage({ params }: { params: Promise<{ id
     <main className="max-w-2xl mx-auto px-4 py-6 space-y-5">
       {/* Nav */}
       <div className="flex items-center gap-3">
-        <Link href={`/grupos/${groupId}`} className="text-white/50 hover:text-white">
+        <Link href={`/grupos/${groupSlug}`} className="text-white/50 hover:text-white">
           <ChevronLeft className="size-5" />
         </Link>
         <div className="flex-1 min-w-0">
@@ -43,7 +42,7 @@ export default async function MarketplacePage({ params }: { params: Promise<{ id
           <p className="text-xs text-white/40 truncate">{group.name}</p>
         </div>
         <ListingFormSheet
-          groupId={groupId}
+          groupId={group.id}
           walletBalance={walletBalance}
           activeCount={activeCount}
         />

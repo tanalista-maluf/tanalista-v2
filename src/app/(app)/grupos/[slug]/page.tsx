@@ -9,22 +9,23 @@ import { MemberList } from '@/features/grupos/components/MemberList'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag } from 'lucide-react'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import type { Metadata } from 'next'
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i
+
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
 }): Promise<Metadata> {
-  const { id } = await params
+  const { slug } = await params
   const supabase = await createClient()
   const { data: group } = await supabase
     .from('groups')
     .select('name, description, city, category, member_count')
-    .eq('id', id)
+    .eq(UUID_RE.test(slug) ? 'id' : 'slug', slug)
     .maybeSingle()
 
   if (!group) return { title: 'Grupo não encontrado' }
@@ -45,20 +46,27 @@ export async function generateMetadata({
 export default async function GroupDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { id } = await params
-  const group = await getGroupById(id, user.id)
+  const { slug } = await params
+  const group = await getGroupById(slug, user.id)
   if (!group) notFound()
 
+  // Canonical slug redirect: if URL uses UUID but group has slug, redirect
+  if (UUID_RE.test(slug) && group.slug && group.slug !== slug) {
+    redirect(`/grupos/${group.slug}`)
+  }
+
+  const groupSlug = group.slug ?? group.id
+
   const [members, upcomingResult, pastResult] = await Promise.all([
-    getGroupMembers(id),
-    getEvents({ userId: user.id, group_id: id, status: ['OPEN', 'CONFIRMED', 'PENDING'] }),
-    getEvents({ userId: user.id, group_id: id, status: ['COMPLETED'], onlyMine: false }),
+    getGroupMembers(group.id),
+    getEvents({ userId: user.id, group_id: group.id, status: ['OPEN', 'CONFIRMED', 'PENDING'] }),
+    getEvents({ userId: user.id, group_id: group.id, status: ['COMPLETED'], onlyMine: false }),
   ])
   const upcomingEvents = upcomingResult.events
   const pastEvents = pastResult.events.slice(0, 5)
@@ -91,7 +99,7 @@ export default async function GroupDetailPage({
         </h1>
         {group.is_owner && (
           <Link
-            href={`/grupos/${id}/configuracoes`}
+            href={`/grupos/${groupSlug}/configuracoes`}
             className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
           >
             <Settings className="size-4" />
@@ -136,11 +144,11 @@ export default async function GroupDetailPage({
 
         {/* Ações */}
         <div className="flex gap-2 pt-1">
-          {!group.is_member && <JoinGroupButton groupId={id} />}
-          {group.is_member && !group.is_owner && <LeaveGroupButton groupId={id} />}
+          {!group.is_member && <JoinGroupButton groupId={group.id} />}
+          {group.is_member && !group.is_owner && <LeaveGroupButton groupId={group.id} />}
           {group.is_owner && (
             <Link
-              href={`/eventos/novo?group_id=${id}`}
+              href={`/eventos/novo?group_id=${group.id}`}
               className={cn(buttonVariants({ size: 'sm' }))}
             >
               <Plus className="size-4" />
@@ -156,7 +164,7 @@ export default async function GroupDetailPage({
               <Link2 className="size-3.5" />
               Link de convite
             </p>
-            <InviteButton groupId={id} inviteToken={(group as any).invite_token} />
+            <InviteButton groupId={group.id} inviteToken={(group as any).invite_token} />
           </div>
         )}
       </div>
@@ -164,7 +172,7 @@ export default async function GroupDetailPage({
       {/* Marketplace */}
       {group.is_member && (
         <Link
-          href={`/grupos/${id}/marketplace`}
+          href={`/grupos/${groupSlug}/marketplace`}
           className="flex items-center justify-between card-dark rounded-2xl px-5 py-4 hover:border-primary/20 border border-white/[0.07] transition-colors"
         >
           <div className="flex items-center gap-3">
@@ -185,7 +193,7 @@ export default async function GroupDetailPage({
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-white">Próximos eventos</h3>
           {group.is_owner && (
-            <Link href={`/eventos/novo?group_id=${id}`} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
+            <Link href={`/eventos/novo?group_id=${group.id}`} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
               <Plus className="size-3.5" />Criar
             </Link>
           )}
@@ -196,7 +204,7 @@ export default async function GroupDetailPage({
             <p className="text-sm text-white/30">Nenhum evento agendado.</p>
             {group.is_owner && (
               <Link
-                href={`/eventos/novo?group_id=${id}`}
+                href={`/eventos/novo?group_id=${group.id}`}
                 className={cn(buttonVariants({ size: 'sm' }), 'mx-auto')}
               >
                 <Plus className="size-3.5" />
@@ -244,7 +252,7 @@ export default async function GroupDetailPage({
         <MemberList
           members={members}
           isOwner={group.is_owner}
-          groupId={id}
+          groupId={group.id}
           currentUserId={user.id}
         />
       </section>

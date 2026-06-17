@@ -71,9 +71,12 @@ export async function getEvents(opts: {
   }
 }
 
-export async function getEventById(id: string, userId?: string) {
+const EVENT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export async function getEventById(slugOrId: string, userId?: string) {
   const supabase = await createClient()
 
+  const isUUID = EVENT_UUID_RE.test(slugOrId)
   const { data: event, error } = await supabase
     .from('events')
     .select(`
@@ -81,10 +84,12 @@ export async function getEventById(id: string, userId?: string) {
       groups(id, name, owner_id),
       profiles!events_organizer_id_fkey(id, full_name, username)
     `)
-    .eq('id', id)
-    .single()
+    .eq(isUUID ? 'id' : 'slug', slugOrId)
+    .maybeSingle()
 
   if (error || !event) return null
+
+  const id = event.id
 
   // Contagem de confirmados
   const { count: confirmed_count } = await supabase

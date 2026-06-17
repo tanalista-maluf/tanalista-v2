@@ -36,18 +36,28 @@ export default async function EventDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>
+  params: Promise<{ slug: string }>
   searchParams: Promise<{ invite?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { id } = await params
+  const { slug } = await params
   const { invite: inviteToken } = await searchParams
 
-  const [event, initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
-    getEventById(id, user.id),
+  // Busca evento por slug ou UUID; extrai UUID para queries subsequentes
+  const event = await getEventById(slug, user.id)
+  if (!event) notFound()
+
+  // Canonical redirect: se veio com UUID e existe slug, redireciona
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i
+  if (UUID_RE.test(slug) && event.slug && event.slug !== slug) redirect(`/eventos/${event.slug}`)
+
+  const id = event.id // UUID para queries
+  const eventSlug = event.slug ?? event.id // slug para URLs
+
+  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
     getEventComments(id),
     getEventPolls(id, user.id),
     getEventRatingSummary(id),
@@ -55,7 +65,6 @@ export default async function EventDetailPage({
     getEventStorageUsage(id),
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
   ])
-  if (!event) notFound()
 
   // Bloquear acesso a eventos restritos sem permissão
   const eventVisibility = (event as any).visibility ?? 'PUBLIC'
@@ -240,7 +249,7 @@ export default async function EventDetailPage({
               city={event.city}
               eventId={id}
             />
-            <ShareEventButton eventId={id} />
+            <ShareEventButton eventId={eventSlug} />
           </div>
         </div>
 

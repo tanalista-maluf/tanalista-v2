@@ -3,12 +3,28 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { slugify } from '@/lib/utils'
 import type { GroupSchema } from './schemas'
+
+async function generateUniqueSlug(supabase: Awaited<ReturnType<typeof createClient>>, name: string, excludeId?: string): Promise<string> {
+  const base = slugify(name) || 'grupo'
+  let candidate = base
+  let suffix = 2
+  while (true) {
+    let q = supabase.from('groups').select('id').eq('slug', candidate)
+    if (excludeId) q = q.neq('id', excludeId)
+    const { data } = await q.maybeSingle()
+    if (!data) return candidate
+    candidate = `${base}${suffix++}`
+  }
+}
 
 export async function createGroupAction(data: GroupSchema) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
+
+  const slug = await generateUniqueSlug(supabase, data.name)
 
   // Cria o grupo
   const { data: group, error: groupError } = await supabase
@@ -16,12 +32,13 @@ export async function createGroupAction(data: GroupSchema) {
     .insert({
       owner_id: user.id,
       name: data.name,
+      slug,
       description: data.description || null,
       visibility: data.visibility,
       category: data.category || null,
       city: data.city,
     })
-    .select('id')
+    .select('id, slug')
     .single()
 
   if (groupError || !group) {
@@ -36,7 +53,7 @@ export async function createGroupAction(data: GroupSchema) {
   })
 
   revalidatePath('/grupos')
-  redirect(`/grupos/${group.id}`)
+  redirect(`/grupos/${group.slug ?? group.id}`)
 }
 
 export async function updateGroupAction(groupId: string, data: GroupSchema) {
@@ -44,10 +61,17 @@ export async function updateGroupAction(groupId: string, data: GroupSchema) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
+  // Check current name to decide if slug needs regeneration
+  const { data: current } = await supabase.from('groups').select('name, slug').eq('id', groupId).single()
+  const slug = current?.name !== data.name
+    ? await generateUniqueSlug(supabase, data.name, groupId)
+    : (current?.slug ?? await generateUniqueSlug(supabase, data.name, groupId))
+
   const { error } = await supabase
     .from('groups')
     .update({
       name: data.name,
+      slug,
       description: data.description || null,
       visibility: data.visibility,
       category: data.category || null,
@@ -58,6 +82,7 @@ export async function updateGroupAction(groupId: string, data: GroupSchema) {
 
   if (error) return { error: 'Erro ao atualizar grupo.' }
 
+  revalidatePath(`/grupos/${slug}`)
   revalidatePath(`/grupos/${groupId}`)
   return { success: true }
 }
@@ -69,11 +94,11 @@ export async function joinGroupByInviteAction(token: string) {
 
   const { data: group } = await supabase
     .from('groups')
-    .select('id, name, visibility')
+    .select('id, name, slug, visibility')
     .eq('invite_token', token)
     .single()
 
-  if (!group) return { error: 'Convite inválido ou expirado.', groupId: null }
+  if (!group) return { error: 'Convite inválido ou expirado.', groupId: null, groupSlug: null }
 
   // Verificar se já é membro
   const { data: existing } = await supabase
@@ -83,7 +108,7 @@ export async function joinGroupByInviteAction(token: string) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (existing) return { groupId: group.id, alreadyMember: true }
+  if (existing) return { groupId: group.id, groupSlug: group.slug, alreadyMember: true }
 
   const { error } = await supabase.from('group_members').insert({
     group_id: group.id,
@@ -91,11 +116,11 @@ export async function joinGroupByInviteAction(token: string) {
     role: 'MEMBER',
   })
 
-  if (error) return { error: 'Erro ao entrar no grupo.', groupId: null }
+  if (error) return { error: 'Erro ao entrar no grupo.', groupId: null, groupSlug: null }
 
-  revalidatePath(`/grupos/${group.id}`)
+  revalidatePath(`/grupos/${group.slug ?? group.id}`)
   revalidatePath('/grupos')
-  return { groupId: group.id, groupName: group.name }
+  return { groupId: group.id, groupSlug: group.slug, groupName: group.name }
 }
 
 export async function regenerateInviteTokenAction(groupId: string) {
