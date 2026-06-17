@@ -53,8 +53,8 @@ export default async function MarketplacePage({ params }: { params: Promise<{ id
       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 flex items-center gap-3">
         <ShoppingBag className="size-4 text-white/30 shrink-0" />
         <p className="text-xs text-white/40 leading-relaxed">
-          Anúncios ficam ativos por <span className="text-white/60">30 dias</span>. Limite de{' '}
-          <span className="text-white/60">5 anúncios ativos</span> por grupo. Custo:{' '}
+          Cada anúncio é de 1 item ou conjunto. Ficam ativos por <span className="text-white/60">30 dias</span>. Limite de{' '}
+          <span className="text-white/60">5 anúncios ativos por membro</span> neste grupo. Custo:{' '}
           <span className="text-white/60">R$ 1,00</span> por anúncio (debitado da carteira).
           {activeCount > 0 && <span className="text-primary"> Você tem {activeCount}/5 ativos.</span>}
         </p>
