@@ -17,7 +17,7 @@ export const listingSchema = z.object({
   description:      z.string().min(10, 'Mínimo 10 caracteres').max(1500),
   type:             z.enum(['SELL', 'RENT', 'BUY', 'LOAN', 'EXCHANGE', 'DONATION', 'SERVICE']),
   price:            z.string().optional().or(z.literal('')),
-  price_negotiable: z.boolean().default(false),
+  price_negotiable: z.boolean(),
   payment_methods:  z.array(z.string()).optional(),
   contact:          z.string().max(200).optional().or(z.literal('')),
   photo_url:        z.string().url().optional().or(z.literal('')),
