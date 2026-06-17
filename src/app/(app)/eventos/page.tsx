@@ -200,7 +200,7 @@ export default async function EventosPage({
         </h1>
         {membership && (
           <Link
-            href={`/eventos/novo?group_id=${membership.group_id}`}
+            href="/eventos/novo"
             className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             <Plus className="size-4" />
@@ -292,7 +292,7 @@ export default async function EventosPage({
                 <p className="text-xs text-white/20">Tente outros termos ou remova os filtros.</p>
               )}
               {isMeus && sub === 'organizando' && membership && (
-                <Link href={`/eventos/novo?group_id=${membership.group_id}`} className={cn(buttonVariants(), 'gap-2')}>
+                <Link href="/eventos/novo" className={cn(buttonVariants(), 'gap-2')}>
                   <Plus className="size-4" />
                   Criar primeiro evento
                 </Link>
