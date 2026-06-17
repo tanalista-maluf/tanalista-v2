@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2 } from 'lucide-react'
+import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag } from 'lucide-react'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import type { Metadata } from 'next'
 
@@ -160,6 +160,25 @@ export default async function GroupDetailPage({
           </div>
         )}
       </div>
+
+      {/* Marketplace */}
+      {group.is_member && (
+        <Link
+          href={`/grupos/${id}/marketplace`}
+          className="flex items-center justify-between card-dark rounded-2xl px-5 py-4 hover:border-primary/20 border border-white/[0.07] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+              <ShoppingBag className="size-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Marketplace</p>
+              <p className="text-xs text-white/40">Compra, venda e troca entre membros</p>
+            </div>
+          </div>
+          <ChevronLeft className="size-4 text-white/30 rotate-180" />
+        </Link>
+      )}
 
       {/* Próximos eventos */}
       <section className="space-y-3">
