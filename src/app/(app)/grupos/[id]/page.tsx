@@ -10,7 +10,8 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar } from 'lucide-react'
+import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2 } from 'lucide-react'
+import { InviteButton } from '@/features/grupos/components/InviteButton'
 import type { Metadata } from 'next'
 
 export async function generateMetadata({
@@ -147,6 +148,17 @@ export default async function GroupDetailPage({
             </Link>
           )}
         </div>
+
+        {/* Link de convite — apenas dono de grupo privado */}
+        {group.is_owner && group.visibility === 'PRIVATE' && (group as any).invite_token && (
+          <div className="pt-2 border-t border-white/[0.06] space-y-2">
+            <p className="text-xs font-semibold text-white/40 flex items-center gap-1.5">
+              <Link2 className="size-3.5" />
+              Link de convite
+            </p>
+            <InviteButton groupId={id} inviteToken={(group as any).invite_token} />
+          </div>
+        )}
       </div>
 
       {/* Próximos eventos */}

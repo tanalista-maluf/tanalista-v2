@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Repeat2, Plus, Trash2, Users } from 'lucide-react'
+import { Loader2, Repeat2, Plus, Trash2, Users, Lock } from 'lucide-react'
 
 const CATEGORIES = [
   'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
@@ -274,6 +274,32 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
               <Label htmlFor="organizer_exempt" className="font-normal cursor-pointer">
                 Organizador isento do pagamento de inscrição
               </Label>
+            </div>
+          )}
+        />
+
+        <Controller
+          name="is_private"
+          control={control}
+          render={({ field }) => (
+            <div
+              className={[
+                'flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-colors',
+                field.value
+                  ? 'border-primary/40 bg-primary/5'
+                  : 'border-white/10 hover:border-white/20',
+              ].join(' ')}
+              onClick={() => !isLocked && field.onChange(!field.value)}
+            >
+              <Lock className={['size-4 mt-0.5 shrink-0', field.value ? 'text-primary' : 'text-white/40'].join(' ')} />
+              <div>
+                <p className={['text-sm font-medium', field.value ? 'text-primary' : 'text-white/70'].join(' ')}>
+                  Evento privado
+                </p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  Visível apenas para membros do grupo. Não aparece na listagem pública.
+                </p>
+              </div>
             </div>
           )}
         />

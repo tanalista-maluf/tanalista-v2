@@ -47,6 +47,8 @@ export async function getEvents(opts: {
   if (opts.date_to) query = query.lte('starts_at', opts.date_to + 'T23:59:59')
   if (opts.group_id) query = query.eq('group_id', opts.group_id)
   if (opts.onlyMine && opts.userId) query = query.eq('organizer_id', opts.userId)
+  // Eventos privados só aparecem quando filtramos por grupo específico (membros já estão no contexto)
+  if (!opts.group_id) query = query.eq('is_private', false)
 
   if (opts.cursor_created_at && opts.cursor_id) {
     query = query.or(

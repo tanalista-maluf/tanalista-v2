@@ -53,6 +53,7 @@ export async function createEventAction(data: EventSchema) {
       registration_deadline: data.registration_deadline,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
+      is_private: data.is_private ?? false,
       status: 'OPEN',
     })
     .select('id')

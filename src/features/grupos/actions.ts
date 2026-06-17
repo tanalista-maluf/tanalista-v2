@@ -62,6 +62,61 @@ export async function updateGroupAction(groupId: string, data: GroupSchema) {
   return { success: true }
 }
 
+export async function joinGroupByInviteAction(token: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.', groupId: null }
+
+  const { data: group } = await supabase
+    .from('groups')
+    .select('id, name, visibility')
+    .eq('invite_token', token)
+    .single()
+
+  if (!group) return { error: 'Convite inválido ou expirado.', groupId: null }
+
+  // Verificar se já é membro
+  const { data: existing } = await supabase
+    .from('group_members')
+    .select('id')
+    .eq('group_id', group.id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existing) return { groupId: group.id, alreadyMember: true }
+
+  const { error } = await supabase.from('group_members').insert({
+    group_id: group.id,
+    user_id: user.id,
+    role: 'MEMBER',
+  })
+
+  if (error) return { error: 'Erro ao entrar no grupo.', groupId: null }
+
+  revalidatePath(`/grupos/${group.id}`)
+  revalidatePath('/grupos')
+  return { groupId: group.id, groupName: group.name }
+}
+
+export async function regenerateInviteTokenAction(groupId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const { data, error } = await supabase
+    .from('groups')
+    .update({ invite_token: crypto.randomUUID() })
+    .eq('id', groupId)
+    .eq('owner_id', user.id)
+    .select('invite_token')
+    .single()
+
+  if (error || !data) return { error: 'Sem permissão.' }
+
+  revalidatePath(`/grupos/${groupId}`)
+  return { token: data.invite_token }
+}
+
 export async function joinGroupAction(groupId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
