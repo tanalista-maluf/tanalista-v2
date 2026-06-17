@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Repeat2, Plus, Trash2, Users, Lock } from 'lucide-react'
+import { Loader2, Repeat2, Plus, Trash2, Users, Globe, UserCheck, Link2 } from 'lucide-react'
 
 const CATEGORIES = [
   'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
@@ -279,29 +279,64 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
         />
 
         <Controller
-          name="is_private"
+          name="visibility"
           control={control}
-          render={({ field }) => (
-            <div
-              className={[
-                'flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-colors',
-                field.value
-                  ? 'border-primary/40 bg-primary/5'
-                  : 'border-white/10 hover:border-white/20',
-              ].join(' ')}
-              onClick={() => !isLocked && field.onChange(!field.value)}
-            >
-              <Lock className={['size-4 mt-0.5 shrink-0', field.value ? 'text-primary' : 'text-white/40'].join(' ')} />
-              <div>
-                <p className={['text-sm font-medium', field.value ? 'text-primary' : 'text-white/70'].join(' ')}>
-                  Evento privado
-                </p>
-                <p className="text-xs text-white/40 mt-0.5">
-                  Visível apenas para membros do grupo. Não aparece na listagem pública.
-                </p>
+          render={({ field }) => {
+            const options = [
+              {
+                value: 'PUBLIC',
+                icon: Globe,
+                label: 'Público',
+                description: 'Visível para todos na listagem de eventos.',
+              },
+              {
+                value: 'GROUP',
+                icon: UserCheck,
+                label: 'Apenas o grupo',
+                description: 'Visível somente para membros do grupo.',
+              },
+              {
+                value: 'INVITE',
+                icon: Link2,
+                label: 'Apenas convidados',
+                description: 'Acesso somente via link de convite.',
+              },
+            ] as const
+            const current = field.value ?? 'PUBLIC'
+            return (
+              <div className="space-y-1.5">
+                <Label>Visibilidade do evento</Label>
+                <div className="space-y-2">
+                  {options.map((opt) => {
+                    const Icon = opt.icon
+                    const active = current === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={isLocked}
+                        onClick={() => field.onChange(opt.value)}
+                        className={[
+                          'w-full flex items-start gap-3 rounded-xl border p-3.5 text-left transition-colors',
+                          active
+                            ? 'border-primary/40 bg-primary/5'
+                            : 'border-white/10 hover:border-white/20',
+                        ].join(' ')}
+                      >
+                        <Icon className={['size-4 mt-0.5 shrink-0', active ? 'text-primary' : 'text-white/35'].join(' ')} />
+                        <div>
+                          <p className={['text-sm font-medium', active ? 'text-primary' : 'text-white/70'].join(' ')}>
+                            {opt.label}
+                          </p>
+                          <p className="text-xs text-white/40 mt-0.5">{opt.description}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          }}
         />
       </section>
 

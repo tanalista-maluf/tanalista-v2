@@ -37,7 +37,7 @@ export const eventSchema = z.object({
   recurrence_count: z.number().int().min(1).max(52).optional(),
   use_teams: z.boolean().optional(),
   teams: z.array(teamSchema).optional(),
-  is_private: z.boolean().optional(),
+  visibility: z.enum(['PUBLIC', 'GROUP', 'INVITE']).optional(),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
   const deadline = new Date(d.registration_deadline)

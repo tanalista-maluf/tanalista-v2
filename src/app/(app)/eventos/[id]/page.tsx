@@ -19,7 +19,10 @@ import { ParticipantQRCode } from '@/features/eventos/components/ParticipantQRCo
 import { EventRating } from '@/features/avaliacoes/components/EventRating'
 import { getEventRatingSummary, getUserRating } from '@/features/avaliacoes/actions'
 import Link from 'next/link'
-import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { buttonVariants } from '@/components/ui/button'
+import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck } from 'lucide-react'
+import { EventInviteButton } from '@/features/eventos/components/EventInviteButton'
 import { ChangeTeamButton } from '@/features/eventos/components/ChangeTeamButton'
 import { EventGallery } from '@/features/galeria/components/EventGallery'
 import { getEventPhotos, getEventStorageUsage } from '@/features/galeria/queries'
@@ -31,14 +34,18 @@ import { Suspense } from 'react'
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ invite?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { id } = await params
+  const { invite: inviteToken } = await searchParams
+
   const [event, initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
     getEventById(id, user.id),
     getEventComments(id),
@@ -49,6 +56,48 @@ export default async function EventDetailPage({
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
   ])
   if (!event) notFound()
+
+  // Bloquear acesso a eventos restritos sem permissão
+  const eventVisibility = (event as any).visibility ?? 'PUBLIC'
+  if (!event.is_organizer && eventVisibility !== 'PUBLIC') {
+    const isMember = event.user_participation_status !== null || event.is_organizer
+    if (eventVisibility === 'GROUP') {
+      // Verificar membership no grupo
+      const { data: membership } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', event.group_id ?? '')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!membership) {
+        return (
+          <main className="flex-1 flex items-center justify-center px-4 py-16">
+            <div className="max-w-sm w-full card-dark rounded-2xl p-8 text-center space-y-4">
+              <UserCheck className="size-10 mx-auto text-white/30" />
+              <p className="text-lg font-bold text-white">Evento restrito</p>
+              <p className="text-sm text-white/40">Este evento é visível apenas para membros do grupo.</p>
+              <Link href="/eventos" className={cn(buttonVariants({ variant: 'outline' }), 'border-white/10')}>Ver eventos</Link>
+            </div>
+          </main>
+        )
+      }
+    }
+    if (eventVisibility === 'INVITE') {
+      const validToken = (event as any).invite_token && inviteToken === (event as any).invite_token
+      if (!validToken && !isMember) {
+        return (
+          <main className="flex-1 flex items-center justify-center px-4 py-16">
+            <div className="max-w-sm w-full card-dark rounded-2xl p-8 text-center space-y-4">
+              <Link2 className="size-10 mx-auto text-white/30" />
+              <p className="text-lg font-bold text-white">Acesso por convite</p>
+              <p className="text-sm text-white/40">Você precisa de um link de convite para acessar este evento.</p>
+              <Link href="/eventos" className={cn(buttonVariants({ variant: 'outline' }), 'border-white/10')}>Ver eventos</Link>
+            </div>
+          </main>
+        )
+      }
+    }
+  }
 
   const spotsLeft = event.capacity - event.confirmed_count
   const isFull = spotsLeft <= 0
@@ -231,6 +280,22 @@ export default async function EventDetailPage({
             Inscrições até{' '}
             <span className="text-white/40">{format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
           </p>
+        )}
+
+        {/* Visibilidade + link de convite (organizer) */}
+        {event.is_organizer && (event as any).visibility && (event as any).visibility !== 'PUBLIC' && (
+          <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-3">
+            <div className="flex items-center gap-2">
+              {(event as any).visibility === 'GROUP' ? (
+                <><UserCheck className="size-3.5 text-white/40" /><span className="text-xs text-white/40">Visível apenas para membros do grupo</span></>
+              ) : (
+                <><Link2 className="size-3.5 text-white/40" /><span className="text-xs text-white/40">Visível apenas para convidados</span></>
+              )}
+            </div>
+            {(event as any).visibility === 'INVITE' && (event as any).invite_token && (
+              <EventInviteButton eventId={id} inviteToken={(event as any).invite_token} />
+            )}
+          </div>
         )}
       </div>
 

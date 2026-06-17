@@ -53,7 +53,7 @@ export async function createEventAction(data: EventSchema) {
       registration_deadline: data.registration_deadline,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
-      is_private: data.is_private ?? false,
+      visibility: data.visibility ?? 'PUBLIC',
       status: 'OPEN',
     })
     .select('id')
@@ -414,4 +414,23 @@ export async function changeWaitlistTeamAction(waitlistId: string, newTeamId: st
 
   revalidatePath(`/eventos/${entry.event_id}`)
   return { success: true }
+}
+
+export async function regenerateEventInviteAction(eventId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.', token: null }
+
+  const { data, error } = await supabase
+    .from('events')
+    .update({ invite_token: crypto.randomUUID() })
+    .eq('id', eventId)
+    .eq('organizer_id', user.id)
+    .select('invite_token')
+    .single()
+
+  if (error || !data) return { error: 'Sem permissão.', token: null }
+
+  revalidatePath(`/eventos/${eventId}`)
+  return { token: data.invite_token as string }
 }
