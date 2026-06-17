@@ -91,8 +91,33 @@ export default function LandingPage() {
               </h2>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {perrengues.map((p) => (
+            {/* Linha 1: 3 cards */}
+            <div className="grid sm:grid-cols-3 gap-5">
+              {perrengues.slice(0, 3).map((p) => (
+                <div key={p.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                    <p.icon className="size-5 text-red-400" />
+                  </div>
+                  <h3 className="font-semibold text-white text-sm">{p.title}</h3>
+                  <p className="text-sm text-white/45 leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+            {/* Linha 2: 2 cards centralizados */}
+            <div className="hidden sm:grid sm:grid-cols-2 gap-5 sm:w-2/3 sm:mx-auto">
+              {perrengues.slice(3).map((p) => (
+                <div key={p.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                    <p.icon className="size-5 text-red-400" />
+                  </div>
+                  <h3 className="font-semibold text-white text-sm">{p.title}</h3>
+                  <p className="text-sm text-white/45 leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+            {/* Mobile: todos em coluna única */}
+            <div className="grid grid-cols-1 gap-5 sm:hidden">
+              {perrengues.slice(3).map((p) => (
                 <div key={p.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
                     <p.icon className="size-5 text-red-400" />
@@ -150,13 +175,13 @@ export default function LandingPage() {
                 Tudo que você precisa
               </h2>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid sm:grid-cols-3 gap-5">
               {features.map((f) => (
-                <div key={f.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-6 space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#4ADE80]/10 border border-[#4ADE80]/15 flex items-center justify-center">
+                <div key={f.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-7 space-y-4">
+                  <div className="w-11 h-11 rounded-xl bg-[#4ADE80]/10 border border-[#4ADE80]/15 flex items-center justify-center">
                     <f.icon className="size-5 text-[#4ADE80]" />
                   </div>
-                  <h3 className="font-semibold text-white text-sm">{f.title}</h3>
+                  <h3 className="font-semibold text-white">{f.title}</h3>
                   <p className="text-sm text-white/45 leading-relaxed">{f.description}</p>
                 </div>
               ))}
@@ -299,11 +324,6 @@ const perrengues = [
     icon: Clock,
     title: 'Cobrança depois do evento',
     description: 'Fica para cobrar depois, vira constrangimento. Alguém paga, alguém não paga, o organizador fica no prejuízo.',
-  },
-  {
-    icon: AlertTriangle,
-    title: 'Exclusão acidental de nome',
-    description: 'A lista no papel some, alguém edita o documento errado ou apaga uma linha sem querer. Quem estava na lista perde a vaga.',
   },
   {
     icon: XCircle,
