@@ -229,6 +229,7 @@ export default async function HomePage() {
                 const confirmedParticipants = (ev.participations ?? [])
                   .filter((pp: any) => pp.status === 'CONFIRMED')
                   .map((pp: any) => ({ name: pp.profiles?.full_name ?? '?', avatarUrl: pp.profiles?.avatar_url ?? null }))
+                const totalConfirmed = ev.confirmed_count ?? confirmedParticipants.length
 
                 return (
                   <Link key={p.id} href={`/eventos/${ev.slug ?? ev.id}`} className="block">
@@ -247,8 +248,8 @@ export default async function HomePage() {
                       <div className="flex-1 min-w-0 px-3.5 py-3">
                         <p className="font-bold text-sm text-white truncate leading-snug">{ev.title}</p>
                         <p className="text-xs text-white/30 truncate mt-0.5">{ev.city}</p>
-                        {confirmedParticipants.length > 0 && (
-                          <AvatarStack participants={confirmedParticipants} total={ev.capacity} />
+                        {totalConfirmed > 0 && (
+                          <AvatarStack participants={confirmedParticipants} total={totalConfirmed} />
                         )}
                       </div>
 

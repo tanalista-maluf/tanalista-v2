@@ -221,8 +221,7 @@ export default async function GroupDetailPage({
           <div className="space-y-2">
             {upcomingEvents.map((event) => {
               const e = event as any
-              const participations = e.participations ?? []
-              const confirmedCount = participations.filter((p: { status: string }) => p.status === 'CONFIRMED').length
+              const confirmedCount = e.confirmed_count ?? 0
               return (
                 <EventCard key={e.id} event={e} confirmedCount={confirmedCount} groupName={group.name} />
               )
@@ -241,8 +240,7 @@ export default async function GroupDetailPage({
           <div className="space-y-2">
             {pastEvents.map((event) => {
               const e = event as any
-              const participations = e.participations ?? []
-              const confirmedCount = participations.filter((p: { status: string }) => p.status === 'CONFIRMED').length
+              const confirmedCount = e.confirmed_count ?? 0
               return (
                 <EventCard key={e.id} event={e} confirmedCount={confirmedCount} groupName={group.name} />
               )

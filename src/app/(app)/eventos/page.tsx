@@ -179,12 +179,10 @@ export default async function EventosPage({
       })
       .map(p => {
         const ev = p.events as ParticipationEvent
-        const allParticipations = (ev.participations ?? []) as { status: string }[]
         return {
           ...ev,
           groups: Array.isArray(ev.groups) ? ev.groups[0] ?? null : ev.groups,
-          participations: allParticipations,
-          confirmedCount: allParticipations.filter(x => x.status === 'CONFIRMED').length,
+          confirmedCount: (ev as any).confirmed_count ?? 0,
           _participationStatus: p.status,
         }
       })
@@ -311,8 +309,7 @@ export default async function EventosPage({
             {list.map((event) => {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const e = event as any
-              const participations = e.participations ?? []
-              const confirmedCount = e.confirmedCount ?? participations.filter((p: { status: string }) => p.status === 'CONFIRMED').length
+              const confirmedCount = e.confirmedCount ?? e.confirmed_count ?? 0
               return (
                 <EventCard
                   key={e.id}

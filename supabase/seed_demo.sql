@@ -22,6 +22,11 @@ ALTER TABLE groups ADD COLUMN IF NOT EXISTS slug text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS slug text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS visibility text NOT NULL DEFAULT 'PUBLIC';
 
+-- Desabilita trigger que tenta criar perfil automaticamente (causaria rollback)
+SET ROLE supabase_auth_admin;
+ALTER TABLE auth.users DISABLE TRIGGER trg_auth_new_user;
+RESET ROLE;
+
 DO $$
 DECLARE
   u01 uuid; u02 uuid; u03 uuid; u04 uuid; u05 uuid;
@@ -357,3 +362,8 @@ BEGIN
 
   RAISE NOTICE 'SEED DEMO concluído: 50 usuários · 12 grupos · 25 eventos · participações · 28 anúncios de marketplace inseridos.';
 END $$;
+
+-- Reabilita o trigger
+SET ROLE supabase_auth_admin;
+ALTER TABLE auth.users ENABLE TRIGGER trg_auth_new_user;
+RESET ROLE;

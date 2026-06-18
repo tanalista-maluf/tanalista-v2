@@ -32,8 +32,7 @@ export async function getEvents(opts: {
     .select(`
       *,
       groups(name),
-      profiles!events_organizer_id_fkey(full_name),
-      participations(status)
+      profiles!events_organizer_id_fkey(full_name)
     `)
     .in('status', opts.status ?? ['OPEN', 'CONFIRMED', 'PENDING'])
     .order('starts_at', { ascending: true })
@@ -91,12 +90,8 @@ export async function getEventById(slugOrId: string, userId?: string) {
 
   const id = event.id
 
-  // Contagem de confirmados
-  const { count: confirmed_count } = await supabase
-    .from('participations')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', id)
-    .eq('status', 'CONFIRMED')
+  // confirmed_count vem da coluna denormalizada (imune a RLS)
+  const confirmed_count = (event as any).confirmed_count ?? 0
 
   // Contagem na fila
   const { count: waitlist_count } = await supabase
@@ -132,7 +127,7 @@ export async function getEventById(slugOrId: string, userId?: string) {
 
   return {
     ...event,
-    confirmed_count: confirmed_count ?? 0,
+    confirmed_count,
     waitlist_count: waitlist_count ?? 0,
     is_organizer: userId ? event.organizer_id === userId : false,
     user_participation_status: user_participation?.status ?? null,
@@ -149,7 +144,7 @@ export async function getOrganizerEvents(organizerId: string) {
 
   const { data, error } = await supabase
     .from('events')
-    .select('*, groups(name), participations(status)')
+    .select('*, groups(name)')
     .eq('organizer_id', organizerId)
     .order('starts_at', { ascending: true })
 

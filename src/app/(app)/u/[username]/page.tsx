@@ -199,8 +199,7 @@ export default async function PublicProfilePage({
           <div className="space-y-2">
             {organizedEvents!.map((event) => {
               const e = event as any
-              const participations = e.participations ?? []
-              const confirmedCount = participations.filter((p: { status: string }) => p.status === 'CONFIRMED').length
+              const confirmedCount = e.confirmed_count ?? 0
               return (
                 <EventCard key={e.id} event={e} confirmedCount={confirmedCount} groupName={e.groups?.name} />
               )
@@ -217,7 +216,7 @@ export default async function PublicProfilePage({
           </h2>
           <div className="space-y-2">
             {attendedEvents.map((event: any) => {
-              const confirmedCount = (event.participations ?? []).filter((p: any) => p.status === 'CONFIRMED').length
+              const confirmedCount = event.confirmed_count ?? 0
               return (
                 <EventCard key={event.id} event={event} confirmedCount={confirmedCount} groupName={event.groups?.name} />
               )
