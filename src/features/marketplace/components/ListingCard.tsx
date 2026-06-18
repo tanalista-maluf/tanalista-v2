@@ -151,26 +151,18 @@ export function ListingCard({ listing, isOwner, walletBalance = 0 }: Props) {
           className="fixed inset-0 z-50 bg-black/95 flex flex-col overflow-y-auto"
           onClick={() => setOpen(false)}
         >
-          {/* Header */}
+          {/* Header — apenas info do anunciante, sem botão fechar */}
           <div
-            className="flex items-center justify-between px-4 py-3 shrink-0 sticky top-0 bg-black/80 backdrop-blur-sm z-10"
+            className="flex items-center gap-3 px-4 pt-5 pb-3 shrink-0"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center gap-2">
-              <UserAvatar name={profile?.full_name ?? '?'} avatarUrl={profile?.avatar_url} size="sm" />
-              <div>
-                <p className="text-xs font-semibold text-white/80">{profile?.full_name ?? 'Membro'}</p>
-                <p className="text-[10px] text-white/30">
-                  {formatDistanceToNow(new Date(listing.created_at), { locale: ptBR, addSuffix: true })}
-                </p>
-              </div>
+            <UserAvatar name={profile?.full_name ?? '?'} avatarUrl={profile?.avatar_url} size="sm" />
+            <div>
+              <p className="text-xs font-semibold text-white/80">{profile?.full_name ?? 'Membro'}</p>
+              <p className="text-[10px] text-white/30">
+                {formatDistanceToNow(new Date(listing.created_at), { locale: ptBR, addSuffix: true })}
+              </p>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="size-8 rounded-xl bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"
-            >
-              <X className="size-4" />
-            </button>
           </div>
 
           {/* Foto em tamanho real */}
@@ -258,6 +250,15 @@ export function ListingCard({ listing, isOwner, walletBalance = 0 }: Props) {
                 {walletBalance < 100 ? 'Saldo insuficiente para publicar' : 'Publicar agora (R$ 1,00)'}
               </button>
             )}
+
+            {/* Botão fechar — posicionado no final do conteúdo, longe da status bar */}
+            <button
+              onClick={() => setOpen(false)}
+              className="w-full mt-2 mb-4 rounded-2xl bg-white/[0.06] border border-white/[0.10] text-white/60 hover:text-white hover:bg-white/[0.10] transition-colors text-sm font-semibold py-4 flex items-center justify-center gap-2"
+            >
+              <X className="size-4" />
+              Fechar
+            </button>
           </div>
         </div>
       )}
