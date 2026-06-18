@@ -23,6 +23,18 @@ export async function getParticipants(eventId: string) {
   return data ?? []
 }
 
+export async function getWaitlist(eventId: string) {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('waitlist_entries')
+    .select('id, position, status, team_id, profiles(id, full_name, username, avatar_url, city)')
+    .eq('event_id', eventId)
+    .in('status', ['WAITING', 'NOTIFIED'])
+    .order('position', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function getUserParticipation(eventId: string, userId: string) {
   const supabase = await createClient()
 
