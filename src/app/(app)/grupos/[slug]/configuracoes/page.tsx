@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { getGroupById } from '@/features/grupos/queries'
 import { GroupForm } from '@/features/grupos/components/GroupForm'
+import { GroupAvatarUpload } from '@/features/grupos/components/GroupAvatarUpload'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 
@@ -29,6 +30,14 @@ export default async function GroupSettingsPage({
         <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
           Configurações do grupo
         </h1>
+      </div>
+
+      <div className="flex justify-center">
+        <GroupAvatarUpload
+          groupId={group.id}
+          groupName={group.name}
+          currentAvatarUrl={group.avatar_url ?? null}
+        />
       </div>
 
       <GroupForm

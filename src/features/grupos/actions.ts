@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { slugify } from '@/lib/utils'
 import type { GroupSchema } from './schemas'
 
@@ -198,6 +199,51 @@ export async function leaveGroupAction(groupId: string) {
   revalidatePath(`/grupos/${groupId}`)
   revalidatePath('/grupos')
   redirect('/grupos')
+}
+
+export async function uploadGroupAvatarAction(formData: FormData): Promise<{ error?: string; avatarUrl?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const groupId = formData.get('groupId') as string | null
+  if (!groupId) return { error: 'Grupo inválido.' }
+
+  // Verifica que o usuário é dono do grupo
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', user.id)
+    .single()
+  if (membership?.role !== 'OWNER') return { error: 'Apenas o dono pode alterar a logo.' }
+
+  const file = formData.get('avatar') as File | null
+  if (!file || file.size === 0) return { error: 'Nenhum arquivo selecionado.' }
+  if (file.size > 2 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 2MB.' }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    return { error: 'Formato inválido. Use JPG, PNG ou WebP.' }
+  }
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+  const path = `groups/${groupId}/avatar.${ext}`
+
+  // Upload usando admin client para contornar RLS do storage
+  const admin = createAdminClient()
+  const { error: uploadError } = await admin.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (uploadError) return { error: 'Erro ao enviar imagem.' }
+
+  const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(path)
+  const avatarUrl = `${publicUrl}?t=${Date.now()}`
+
+  await admin.from('groups').update({ avatar_url: avatarUrl }).eq('id', groupId)
+
+  revalidatePath(`/grupos`)
+  revalidatePath(`/grupos/${groupId}`)
+  return { avatarUrl }
 }
 
 export async function removeMemberAction(groupId: string, memberId: string) {

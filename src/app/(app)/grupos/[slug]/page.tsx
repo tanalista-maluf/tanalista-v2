@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag } from 'lucide-react'
+import Image from 'next/image'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import type { Metadata } from 'next'
 
@@ -110,8 +111,12 @@ export default async function GroupDetailPage({
       {/* Banner do grupo */}
       <div className="card-dark rounded-2xl p-5 space-y-4">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl shrink-0">
-            {group.name.charAt(0).toUpperCase()}
+          <div className="relative w-16 h-16 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-2xl shrink-0 overflow-hidden">
+            {group.avatar_url ? (
+              <Image src={group.avatar_url} alt={group.name} fill className="object-cover" />
+            ) : (
+              group.name.charAt(0).toUpperCase()
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

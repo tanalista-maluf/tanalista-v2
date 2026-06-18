@@ -1,6 +1,6 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { MapPin, Users, Lock } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import type { GroupRow } from '@/types/database'
 
 interface GroupCardProps {
@@ -15,8 +15,12 @@ export function GroupCard({ group, isMember, isOwner }: GroupCardProps) {
       <div className="card-dark rounded-2xl p-4 hover:border-primary/30 transition-all space-y-3">
         {/* Cabeçalho */}
         <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary font-bold text-lg">
-            {group.name.charAt(0).toUpperCase()}
+          <div className="relative w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 text-primary font-bold text-lg overflow-hidden">
+            {group.avatar_url ? (
+              <Image src={group.avatar_url} alt={group.name} fill className="object-cover" />
+            ) : (
+              group.name.charAt(0).toUpperCase()
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
