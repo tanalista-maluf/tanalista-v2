@@ -20,7 +20,7 @@ async function generateUniqueSlug(supabase: Awaited<ReturnType<typeof createClie
   }
 }
 
-export async function createGroupAction(data: GroupSchema) {
+export async function createGroupAction(data: GroupSchema): Promise<{ error?: string; groupId?: string; slug?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
@@ -54,7 +54,7 @@ export async function createGroupAction(data: GroupSchema) {
   })
 
   revalidatePath('/grupos')
-  redirect(`/grupos/${group.slug ?? group.id}`)
+  return { groupId: group.id, slug: group.slug ?? group.id }
 }
 
 export async function updateGroupAction(groupId: string, data: GroupSchema) {
