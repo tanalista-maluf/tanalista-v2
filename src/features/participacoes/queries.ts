@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function getParticipants(eventId: string) {
-  const supabase = await createClient()
+  // Usa admin client para contornar a RLS (participantes de evento público são informação pública)
+  const admin = createAdminClient()
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from('participations')
     .select(`
       id,
