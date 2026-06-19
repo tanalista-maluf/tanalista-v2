@@ -22,7 +22,7 @@ async function NavWrapper() {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-dvh flex flex-col bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-primary/8 bg-background/90 backdrop-blur-xl">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">

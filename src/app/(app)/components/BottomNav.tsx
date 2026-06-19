@@ -20,7 +20,7 @@ export function BottomNav({ isAdmin = false }: { isAdmin?: boolean }) {
     : NAV
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-primary/8 bg-[#080e0b]/97 backdrop-blur-xl safe-area-pb">
+    <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-primary/8 bg-[#080e0b]/97 backdrop-blur-xl" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <div className="max-w-2xl mx-auto px-2 h-16 flex items-center justify-around">
         {nav.map(({ href, icon: Icon, label }) => {
           const active = pathname === href || (href !== '/home' && pathname.startsWith(href))
