@@ -416,6 +416,54 @@ export async function rejectGroupJoinRequest(requestId: string) {
   return { success: true }
 }
 
+export async function transferGroupOwnershipAction(groupId: string, newOwnerUserId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  // Verifica que o usuário atual é OWNER
+  const { data: mine } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (mine?.role !== 'OWNER') return { error: 'Apenas o dono pode transferir a liderança.' }
+
+  // Verifica que o novo dono é membro do grupo
+  const { data: target } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', newOwnerUserId)
+    .maybeSingle()
+  if (!target) return { error: 'O usuário selecionado não é membro do grupo.' }
+
+  const admin = createAdminClient()
+
+  // Transfere: rebaixa o atual para ADMIN, promove o novo para OWNER
+  const [r1, r2] = await Promise.all([
+    admin.from('group_members').update({ role: 'ADMIN' }).eq('group_id', groupId).eq('user_id', user.id),
+    admin.from('group_members').update({ role: 'OWNER' }).eq('group_id', groupId).eq('user_id', newOwnerUserId),
+  ])
+  if (r1.error || r2.error) return { error: 'Erro ao transferir liderança. Tente novamente.' }
+
+  // Notifica o novo dono
+  const { data: group } = await admin.from('groups').select('name, slug').eq('id', groupId).maybeSingle()
+  await admin.from('notifications').insert({
+    user_id: newOwnerUserId,
+    type: 'GROUP_OWNERSHIP_TRANSFERRED',
+    title: 'Você é o novo dono!',
+    body: `A liderança do grupo "${group?.name}" foi transferida para você.`,
+    data: { group_id: groupId, slug: group?.slug },
+    read: false,
+  })
+
+  revalidatePath(`/grupos/${group?.slug ?? groupId}`)
+  revalidatePath(`/grupos/${group?.slug ?? groupId}/configuracoes`)
+  return { }
+}
+
 export async function deleteGroupAction(groupId: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

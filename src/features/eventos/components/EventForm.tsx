@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Repeat2, Plus, Trash2, Users, Globe, UserCheck, Link2 } from 'lucide-react'
+import { Loader2, Repeat2, Plus, Trash2, Users, Globe, UserCheck } from 'lucide-react'
 
 const CATEGORIES = [
   'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
@@ -294,19 +294,13 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
                 value: 'PUBLIC',
                 icon: Globe,
                 label: 'Público',
-                description: 'Visível para todos na listagem de eventos.',
+                description: 'Visível para todos. Qualquer pessoa pode se inscrever.',
               },
               {
-                value: 'GROUP',
+                value: 'PRIVATE',
                 icon: UserCheck,
-                label: 'Apenas o grupo',
-                description: 'Visível somente para membros do grupo.',
-              },
-              {
-                value: 'INVITE',
-                icon: Link2,
-                label: 'Apenas convidados',
-                description: 'Acesso somente via link de convite.',
+                label: 'Privado',
+                description: 'Visível na listagem, mas a inscrição requer autorização do organizador.',
               },
             ] as const
             const current = field.value ?? 'PUBLIC'

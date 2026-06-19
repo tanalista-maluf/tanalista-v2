@@ -240,8 +240,8 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       )
     }
 
-    revalidatePath(`/eventos/${eventId}`)
-    return { success: true }
+    revalidatePath(`/eventos/${newSlug}`)
+    redirect(`/eventos/${newSlug}`)
   }
 
   const starts_at = new Date(data.starts_at)
@@ -305,8 +305,8 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
     }
   }
 
-  revalidatePath(`/eventos/${eventId}`)
-  return { success: true }
+  revalidatePath(`/eventos/${updatedSlug}`)
+  redirect(`/eventos/${updatedSlug}`)
 }
 
 export async function publishEventAction(eventId: string) {

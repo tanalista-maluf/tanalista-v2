@@ -6,6 +6,7 @@ import { GroupForm } from '@/features/grupos/components/GroupForm'
 import { GroupAvatarUpload } from '@/features/grupos/components/GroupAvatarUpload'
 import { GroupJoinRequests } from '@/features/grupos/components/GroupJoinRequests'
 import { DeleteGroupButton } from '@/features/grupos/components/DeleteGroupButton'
+import { TransferOwnershipButton } from '@/features/grupos/components/TransferOwnershipButton'
 import Link from 'next/link'
 import { ChevronLeft, Users } from 'lucide-react'
 
@@ -24,10 +25,18 @@ export default async function GroupSettingsPage({
 
   const groupSlug = group.slug ?? group.id
 
+  // Fetch members for transfer ownership
+  const admin = createAdminClient()
+  const { data: membersRaw } = await admin
+    .from('group_members')
+    .select('user_id, role, profiles(full_name, username, avatar_url)')
+    .eq('group_id', group.id)
+    .order('role')
+  const members = (membersRaw ?? []) as unknown as { user_id: string; role: string; profiles: { full_name: string | null; username: string | null; avatar_url?: string | null } | null }[]
+
   // Fetch pending join requests for private groups
   let joinRequests: { id: string; user_id: string; status: string; created_at: string; profiles: { full_name: string | null; username: string | null } | null }[] = []
   if (group.visibility === 'PRIVATE') {
-    const admin = createAdminClient()
     const { data } = await admin
       .from('group_join_requests')
       .select('id, user_id, status, created_at, profiles(full_name, username)')
@@ -66,6 +75,14 @@ export default async function GroupSettingsPage({
           city: group.city ?? '',
         }}
       />
+
+      {/* Transferir liderança */}
+      {members.filter(m => m.role !== 'OWNER').length > 0 && (
+        <div className="pt-2 border-t border-white/[0.06] space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/20">Liderança</p>
+          <TransferOwnershipButton groupId={group.id} members={members} />
+        </div>
+      )}
 
       {/* Zona de perigo — excluir grupo */}
       <div className="pt-2 border-t border-white/[0.06] space-y-3">
