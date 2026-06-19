@@ -415,3 +415,25 @@ export async function rejectGroupJoinRequest(requestId: string) {
   revalidatePath(`/grupos/${req.group_id}`)
   return { success: true }
 }
+
+export async function deleteGroupAction(groupId: string): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  // Verifica se é dono
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (membership?.role !== 'OWNER') return { error: 'Apenas o criador pode excluir o grupo.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('groups').delete().eq('id', groupId)
+  if (error) return { error: 'Erro ao excluir o grupo. Tente novamente.' }
+
+  redirect('/grupos')
+}

@@ -5,6 +5,7 @@ import { getGroupById } from '@/features/grupos/queries'
 import { GroupForm } from '@/features/grupos/components/GroupForm'
 import { GroupAvatarUpload } from '@/features/grupos/components/GroupAvatarUpload'
 import { GroupJoinRequests } from '@/features/grupos/components/GroupJoinRequests'
+import { DeleteGroupButton } from '@/features/grupos/components/DeleteGroupButton'
 import Link from 'next/link'
 import { ChevronLeft, Users } from 'lucide-react'
 
@@ -65,6 +66,12 @@ export default async function GroupSettingsPage({
           city: group.city ?? '',
         }}
       />
+
+      {/* Zona de perigo — excluir grupo */}
+      <div className="pt-2 border-t border-white/[0.06] space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-widest text-white/20">Zona de perigo</p>
+        <DeleteGroupButton groupId={group.id} groupName={group.name} />
+      </div>
 
       {/* Solicitações de entrada — apenas grupos privados */}
       {group.visibility === 'PRIVATE' && (
