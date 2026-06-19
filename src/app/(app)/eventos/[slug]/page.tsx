@@ -141,7 +141,11 @@ export default async function EventDetailPage({
       .order('created_at', { ascending: true })
     joinRequests = (data ?? []) as any
   }
-  const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED' && !event.is_organizer
+  // Organizador pode participar como inscrito — verifica se já tem participação
+  const organizerParticipationStatus = event.is_organizer ? event.user_participation_status : null
+  const organizerCanJoin = event.is_organizer && isOpen && !isFull && !organizerParticipationStatus
+
+  const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED'
   const isFinished = event.status === 'COMPLETED'
   const canRate = isConfirmedParticipant && isFinished
   const canUploadPhoto = isConfirmedParticipant || event.is_organizer
@@ -288,19 +292,36 @@ export default async function EventDetailPage({
             <p className="text-[10px] font-bold uppercase tracking-[0.07em] text-white/30">por pessoa</p>
             <p className="text-[28px] font-extrabold text-primary tracking-tight leading-none mt-0.5">{formatPrice(event.price)}</p>
           </div>
-          <div>
+          <div className="flex flex-col items-end gap-2">
             {event.is_organizer ? (
-              <OrganizerActions event={{
-                id: event.id,
-                status: event.status,
-                title: event.title,
-                group_id: event.group_id ?? undefined,
-                address: event.address ?? undefined,
-                city: event.city ?? undefined,
-                price: event.price,
-                capacity: event.capacity,
-                min_participants: event.min_participants,
-              }} />
+              <>
+                <OrganizerActions event={{
+                  id: event.id,
+                  status: event.status,
+                  title: event.title,
+                  group_id: event.group_id ?? undefined,
+                  address: event.address ?? undefined,
+                  city: event.city ?? undefined,
+                  price: event.price,
+                  capacity: event.capacity,
+                  min_participants: event.min_participants,
+                }} />
+                {/* Organizador também pode se inscrever como participante */}
+                {organizerCanJoin && (
+                  <Link
+                    href={`/eventos/${eventSlug}/inscricao`}
+                    className="text-xs text-white/40 hover:text-primary transition-colors underline underline-offset-2"
+                  >
+                    Participar também
+                  </Link>
+                )}
+                {organizerParticipationStatus && (
+                  <span className="text-xs text-primary/70 flex items-center gap-1">
+                    <UserCheck className="size-3" />
+                    {organizerParticipationStatus === 'CONFIRMED' ? 'Você está inscrito' : 'Inscrição pendente'}
+                  </span>
+                )}
+              </>
             ) : eventVisibilityField !== 'PUBLIC' && !event.user_participation_status ? (
               <RequestEventJoinButton
                 eventId={id}

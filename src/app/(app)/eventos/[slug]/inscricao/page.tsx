@@ -28,7 +28,8 @@ export default async function InscricaoPage({
   const eventSlug = event.slug ?? event.id
 
   if (event.status !== 'OPEN') redirect(`/eventos/${eventSlug}`)
-  if (event.is_organizer && !event.organizer_exempt) redirect(`/eventos/${eventSlug}`)
+  // Organizador pode se inscrever como participante (ocupa uma vaga)
+  // organizer_exempt controla apenas isenção de pagamento, não bloqueia inscrição
 
   // Buscar saldo da carteira e times do evento em paralelo
   const [{ data: profile }, { data: teamsRaw }] = await Promise.all([
