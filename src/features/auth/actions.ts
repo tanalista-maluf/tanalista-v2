@@ -62,6 +62,27 @@ export async function recoverAction(data: RecoverSchema) {
   return { success: true }
 }
 
+export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login') {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+    },
+  })
+
+  if (error || !data.url) {
+    return { error: 'Não foi possível conectar ao Google. Tente novamente.' }
+  }
+
+  redirect(data.url)
+}
+
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()

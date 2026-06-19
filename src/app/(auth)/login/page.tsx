@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert } from '@/components/ui/alert'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { GoogleAuthButton } from '@/features/auth/components/GoogleAuthButton'
 
 export default function LoginPage() {
   return (
@@ -109,6 +110,14 @@ function LoginForm() {
             {isSubmitting && <Loader2 className="size-4 animate-spin" />}
             Entrar
           </Button>
+
+          <div className="relative flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-white/[0.08]" />
+            <span className="text-xs text-muted-foreground">ou</span>
+            <div className="flex-1 h-px bg-white/[0.08]" />
+          </div>
+
+          <GoogleAuthButton label="Entrar com Google" />
         </form>
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
