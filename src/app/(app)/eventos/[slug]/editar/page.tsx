@@ -54,6 +54,7 @@ export default async function EditarEventoPage({
           registration_deadline: event.registration_deadline.slice(0, 16),
           organizer_exempt: event.organizer_exempt,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
+          cancel_before_hours: (event as any).cancel_before_hours ?? null,
           group_id: event.group_id,
         }}
       />

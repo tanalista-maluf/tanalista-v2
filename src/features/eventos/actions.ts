@@ -75,6 +75,7 @@ export async function createEventAction(data: EventSchema) {
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
+      cancel_before_hours: data.cancel_before_hours ?? null,
       status: 'OPEN',
     })
     .select('id, slug')
@@ -228,7 +229,7 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
 
     const { error } = await supabase
       .from('events')
-      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', slug: newSlug })
+      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', cancel_before_hours: data.cancel_before_hours ?? null, slug: newSlug })
       .eq('id', eventId)
     if (error) return { error: 'Erro ao atualizar evento.' }
 
@@ -277,6 +278,7 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
+      cancel_before_hours: data.cancel_before_hours ?? null,
     })
     .eq('id', eventId)
 

@@ -13,6 +13,7 @@ import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Li
 import Image from 'next/image'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import { RequestGroupJoinButton } from '@/features/grupos/components/RequestGroupJoinButton'
+import { ReportButton } from '@/features/reports/components/ReportButton'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Metadata } from 'next'
 
@@ -264,6 +265,13 @@ export default async function GroupDetailPage({
             </section>
           )}
         </>
+      )}
+
+      {/* Denunciar grupo (não-owner) */}
+      {!group.is_owner && (
+        <div className="flex justify-end">
+          <ReportButton targetType="GROUP" targetId={group.id} />
+        </div>
       )}
 
       {/* Membros — hidden for private non-members */}

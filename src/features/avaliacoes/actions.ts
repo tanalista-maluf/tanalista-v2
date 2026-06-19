@@ -47,6 +47,19 @@ export async function submitRatingAction(
 
   if (error) return { error: error.message }
 
+  // Update denormalized rating columns on event
+  const { data: allRatings } = await admin
+    .from('event_ratings')
+    .select('rating')
+    .eq('event_id', eventId)
+  if (allRatings && allRatings.length > 0) {
+    const avg = allRatings.reduce((s, r) => s + r.rating, 0) / allRatings.length
+    await admin
+      .from('events')
+      .update({ rating_average: Math.round(avg * 10) / 10, rating_count: allRatings.length })
+      .eq('id', eventId)
+  }
+
   revalidatePath(`/eventos/${eventId}`)
   return {}
 }

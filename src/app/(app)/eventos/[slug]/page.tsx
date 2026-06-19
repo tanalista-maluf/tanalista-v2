@@ -30,6 +30,7 @@ import { WaitlistManagement } from '@/features/fila/components/WaitlistManagemen
 import { WaitlistStatus } from '@/features/fila/components/WaitlistStatus'
 import { RequestEventJoinButton } from '@/features/eventos/components/RequestEventJoinButton'
 import { EventJoinRequests } from '@/features/eventos/components/EventJoinRequests'
+import { ReportButton } from '@/features/reports/components/ReportButton'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -346,19 +347,30 @@ export default async function EventDetailPage({
           </p>
         )}
 
+        {/* Política de cancelamento */}
+        {(event as any).cancel_before_hours !== null && (event as any).cancel_before_hours !== undefined && (
+          <p className="text-xs text-white/35 flex items-center gap-1.5 mt-2">
+            <Clock className="size-3.5 shrink-0" />
+            {(event as any).cancel_before_hours === 0
+              ? 'Cancelamento permitido a qualquer momento'
+              : `Cancelamento com reembolso até ${(event as any).cancel_before_hours}h antes do evento`}
+          </p>
+        )}
+
         {/* Visibilidade + link de convite (organizer) */}
         {event.is_organizer && (event as any).visibility && (event as any).visibility !== 'PUBLIC' && (
           <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-3">
             <div className="flex items-center gap-2">
-              {(event as any).visibility === 'GROUP' ? (
-                <><UserCheck className="size-3.5 text-white/40" /><span className="text-xs text-white/40">Visível apenas para membros do grupo</span></>
-              ) : (
-                <><Link2 className="size-3.5 text-white/40" /><span className="text-xs text-white/40">Visível apenas para convidados</span></>
-              )}
+              <UserCheck className="size-3.5 text-white/40" />
+              <span className="text-xs text-white/40">Evento privado · acesso mediante aprovação</span>
             </div>
-            {(event as any).visibility === 'INVITE' && (event as any).invite_token && (
-              <EventInviteButton eventId={id} inviteToken={(event as any).invite_token} />
-            )}
+          </div>
+        )}
+
+        {/* Denunciar (não-organizador) */}
+        {!event.is_organizer && (
+          <div className="mt-3 pt-3 border-t border-white/[0.04]">
+            <ReportButton targetType="EVENT" targetId={id} />
           </div>
         )}
       </div>

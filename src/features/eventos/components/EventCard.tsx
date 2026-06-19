@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { MapPin, Users, Clock, Lock } from 'lucide-react'
+import { MapPin, Users, Lock, Star } from 'lucide-react'
 import { EventStatusBadge } from './EventStatusBadge'
 
 interface EventCardProps {
@@ -17,6 +17,8 @@ interface EventCardProps {
     status: string
     category: string | null
     visibility?: string | null
+    rating_average?: number | null
+    rating_count?: number | null
   }
   confirmedCount?: number
   groupName?: string
@@ -81,6 +83,12 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
               <Users className="size-3.5 shrink-0" />
               {occupancy}/{event.capacity}
             </span>
+            {event.rating_average != null && event.rating_count != null && event.rating_count > 0 && (
+              <span className="flex items-center gap-0.5 text-xs text-yellow-400/80">
+                <Star className="size-3 fill-yellow-400/70 shrink-0" />
+                {event.rating_average.toFixed(1)}
+              </span>
+            )}
           </div>
 
           {event.capacity > 0 && (

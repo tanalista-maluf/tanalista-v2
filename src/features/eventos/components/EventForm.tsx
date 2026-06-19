@@ -338,6 +338,39 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
             )
           }}
         />
+        <Controller
+          name="cancel_before_hours"
+          control={control}
+          render={({ field }) => {
+            const OPTIONS = [
+              { value: null, label: 'Cancelamento não permitido' },
+              { value: 0,    label: 'Sempre permitido' },
+              { value: 24,   label: 'Até 24h antes' },
+              { value: 48,   label: 'Até 48h antes' },
+              { value: 72,   label: 'Até 72h antes' },
+              { value: 168,  label: 'Até 7 dias antes' },
+            ]
+            return (
+              <div className="space-y-1.5">
+                <Label>Política de cancelamento</Label>
+                <select
+                  value={field.value === null || field.value === undefined ? 'null' : String(field.value)}
+                  onChange={e => field.onChange(e.target.value === 'null' ? null : Number(e.target.value))}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm text-white/70 focus:outline-none focus:border-primary/40 transition-colors"
+                >
+                  {OPTIONS.map(o => (
+                    <option key={String(o.value)} value={String(o.value)} className="bg-[#0D1A14]">
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-white/35">
+                  Define até quando o participante pode cancelar e receber reembolso na carteira.
+                </p>
+              </div>
+            )
+          }}
+        />
       </section>
 
       {/* Times — só para Esportes e só ao criar */}

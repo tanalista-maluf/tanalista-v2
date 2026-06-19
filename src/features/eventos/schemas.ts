@@ -38,6 +38,7 @@ export const eventSchema = z.object({
   use_teams: z.boolean().optional(),
   teams: z.array(teamSchema).optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
+  cancel_before_hours: z.number().int().min(0).max(720).nullable().optional(),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
   const deadline = new Date(d.registration_deadline)
