@@ -271,3 +271,147 @@ export async function removeMemberAction(groupId: string, memberId: string) {
   revalidatePath(`/grupos/${groupId}`)
   return { success: true }
 }
+
+export async function requestGroupJoinAction(groupId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('group_join_requests')
+    .upsert({ group_id: groupId, user_id: user.id, status: 'PENDING', updated_at: new Date().toISOString() }, { onConflict: 'group_id,user_id' })
+
+  if (error) return { error: 'Erro ao enviar solicitação.' }
+
+  // Notify group owners
+  const { data: owners } = await admin
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', groupId)
+    .eq('role', 'OWNER')
+
+  const { data: requester } = await admin
+    .from('profiles')
+    .select('full_name, username')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { data: group } = await admin
+    .from('groups')
+    .select('name, slug')
+    .eq('id', groupId)
+    .maybeSingle()
+
+  const requesterName = requester?.full_name ?? requester?.username ?? 'Alguém'
+  const groupName = group?.name ?? 'grupo'
+
+  for (const owner of owners ?? []) {
+    await admin.from('notifications').insert({
+      user_id: owner.user_id,
+      type: 'GROUP_JOIN_REQUEST',
+      title: 'Solicitação de entrada',
+      body: `${requesterName} quer entrar no grupo "${groupName}".`,
+      data: { group_id: groupId, group_slug: group?.slug, requester_id: user.id },
+      read: false,
+    })
+  }
+
+  revalidatePath(`/grupos/${groupId}`)
+  return { success: true }
+}
+
+export async function approveGroupJoinRequest(requestId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { data: req } = await admin
+    .from('group_join_requests')
+    .select('group_id, user_id, status')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  if (!req) return { error: 'Solicitação não encontrada.' }
+
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', req.group_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
+    return { error: 'Sem permissão.' }
+  }
+
+  await admin
+    .from('group_join_requests')
+    .update({ status: 'APPROVED', updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  const { error: memberError } = await admin
+    .from('group_members')
+    .upsert({ group_id: req.group_id, user_id: req.user_id, role: 'MEMBER' }, { onConflict: 'group_id,user_id' })
+
+  if (memberError) return { error: 'Erro ao adicionar membro.' }
+
+  const { data: group } = await admin.from('groups').select('name, slug').eq('id', req.group_id).maybeSingle()
+  await admin.from('notifications').insert({
+    user_id: req.user_id,
+    type: 'GROUP_JOIN_APPROVED',
+    title: 'Solicitação aprovada!',
+    body: `Sua solicitação para entrar em "${group?.name}" foi aprovada.`,
+    data: { group_id: req.group_id, group_slug: group?.slug },
+    read: false,
+  })
+
+  revalidatePath(`/grupos/${req.group_id}`)
+  revalidatePath(`/grupos/${group?.slug ?? req.group_id}/configuracoes`)
+  return { success: true }
+}
+
+export async function rejectGroupJoinRequest(requestId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { data: req } = await admin
+    .from('group_join_requests')
+    .select('group_id, user_id')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  if (!req) return { error: 'Solicitação não encontrada.' }
+
+  const { data: membership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', req.group_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
+    return { error: 'Sem permissão.' }
+  }
+
+  await admin
+    .from('group_join_requests')
+    .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  const { data: group } = await admin.from('groups').select('name').eq('id', req.group_id).maybeSingle()
+  await admin.from('notifications').insert({
+    user_id: req.user_id,
+    type: 'GROUP_JOIN_REJECTED',
+    title: 'Solicitação recusada',
+    body: `Sua solicitação para entrar em "${group?.name}" foi recusada.`,
+    data: { group_id: req.group_id },
+    read: false,
+  })
+
+  revalidatePath(`/grupos/${req.group_id}`)
+  return { success: true }
+}

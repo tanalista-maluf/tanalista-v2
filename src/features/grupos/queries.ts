@@ -23,7 +23,6 @@ export async function getGroups(opts: {
   let query = supabase
     .from('groups')
     .select('*, group_members!inner(user_id, role)')
-    .eq('visibility', 'PUBLIC')
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(PAGE_SIZE + 1)

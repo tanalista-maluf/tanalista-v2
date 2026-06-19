@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { MapPin, Users, Clock } from 'lucide-react'
+import { MapPin, Users, Clock, Lock } from 'lucide-react'
 import { EventStatusBadge } from './EventStatusBadge'
 
 interface EventCardProps {
@@ -16,6 +16,7 @@ interface EventCardProps {
     capacity: number
     status: string
     category: string | null
+    visibility?: string | null
   }
   confirmedCount?: number
   groupName?: string
@@ -60,9 +61,12 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0 px-3.5 py-3">
           <div className="space-y-0.5">
-            <p className={`font-bold text-sm leading-snug line-clamp-2 ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
-              {event.title}
-            </p>
+            <div className={`flex items-start gap-1.5 font-bold text-sm leading-snug ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
+              <span className="line-clamp-2">{event.title}</span>
+              {event.visibility && event.visibility !== 'PUBLIC' && (
+                <Lock className="size-3 shrink-0 text-white/30 mt-0.5" />
+              )}
+            </div>
             {groupName && (
               <p className="text-xs text-white/30 truncate">{groupName}</p>
             )}

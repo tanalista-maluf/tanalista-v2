@@ -28,6 +28,9 @@ import { EventGallery } from '@/features/galeria/components/EventGallery'
 import { getEventPhotos, getEventStorageUsage } from '@/features/galeria/queries'
 import { WaitlistManagement } from '@/features/fila/components/WaitlistManagement'
 import { WaitlistStatus } from '@/features/fila/components/WaitlistStatus'
+import { RequestEventJoinButton } from '@/features/eventos/components/RequestEventJoinButton'
+import { EventJoinRequests } from '@/features/eventos/components/EventJoinRequests'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Suspense } from 'react'
@@ -112,6 +115,32 @@ export default async function EventDetailPage({
   const isFull = spotsLeft <= 0
   const isOpen = event.status === 'OPEN'
   const canJoin = isOpen && !isFull && !event.user_participation_status && !event.is_organizer
+
+  // Join request for non-PUBLIC events
+  const eventVisibilityField = (event as any).visibility ?? 'PUBLIC'
+  const admin = createAdminClient()
+  let existingJoinRequest: { status: string } | null = null
+  if (eventVisibilityField !== 'PUBLIC' && !event.is_organizer && !event.user_participation_status) {
+    const { data: req } = await admin
+      .from('event_join_requests')
+      .select('status')
+      .eq('event_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    existingJoinRequest = req
+  }
+
+  // Join requests list for organizers of non-public events
+  let joinRequests: { id: string; user_id: string; status: string; created_at: string; profiles: { full_name: string | null; username: string | null; avatar_url: string | null } | null }[] = []
+  if (event.is_organizer && eventVisibilityField !== 'PUBLIC') {
+    const { data } = await admin
+      .from('event_join_requests')
+      .select('id, user_id, status, created_at, profiles(full_name, username, avatar_url)')
+      .eq('event_id', id)
+      .eq('status', 'PENDING')
+      .order('created_at', { ascending: true })
+    joinRequests = (data ?? []) as any
+  }
   const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED' && !event.is_organizer
   const isFinished = event.status === 'COMPLETED'
   const canRate = isConfirmedParticipant && isFinished
@@ -272,6 +301,11 @@ export default async function EventDetailPage({
                 capacity: event.capacity,
                 min_participants: event.min_participants,
               }} />
+            ) : eventVisibilityField !== 'PUBLIC' && !event.user_participation_status ? (
+              <RequestEventJoinButton
+                eventId={id}
+                existingStatus={existingJoinRequest?.status as 'PENDING' | 'REJECTED' | null}
+              />
             ) : (
               <ParticipantCTA
                 event={event}
@@ -330,6 +364,11 @@ export default async function EventDetailPage({
           {event.is_organizer && (
             <TabsTrigger value="checkin" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <QrCode className="size-3" />Check-in
+            </TabsTrigger>
+          )}
+          {event.is_organizer && eventVisibilityField !== 'PUBLIC' && (
+            <TabsTrigger value="solicitacoes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <Users className="size-3" />Solicitações{joinRequests.length > 0 ? ` (${joinRequests.length})` : ''}
             </TabsTrigger>
           )}
           {isFinished && (
@@ -459,6 +498,13 @@ export default async function EventDetailPage({
           <TabsContent value="checkin" className="pt-4 space-y-6">
             <CheckInScanner eventId={id} />
             <CheckInList eventId={id} />
+          </TabsContent>
+        )}
+
+        {event.is_organizer && eventVisibilityField !== 'PUBLIC' && (
+          <TabsContent value="solicitacoes" className="pt-4 space-y-3">
+            <p className="text-xs text-white/40">{joinRequests.length} solicitação(ões) pendente(s)</p>
+            <EventJoinRequests requests={joinRequests} eventId={id} />
           </TabsContent>
         )}
 

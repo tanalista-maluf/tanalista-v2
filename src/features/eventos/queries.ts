@@ -46,8 +46,7 @@ export async function getEvents(opts: {
   if (opts.date_to) query = query.lte('starts_at', opts.date_to + 'T23:59:59')
   if (opts.group_id) query = query.eq('group_id', opts.group_id)
   if (opts.onlyMine && opts.userId) query = query.eq('organizer_id', opts.userId)
-  // Sem filtro de grupo: só eventos públicos aparecem na listagem geral
-  if (!opts.group_id) query = query.eq('visibility', 'PUBLIC')
+  // Todos os eventos aparecem na listagem (visibilidade mostrada com cadeado no card)
 
   if (opts.cursor_created_at && opts.cursor_id) {
     query = query.or(

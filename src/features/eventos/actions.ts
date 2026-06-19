@@ -488,3 +488,134 @@ export async function regenerateEventInviteAction(eventId: string) {
   revalidatePath(`/eventos/${eventId}`)
   return { token: data.invite_token as string }
 }
+
+export async function requestEventJoinAction(eventId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('event_join_requests')
+    .upsert({ event_id: eventId, user_id: user.id, status: 'PENDING', updated_at: new Date().toISOString() }, { onConflict: 'event_id,user_id' })
+
+  if (error) return { error: 'Erro ao enviar solicitação.' }
+
+  // Notify organizer
+  const { data: event } = await admin
+    .from('events')
+    .select('organizer_id, title, slug')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  const { data: requester } = await admin
+    .from('profiles')
+    .select('full_name, username')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (event?.organizer_id) {
+    const requesterName = requester?.full_name ?? requester?.username ?? 'Alguém'
+    await admin.from('notifications').insert({
+      user_id: event.organizer_id,
+      type: 'EVENT_JOIN_REQUEST',
+      title: 'Solicitação de participação',
+      body: `${requesterName} quer participar de "${event.title}".`,
+      data: { event_id: eventId, event_slug: event.slug, requester_id: user.id },
+      read: false,
+    })
+  }
+
+  revalidatePath(`/eventos/${eventId}`)
+  return { success: true }
+}
+
+export async function approveEventJoinRequest(requestId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { data: req } = await admin
+    .from('event_join_requests')
+    .select('event_id, user_id')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  if (!req) return { error: 'Solicitação não encontrada.' }
+
+  // Verify caller is organizer
+  const { data: event } = await admin
+    .from('events')
+    .select('organizer_id, title, slug, price')
+    .eq('id', req.event_id)
+    .maybeSingle()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  await admin
+    .from('event_join_requests')
+    .update({ status: 'APPROVED', updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  // Create participation (free events get CONFIRMED; paid events get PENDING_PAYMENT)
+  const participationStatus = event.price === 0 ? 'CONFIRMED' : 'PENDING_PAYMENT'
+  const { error: partError } = await admin
+    .from('participations')
+    .upsert({ event_id: req.event_id, user_id: req.user_id, status: participationStatus }, { onConflict: 'event_id,user_id' })
+
+  if (partError) return { error: 'Erro ao criar participação.' }
+
+  await admin.from('notifications').insert({
+    user_id: req.user_id,
+    type: 'EVENT_JOIN_APPROVED',
+    title: 'Solicitação aprovada!',
+    body: `Sua solicitação para participar de "${event.title}" foi aprovada.`,
+    data: { event_id: req.event_id, event_slug: event.slug },
+    read: false,
+  })
+
+  revalidatePath(`/eventos/${req.event_id}`)
+  revalidatePath(`/eventos/${event.slug ?? req.event_id}`)
+  return { success: true }
+}
+
+export async function rejectEventJoinRequest(requestId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { data: req } = await admin
+    .from('event_join_requests')
+    .select('event_id, user_id')
+    .eq('id', requestId)
+    .maybeSingle()
+
+  if (!req) return { error: 'Solicitação não encontrada.' }
+
+  const { data: event } = await admin
+    .from('events')
+    .select('organizer_id, title')
+    .eq('id', req.event_id)
+    .maybeSingle()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  await admin
+    .from('event_join_requests')
+    .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
+    .eq('id', requestId)
+
+  await admin.from('notifications').insert({
+    user_id: req.user_id,
+    type: 'EVENT_JOIN_REJECTED',
+    title: 'Solicitação recusada',
+    body: `Sua solicitação para participar de "${event.title}" foi recusada.`,
+    data: { event_id: req.event_id },
+    read: false,
+  })
+
+  revalidatePath(`/eventos/${req.event_id}`)
+  return { success: true }
+}
