@@ -10,7 +10,7 @@ export const teamSchema = z.object({
 export type TeamSchema = z.infer<typeof teamSchema>
 
 export const eventSchema = z.object({
-  title: z.string().min(3, 'Mínimo 3 caracteres').max(120),
+  title: z.string().min(3, 'Mínimo 3 caracteres').max(40, 'Máximo 40 caracteres'),
   description: z.string().max(2000).optional().or(z.literal('')),
   address: z.string().min(5, 'Informe o endereço completo').max(300),
   city: z.string().min(2, 'Informe a cidade').max(100),

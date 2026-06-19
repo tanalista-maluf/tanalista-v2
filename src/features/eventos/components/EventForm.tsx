@@ -48,6 +48,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
     },
   })
 
+  const titleValue = useWatch({ control, name: 'title' })
   const recurrence = useWatch({ control, name: 'recurrence' })
   const category = useWatch({ control, name: 'category' })
   const useTeams = useWatch({ control, name: 'use_teams' })
@@ -89,11 +90,17 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
         <h3 className="font-semibold text-sm">Informações básicas</h3>
 
         <div className="space-y-1.5">
-          <Label htmlFor="title">Título *</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="title">Título *</Label>
+            <span className={`text-xs tabular-nums ${(titleValue?.length ?? 0) >= 40 ? 'text-destructive' : 'text-white/30'}`}>
+              {titleValue?.length ?? 0}/40
+            </span>
+          </div>
           <Input
             id="title"
             placeholder="Ex: Churrasco da galera"
             disabled={isLocked}
+            maxLength={40}
             aria-invalid={!!errors.title}
             {...register('title')}
           />
