@@ -5,6 +5,7 @@ import { formatBalance, formatDate } from '@/utils/format'
 import Link from 'next/link'
 import { ArrowLeft, Users, DollarSign, Wallet, CreditCard, QrCode, Gift } from 'lucide-react'
 import { ClaimPayoutButton } from '@/features/financeiro/components/ClaimPayoutButton'
+import { ExportParticipantsButton } from '@/features/financeiro/components/ExportParticipantsButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,9 +113,12 @@ export default async function EventFinanceiroPage({ params }: { params: Promise<
 
       {/* Lista de participantes */}
       <div>
-        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-2">
-          Participantes ({participants.length})
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-semibold text-white/40 uppercase tracking-widest">
+            Participantes ({participants.length})
+          </h2>
+          <ExportParticipantsButton participants={participants} eventTitle={event.title} />
+        </div>
         {participants.length === 0 ? (
           <div className="card-dark rounded-2xl p-8 text-center">
             <Users className="size-8 mx-auto text-white/15 mb-2" />

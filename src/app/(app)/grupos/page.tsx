@@ -19,6 +19,21 @@ interface SearchParams {
   tab?: string
 }
 
+const CATEGORIES = [
+  { label: 'Todos', value: '' },
+  { label: 'Futebol', value: 'Futebol' },
+  { label: 'Basquete', value: 'Basquete' },
+  { label: 'Vôlei', value: 'Vôlei' },
+  { label: 'Airsoft & Paintball', value: 'Airsoft & Paintball' },
+  { label: 'Corrida & Trilha', value: 'Corrida & Trilha' },
+  { label: 'Gastronomia', value: 'Gastronomia' },
+  { label: 'Negócios', value: 'Negócios' },
+  { label: 'Ensino', value: 'Ensino' },
+  { label: 'Música', value: 'Música' },
+  { label: 'Social', value: 'Social' },
+  { label: 'Outros', value: 'Outros' },
+]
+
 export default async function GruposPage({
   searchParams,
 }: {
@@ -77,29 +92,42 @@ export default async function GruposPage({
       </div>
 
       {/* Busca */}
-      <form method="GET" className="flex gap-2">
+      <form method="GET" className="space-y-2">
         <input type="hidden" name="tab" value={tab} />
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/50" />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-white/50" />
+            <Input
+              name="q"
+              defaultValue={params.q}
+              placeholder="Buscar grupos..."
+              className="pl-9"
+            />
+          </div>
           <Input
-            name="q"
-            defaultValue={params.q}
-            placeholder="Buscar grupos..."
-            className="pl-9"
+            name="city"
+            defaultValue={params.city}
+            placeholder="Cidade"
+            className="w-28"
           />
+          <button
+            type="submit"
+            className={cn(buttonVariants({ variant: 'outline', size: 'default' }))}
+          >
+            Buscar
+          </button>
         </div>
-        <Input
-          name="city"
-          defaultValue={params.city}
-          placeholder="Cidade"
-          className="w-36"
-        />
-        <button
-          type="submit"
-          className={cn(buttonVariants({ variant: 'outline', size: 'default' }))}
+        <select
+          name="category"
+          defaultValue={params.category ?? ''}
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm text-white/60 focus:outline-none focus:border-primary/40 transition-colors"
         >
-          Buscar
-        </button>
+          {CATEGORIES.map(({ label, value }) => (
+            <option key={value} value={value} className="bg-[#0d1a14] text-white">
+              {value === '' ? `Categoria: ${label}` : label}
+            </option>
+          ))}
+        </select>
       </form>
 
       {/* Lista */}
