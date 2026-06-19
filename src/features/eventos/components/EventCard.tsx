@@ -59,16 +59,13 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0 px-3.5 py-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className={`font-bold text-sm leading-snug truncate ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
-                {event.title}
-              </p>
-              {groupName && (
-                <p className="text-sm text-white/30 truncate mt-0.5">{groupName}</p>
-              )}
-            </div>
-            <EventStatusBadge status={event.status} />
+          <div className="space-y-0.5">
+            <p className={`font-bold text-sm leading-snug line-clamp-2 ${isDead ? 'text-white/35 line-through' : 'text-white'}`}>
+              {event.title}
+            </p>
+            {groupName && (
+              <p className="text-xs text-white/30 truncate">{groupName}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-3 mt-2">
@@ -99,8 +96,8 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
           )}
         </div>
 
-        {/* Preço */}
-        <div className="flex items-center pr-4 pl-1 shrink-0">
+        {/* Preço + badge */}
+        <div className="flex flex-col items-end justify-center gap-1.5 pr-4 pl-1 shrink-0">
           <span className={`text-sm font-bold px-2.5 py-1 rounded-full border ${
             isDead
               ? 'text-white/25 bg-white/4 border-white/8 line-through'
@@ -110,6 +107,7 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
           }`}>
             {formatPrice(event.price)}
           </span>
+          <EventStatusBadge status={event.status} />
         </div>
       </div>
     </Link>
