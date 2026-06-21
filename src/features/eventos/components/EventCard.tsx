@@ -46,17 +46,25 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
   const isFull = pct >= 1
   const isGratis = event.price === 0
   const isDead = ['CANCELLED', 'COMPLETED'].includes(event.status)
+  const isAlmostFull = !isFull && pct >= 0.8
 
   return (
     <Link href={`/eventos/${event.slug ?? event.id}`} className="block">
-      <div className="card-dark rounded-2xl flex items-stretch overflow-hidden">
+      <div className={`card-dark rounded-2xl flex items-stretch overflow-hidden relative ${isFull && !isDead ? 'opacity-75' : ''}`}>
+        {/* Badge esgotado — overlay no canto superior direito */}
+        {isFull && !isDead && (
+          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-red-500/90 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg shadow-red-900/30">
+            Esgotado
+          </div>
+        )}
+
         {/* Accent bar lateral */}
         <div className={`card-accent-bar ${getAccentColor(event.status, pct)}`} />
 
         {/* Bloco de data */}
         <div className="w-14 min-w-14 flex flex-col items-center justify-center py-4 border-r border-white/[0.06] shrink-0">
-          <span className={`text-2xl font-extrabold leading-none tracking-tight ${isDead ? 'text-white/25' : 'text-primary'}`}>{day}</span>
-          <span className={`text-xs font-semibold capitalize mt-0.5 ${isDead ? 'text-white/20' : 'text-primary/60'}`}>{mon}</span>
+          <span className={`text-2xl font-extrabold leading-none tracking-tight ${isDead ? 'text-white/25' : isFull ? 'text-red-400/70' : 'text-primary'}`}>{day}</span>
+          <span className={`text-xs font-semibold capitalize mt-0.5 ${isDead ? 'text-white/20' : isFull ? 'text-red-400/40' : 'text-primary/60'}`}>{mon}</span>
           <span className="text-xs text-white/25 mt-1">{timeStr}</span>
         </div>
 
@@ -75,12 +83,12 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
           </div>
 
           <div className="flex items-center gap-3 mt-2">
-            <span className="flex items-center gap-1 text-sm text-white/35">
-              <MapPin className="size-3.5 shrink-0" />
+            <span className="flex items-center gap-1 text-xs text-white/35">
+              <MapPin className="size-3 shrink-0" />
               {event.city}
             </span>
-            <span className="flex items-center gap-1 text-sm text-white/35">
-              <Users className="size-3.5 shrink-0" />
+            <span className="flex items-center gap-1 text-xs text-white/35">
+              <Users className="size-3 shrink-0" />
               {occupancy}/{event.capacity}
             </span>
             {event.rating_average != null && event.rating_count != null && event.rating_count > 0 && (
@@ -101,24 +109,28 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
                   style={{ width: `${Math.min(100, pct * 100)}%` }}
                 />
               </div>
-              <span className={`text-xs font-semibold shrink-0 ${isFull ? 'text-red-400' : 'text-white/30'}`}>
-                {isFull ? 'Lotado' : `${event.capacity - occupancy} vagas`}
-              </span>
+              {isAlmostFull && (
+                <span className="text-[10px] font-semibold shrink-0 text-yellow-400/80">
+                  Últimas {event.capacity - occupancy}
+                </span>
+              )}
             </div>
           )}
         </div>
 
         {/* Preço + badge */}
-        <div className="flex flex-col items-end justify-center gap-1.5 pr-4 pl-1 shrink-0">
-          <span className={`text-sm font-bold px-2.5 py-1 rounded-full border ${
-            isDead
-              ? 'text-white/25 bg-white/4 border-white/8 line-through'
-              : isGratis
-              ? 'text-yellow-400 bg-yellow-400/8 border-yellow-400/18'
-              : 'text-primary bg-primary/8 border-primary/18'
-          }`}>
-            {formatPrice(event.price)}
-          </span>
+        <div className={`flex flex-col items-end justify-center gap-1.5 pr-4 pl-1 shrink-0 ${isFull && !isDead ? 'pr-4 pt-5' : ''}`}>
+          {!isFull && (
+            <span className={`text-sm font-bold px-2.5 py-1 rounded-full border ${
+              isDead
+                ? 'text-white/25 bg-white/4 border-white/8 line-through'
+                : isGratis
+                ? 'text-yellow-400 bg-yellow-400/8 border-yellow-400/18'
+                : 'text-primary bg-primary/8 border-primary/18'
+            }`}>
+              {formatPrice(event.price)}
+            </span>
+          )}
           <EventStatusBadge status={event.status} />
         </div>
       </div>

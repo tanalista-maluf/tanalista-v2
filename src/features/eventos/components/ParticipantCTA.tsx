@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Clock, ListPlus } from 'lucide-react'
+import { CheckCircle, Clock, ListPlus, Loader2 } from 'lucide-react'
 
 interface ParticipantCTAProps {
   event: {
@@ -24,6 +25,12 @@ interface ParticipantCTAProps {
 
 export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) {
   const { user_participation_status, user_participation_id, waitlist_position } = event
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+
+  function navigate(href: string) {
+    startTransition(() => { router.push(href) })
+  }
 
   // Já confirmado
   if (user_participation_status === 'CONFIRMED') {
@@ -70,25 +77,26 @@ export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) 
   // Pode se inscrever
   if (canJoin) {
     return (
-      <Link
-        href={`/eventos/${event.slug ?? event.id}/inscricao`}
-        className={cn(buttonVariants())}
+      <button
+        onClick={() => navigate(`/eventos/${event.slug ?? event.id}/inscricao`)}
+        disabled={isPending}
+        className={cn(buttonVariants(), 'min-w-[110px]')}
       >
-        Inscrever-se
-      </Link>
+        {isPending ? <Loader2 className="size-4 animate-spin" /> : 'Inscrever-se'}
+      </button>
     )
   }
 
   // Evento cheio — fila sempre disponível
   if (isFull) {
     return (
-      <Link
-        href={`/eventos/${event.slug ?? event.id}/inscricao?waitlist=1`}
-        className={cn(buttonVariants({ variant: 'outline' }))}
+      <button
+        onClick={() => navigate(`/eventos/${event.slug ?? event.id}/inscricao?waitlist=1`)}
+        disabled={isPending}
+        className={cn(buttonVariants({ variant: 'outline' }), 'min-w-[110px]')}
       >
-        <ListPlus className="size-4" />
-        Entrar na fila
-      </Link>
+        {isPending ? <Loader2 className="size-4 animate-spin" /> : <><ListPlus className="size-4" />Entrar na fila</>}
+      </button>
     )
   }
 

@@ -170,10 +170,14 @@ export function EventMural({ eventId, currentUserId, isOrganizer, initialComment
       {/* Feed unificado */}
       <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
         {feed.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-10 text-center">
-            <MessageSquare className="size-8 text-white/15" />
-            <p className="text-sm text-white/30">Nenhuma mensagem ainda.</p>
-            <p className="text-xs text-white/20">Seja o primeiro a comentar!</p>
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <div className="size-14 rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center">
+              <MessageSquare className="size-6 text-white/20" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white/40">Mural vazio por enquanto</p>
+              <p className="text-xs text-white/20 max-w-[200px] leading-relaxed">Compartilhe algo com os participantes — uma dica, atualização ou pergunta.</p>
+            </div>
           </div>
         ) : (
           feed.map(item => {

@@ -196,10 +196,26 @@ export default async function EventDetailPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const organizer = (event as any)['profiles']
 
+  const coverUrl: string | null = (event as any).cover_url ?? null
+
   return (
     <main className="flex-1 max-w-2xl mx-auto w-full">
-      {/* Hero com gradiente */}
-      <div className="relative px-4 pt-4 pb-5" style={{ background: 'radial-gradient(ellipse 120% 100% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 65%)' }}>
+      {/* Hero — com capa como background quando disponível */}
+      <div
+        className="relative px-4 pt-4 pb-5"
+        style={coverUrl && !event.is_organizer
+          ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center top' }
+          : { background: 'radial-gradient(ellipse 120% 100% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 65%)' }
+        }
+      >
+        {/* Gradient overlay quando há capa */}
+        {coverUrl && !event.is_organizer && (
+          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-[#0D1A14]" />
+        )}
+
+        {/* Todo o conteúdo do hero fica acima do overlay */}
+        <div className="relative z-10">
+
         {/* Nav */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -229,16 +245,12 @@ export default async function EventDetailPage({
           {event.title}
         </h1>
 
-        {/* Foto de capa — organizador pode adicionar/alterar */}
-        {event.is_organizer ? (
+        {/* Upload de capa — apenas para organizador (participantes veem via background) */}
+        {event.is_organizer && (
           <div className="mt-3">
-            <EventCoverUpload eventId={id} currentCoverUrl={(event as any).cover_url ?? null} />
+            <EventCoverUpload eventId={id} currentCoverUrl={coverUrl} />
           </div>
-        ) : (event as any).cover_url ? (
-          <div className="mt-3 rounded-2xl overflow-hidden h-44 relative">
-            <img src={(event as any).cover_url} alt="Capa do evento" className="w-full h-full object-cover" />
-          </div>
-        ) : null}
+        )}
 
         {/* Meta strip */}
         <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.02]">
@@ -388,6 +400,8 @@ export default async function EventDetailPage({
             <ReportButton targetType="EVENT" targetId={id} />
           </div>
         )}
+
+        </div>{/* fim z-10 */}
       </div>
 
       {/* Checklist de publicação — organizador */}
@@ -488,6 +502,17 @@ export default async function EventDetailPage({
         <TabsContent value="detalhes" className="space-y-4 pt-3">
           {event.description ? (
             <p className="text-[13px] text-white/60 whitespace-pre-wrap leading-relaxed">{event.description}</p>
+          ) : event.is_organizer ? (
+            <Link
+              href={`/eventos/${eventSlug}/editar`}
+              className="flex items-center gap-3 rounded-2xl border border-dashed border-white/10 p-4 text-white/30 hover:border-primary/30 hover:text-primary/60 transition-colors"
+            >
+              <span className="text-2xl">✏️</span>
+              <div>
+                <p className="text-sm font-medium">Adicione uma descrição</p>
+                <p className="text-xs text-white/20 mt-0.5">Ajude os participantes a entenderem o evento</p>
+              </div>
+            </Link>
           ) : (
             <p className="text-[13px] text-white/25 italic">Sem descrição adicional.</p>
           )}

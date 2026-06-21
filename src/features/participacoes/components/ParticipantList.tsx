@@ -5,6 +5,48 @@ import { RemoveParticipantButton } from './RemoveParticipantButton'
 import { ExportParticipantsButton } from './ExportParticipantsButton'
 import { Users, Clock } from 'lucide-react'
 
+function AvatarStack({ participants }: { participants: any[] }) {
+  const confirmed = participants.filter(p => p.status === 'CONFIRMED')
+  const show = confirmed.slice(0, 6)
+  const extra = confirmed.length - show.length
+
+  if (confirmed.length === 0) return null
+
+  return (
+    <div className="flex items-center gap-3 py-3 px-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+      <div className="flex -space-x-2.5">
+        {show.map((p, i) => {
+          const profile = p.profiles
+          return (
+            <div key={p.id} className="ring-2 ring-[#0D1A14] rounded-full" style={{ zIndex: show.length - i }}>
+              <UserAvatar
+                name={profile?.full_name ?? profile?.username ?? '?'}
+                avatarUrl={profile?.avatar_url}
+                size="xs"
+              />
+            </div>
+          )
+        })}
+        {extra > 0 && (
+          <div className="size-6 rounded-full ring-2 ring-[#0D1A14] bg-white/10 flex items-center justify-center" style={{ zIndex: 0 }}>
+            <span className="text-[9px] font-bold text-white/60">+{extra}</span>
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="text-xs font-semibold text-white/70">
+          {confirmed.length} confirmado{confirmed.length !== 1 ? 's' : ''}
+        </p>
+        {participants.filter(p => p.status === 'PENDING').length > 0 && (
+          <p className="text-[10px] text-white/30 mt-0.5">
+            +{participants.filter(p => p.status === 'PENDING').length} aguardando pagamento
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   CONFIRMED: { label: 'Confirmado', cls: 'text-primary bg-primary/10 border-primary/25' },
   PENDING:   { label: 'Aguardando pagamento', cls: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
@@ -174,6 +216,7 @@ export async function ParticipantList({ eventId, isOrganizer = false }: Particip
 
     return (
       <div className="space-y-4">
+        <AvatarStack participants={participants} />
         <div className="flex items-center justify-between">
           <p className="text-xs text-white/40">{participants.length} inscrito{participants.length !== 1 ? 's' : ''}</p>
           {isOrganizer && <ExportParticipantsButton participants={participants as any[]} />}
@@ -229,6 +272,7 @@ export async function ParticipantList({ eventId, isOrganizer = false }: Particip
   // Sem times: lista normal + fila abaixo
   return (
     <div className="space-y-3">
+      <AvatarStack participants={participants} />
       <div className="flex items-center justify-between">
         <p className="text-xs text-white/40">{participants.length} inscrito{participants.length !== 1 ? 's' : ''}</p>
         {isOrganizer && <ExportParticipantsButton participants={participants as any[]} />}
