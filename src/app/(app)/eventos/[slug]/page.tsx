@@ -33,6 +33,8 @@ import { EventJoinRequests } from '@/features/eventos/components/EventJoinReques
 import { ReportButton } from '@/features/reports/components/ReportButton'
 import { CancelParticipationButton } from '@/features/participacoes/components/CancelParticipationButton'
 import { OrganizerChecklist } from '@/features/eventos/components/OrganizerChecklist'
+import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload'
+import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -226,6 +228,17 @@ export default async function EventDetailPage({
         <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-white" style={{ fontFamily: 'var(--font-heading)' }}>
           {event.title}
         </h1>
+
+        {/* Foto de capa — organizador pode adicionar/alterar */}
+        {event.is_organizer ? (
+          <div className="mt-3">
+            <EventCoverUpload eventId={id} currentCoverUrl={(event as any).cover_url ?? null} />
+          </div>
+        ) : (event as any).cover_url ? (
+          <div className="mt-3 rounded-2xl overflow-hidden h-44 relative">
+            <img src={(event as any).cover_url} alt="Capa do evento" className="w-full h-full object-cover" />
+          </div>
+        ) : null}
 
         {/* Meta strip */}
         <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.02]">
@@ -514,8 +527,19 @@ export default async function EventDetailPage({
           )}
         </TabsContent>
 
-        <TabsContent value="regras" className="pt-4">
+        <TabsContent value="regras" className="pt-4 space-y-6">
           <EventRules event={event} />
+          {/* Regras e diretrizes personalizadas */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-[0.08em] text-white/30">Regras e diretrizes</p>
+            {event.is_organizer ? (
+              <EventRulesEditor eventId={id} initialRules={(event as any).custom_rules ?? null} />
+            ) : (event as any).custom_rules ? (
+              <p className="text-sm text-white/70 whitespace-pre-wrap leading-relaxed">{(event as any).custom_rules}</p>
+            ) : (
+              <p className="text-sm text-white/25 italic">Nenhuma regra definida pelo organizador.</p>
+            )}
+          </div>
         </TabsContent>
 
         {isConfirmedParticipant && (

@@ -621,3 +621,71 @@ export async function rejectEventJoinRequest(requestId: string) {
   revalidatePath(`/eventos/${req.event_id}`)
   return { success: true }
 }
+
+export async function updateEventRulesAction(eventId: string, customRules: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('organizer_id, slug')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('events')
+    .update({ custom_rules: customRules.trim() || null })
+    .eq('id', eventId)
+
+  if (error) return { error: 'Erro ao salvar regras.' }
+
+  revalidatePath(`/eventos/${event.slug ?? eventId}`)
+  return { success: true }
+}
+
+export async function uploadEventCoverAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const eventId = formData.get('eventId') as string
+  const file = formData.get('cover') as File | null
+
+  if (!file || file.size === 0) return { error: 'Nenhum arquivo enviado.' }
+  if (file.size > 5 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 5 MB.' }
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('organizer_id, slug')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `event-covers/${eventId}/cover.${ext}`
+
+  const admin = createAdminClient()
+  const { error: upError } = await admin.storage
+    .from('uploads')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (upError) return { error: 'Erro ao fazer upload.' }
+
+  const { data: urlData } = admin.storage.from('uploads').getPublicUrl(path)
+  const coverUrl = `${urlData.publicUrl}?t=${Date.now()}`
+
+  const { error: dbError } = await admin
+    .from('events')
+    .update({ cover_url: coverUrl })
+    .eq('id', eventId)
+
+  if (dbError) return { error: 'Erro ao salvar URL da capa.' }
+
+  revalidatePath(`/eventos/${event.slug ?? eventId}`)
+  return { success: true, coverUrl }
+}
