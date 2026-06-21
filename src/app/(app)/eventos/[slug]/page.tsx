@@ -31,6 +31,8 @@ import { WaitlistStatus } from '@/features/fila/components/WaitlistStatus'
 import { RequestEventJoinButton } from '@/features/eventos/components/RequestEventJoinButton'
 import { EventJoinRequests } from '@/features/eventos/components/EventJoinRequests'
 import { ReportButton } from '@/features/reports/components/ReportButton'
+import { CancelParticipationButton } from '@/features/participacoes/components/CancelParticipationButton'
+import { OrganizerChecklist } from '@/features/eventos/components/OrganizerChecklist'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -375,6 +377,25 @@ export default async function EventDetailPage({
         )}
       </div>
 
+      {/* Checklist de publicação — organizador */}
+      {event.is_organizer && (
+        <div className="mx-4">
+          <OrganizerChecklist event={{
+            id: event.id,
+            slug: event.slug,
+            status: event.status,
+            description: event.description,
+            cover_url: (event as any).cover_url,
+            ends_at: (event as any).ends_at,
+            cancel_before_hours: (event as any).cancel_before_hours,
+            confirmed_count: event.confirmed_count,
+            min_participants: event.min_participants,
+            capacity: event.capacity,
+            visibility: (event as any).visibility,
+          }} />
+        </div>
+      )}
+
       {/* Banner de avaliação pós-evento */}
       {canRate && !userRating && (
         <div className="mx-4 mb-2 rounded-2xl border border-yellow-400/25 bg-yellow-400/8 px-4 py-3 flex items-center gap-3">
@@ -524,6 +545,17 @@ export default async function EventDetailPage({
               eventTitle={event.title}
               checkedInAt={(event as any).user_checked_in_at}
             />
+            {/* Cancelar inscrição — só quando política permite */}
+            {isOpen && (event as any).cancel_before_hours !== null && (event as any).cancel_before_hours !== undefined && (
+              <div className="flex justify-center pt-2">
+                <CancelParticipationButton
+                  participationId={event.user_participation_id!}
+                  eventId={id}
+                  eventPrice={event.price}
+                  cancelBeforeHours={(event as any).cancel_before_hours}
+                />
+              </div>
+            )}
           </TabsContent>
         )}
 

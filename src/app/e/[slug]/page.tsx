@@ -23,10 +23,11 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: 'Cancelado',
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params
-  const event = await getPublicEvent(id)
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const event = await getPublicEvent(slug)
   if (!event) return { title: 'Evento não encontrado' }
+  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${event.slug ?? event.id}`
   return {
     title: `${event.title} — TáNaLista`,
     description: event.description ?? `${event.city} · ${formatDateTime(event.starts_at)}`,
@@ -34,22 +35,33 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       title: event.title,
       description: event.description ?? `Evento em ${event.city}`,
       images: event.cover_url ? [event.cover_url] : [],
+      url,
+      type: 'website',
     },
+    alternates: { canonical: url },
   }
 }
 
-export default async function PublicEventPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const event = await getPublicEvent(id)
+export default async function PublicEventPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const event = await getPublicEvent(slug)
   if (!event) notFound()
 
+  // Canonical redirect: UUID → slug
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i
+  if (UUID_RE.test(slug) && event.slug && event.slug !== slug) {
+    const { redirect } = await import('next/navigation')
+    redirect(`/e/${event.slug}`)
+  }
+
+  const id = event.id
   const isOpen = event.status === 'OPEN'
   const isFull = event.confirmed_count >= event.capacity
   const isPast = new Date(event.starts_at) < new Date()
   const spotsLeft = event.capacity - event.confirmed_count
   const occupancyPct = Math.round((event.confirmed_count / event.capacity) * 100)
 
-  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/e/${id}`
+  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${event.slug ?? id}`
 
   return (
     <main className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-24">
@@ -195,14 +207,14 @@ export default async function PublicEventPage({ params }: { params: Promise<{ id
 
           {isOpen && !isFull ? (
             <Link
-              href={`/login?redirect=/eventos/${id}`}
+              href={`/login?redirect=/eventos/${event.slug ?? id}`}
               className="flex-1 py-3 rounded-xl text-center text-sm font-semibold bg-primary text-background hover:bg-primary/90 transition-colors"
             >
               Quero participar
             </Link>
           ) : isFull ? (
             <Link
-              href={`/login?redirect=/eventos/${id}`}
+              href={`/login?redirect=/eventos/${event.slug ?? id}`}
               className="flex-1 py-3 rounded-xl text-center text-sm font-semibold bg-white/5 border border-white/10 text-white/40"
             >
               Entrar na fila

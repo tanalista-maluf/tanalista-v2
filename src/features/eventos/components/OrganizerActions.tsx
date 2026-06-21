@@ -58,15 +58,7 @@ export function OrganizerActions({ event }: OrganizerActionsProps) {
 
   return (
     <div className="flex items-center gap-2 flex-wrap justify-end">
-      {isCompleted ? (
-        <Link
-          href={buildNextEditionUrl()}
-          className={cn(buttonVariants({ size: 'sm' }))}
-        >
-          <Copy className="size-3.5" />
-          Próxima edição
-        </Link>
-      ) : (
+      {!isCompleted && (
         <Link
           href={`/eventos/${event.slug ?? event.id}/editar`}
           className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
@@ -75,6 +67,13 @@ export function OrganizerActions({ event }: OrganizerActionsProps) {
           Editar
         </Link>
       )}
+      <Link
+        href={buildNextEditionUrl()}
+        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-white/60')}
+      >
+        <Copy className="size-3.5" />
+        {isCompleted ? 'Próxima edição' : 'Duplicar'}
+      </Link>
 
       {isCancellable && (
         <AlertDialog>

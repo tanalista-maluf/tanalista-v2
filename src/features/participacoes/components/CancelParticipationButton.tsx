@@ -17,10 +17,12 @@ export function CancelParticipationButton({
   participationId,
   eventId,
   eventPrice,
+  cancelBeforeHours,
 }: {
   participationId: string
   eventId: string
   eventPrice: number
+  cancelBeforeHours?: number | null
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -55,6 +57,11 @@ export function CancelParticipationButton({
           <AlertDialogDescription>
             Você perderá sua vaga neste evento.
             {eventPrice > 0 && ' O valor será reembolsado como crédito na sua carteira TáNaLista.'}
+            {cancelBeforeHours !== null && cancelBeforeHours !== undefined && cancelBeforeHours > 0 && (
+              <span className="block mt-1 text-yellow-400/80">
+                Política do organizador: cancelamento com reembolso até {cancelBeforeHours}h antes do evento.
+              </span>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

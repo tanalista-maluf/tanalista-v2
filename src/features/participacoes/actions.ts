@@ -233,10 +233,10 @@ export async function cancelParticipationAction(
     return { error: 'Você deve confirmar o desconto da taxa do gateway.' }
   }
 
-  // Buscar participação com evento
+  // Buscar participação com evento (inclui cancel_before_hours)
   const { data: participation } = await supabase
     .from('participations')
-    .select('*, events(id, starts_at, price, status, organizer_id)')
+    .select('*, events(id, starts_at, price, status, organizer_id, cancel_before_hours)')
     .eq('id', participationId)
     .eq('user_id', user.id)
     .single()
@@ -246,14 +246,19 @@ export async function cancelParticipationAction(
   const event = (participation as any).events
   if (!event) return { error: 'Evento não encontrado.' }
 
-  // Verificar prazo mínimo de 12h
+  // Verificar política de cancelamento do evento
   const hoursUntilEvent = (new Date(event.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
-  const minHours = 12
+  const cancelPolicy = event.cancel_before_hours  // null = não permitido, 0 = sempre, N = N horas antes
 
-  if (hoursUntilEvent < minHours && event.organizer_id !== user.id) {
-    return {
-      error: `Cancelamentos devem ser feitos com pelo menos ${minHours}h de antecedência.`,
-      code: 'TOO_LATE',
+  if (event.organizer_id !== user.id) {
+    if (cancelPolicy === null || cancelPolicy === undefined) {
+      return { error: 'Este evento não permite cancelamento pelo participante.', code: 'NOT_ALLOWED' }
+    }
+    if (cancelPolicy > 0 && hoursUntilEvent < cancelPolicy) {
+      return {
+        error: `Cancelamentos devem ser feitos com pelo menos ${cancelPolicy}h de antecedência.`,
+        code: 'TOO_LATE',
+      }
     }
   }
 
