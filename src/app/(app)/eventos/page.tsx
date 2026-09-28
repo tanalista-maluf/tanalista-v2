@@ -86,11 +86,11 @@ export default async function EventosPage({
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
   const params = await searchParams
   const tab = params.tab === 'meus' ? 'meus' : 'todos'
   const isMeus = tab === 'meus'
+  if (isMeus && !user) redirect(`/login?redirect=${encodeURIComponent('/eventos?tab=meus')}`)
   const sub = params.sub === 'participando' ? 'participando' : 'organizando'
 
   const activeCategory = params.category ?? ''
@@ -106,12 +106,14 @@ export default async function EventosPage({
   }
 
   // Buscar primeiro grupo do user para o botão "Criar evento"
-  const { data: membership } = await supabase
-    .from('group_members')
-    .select('group_id')
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle()
+  const { data: membership } = user
+    ? await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle()
+    : { data: null }
 
   // ── Dados por aba ─────────────────────────────────────────────────────────
   let events: Awaited<ReturnType<typeof getEvents>>['events'] = []
@@ -138,7 +140,7 @@ export default async function EventosPage({
 
   if (!isMeus) {
     const result = await getEvents({
-      userId: user.id,
+      userId: user?.id,
       q: params.q,
       city: params.city,
       category: params.category,
@@ -153,7 +155,7 @@ export default async function EventosPage({
     next_cursor = result.next_cursor
   } else if (sub === 'organizando') {
     const result = await getEvents({
-      userId: user.id,
+      userId: user!.id,
       q: params.q,
       cursor_created_at: params.cursor_created_at,
       cursor_id: params.cursor_id,
@@ -166,13 +168,13 @@ export default async function EventosPage({
     next_cursor = result.next_cursor
   } else {
     // sub === 'participando'
-    const participations = await getUserParticipations(user.id)
+    const participations = await getUserParticipations(user!.id)
     const mapped = participations
       .filter(p => {
         const ev = p.events as ParticipationEvent | null
         if (!ev) return false
         // excluir eventos onde o user é o organizador (já aparecem em "organizando")
-        if (ev.organizer_id === user.id) return false
+        if (ev.organizer_id === user!.id) return false
         // filtro de busca
         if (params.q && !ev.title.toLowerCase().includes(params.q.toLowerCase())) return false
         return true
