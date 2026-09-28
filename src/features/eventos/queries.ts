@@ -24,6 +24,7 @@ export async function getEvents(opts: {
   cursor_id?: string
   status?: string[]
   onlyMine?: boolean
+  excludePast?: boolean
 }) {
   const supabase = await createClient()
 
@@ -47,6 +48,14 @@ export async function getEvents(opts: {
   if (opts.group_id) query = query.eq('group_id', opts.group_id)
   if (opts.onlyMine && opts.userId) query = query.eq('organizer_id', opts.userId)
   // Todos os eventos aparecem na listagem (visibilidade mostrada com cadeado no card)
+
+  if (opts.excludePast) {
+    // Esconde eventos que já aconteceram, mesmo que o status ainda não tenha
+    // virado COMPLETED (ex: evento sem ends_at, que o cron de auto-complete
+    // nunca fecha). Usa ends_at quando existe, senão cai pra starts_at.
+    const now = new Date().toISOString()
+    query = query.or(`ends_at.gte.${now},and(ends_at.is.null,starts_at.gte.${now})`)
+  }
 
   if (opts.cursor_created_at && opts.cursor_id) {
     query = query.or(
