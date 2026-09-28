@@ -45,7 +45,7 @@ export async function createListingAction(groupId: string, data: ListingSchema) 
   }
 
   // Verificar saldo
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from('profiles')
     .select('wallet_balance')
     .eq('id', user.id)
@@ -125,7 +125,7 @@ export async function publishDraftListingAction(listingId: string) {
   if (!listing) return { error: 'Anúncio não encontrado.' }
   if (listing.status !== 'DRAFT') return { error: 'Anúncio não está em rascunho.' }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await admin
     .from('profiles')
     .select('wallet_balance')
     .eq('id', user.id)

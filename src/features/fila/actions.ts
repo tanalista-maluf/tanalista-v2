@@ -80,7 +80,7 @@ export async function confirmWaitlistSpotAction(
   }
 
   if (method === 'WALLET') {
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from('profiles')
       .select('wallet_balance')
       .eq('id', user.id)

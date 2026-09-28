@@ -32,7 +32,8 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const { data: profile } = await supabase
+  const admin = createAdminClient()
+  const { data: profile } = await admin
     .from('profiles')
     .select('wallet_balance, full_name')
     .eq('id', user.id)
@@ -41,8 +42,6 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
   if (!profile || profile.wallet_balance < amount_cents) {
     return { error: 'Saldo insuficiente.', code: 'INSUFFICIENT_BALANCE' }
   }
-
-  const admin = createAdminClient()
 
   // Debitar da carteira
   const { error: debitError } = await admin.rpc('wallet_debit', {

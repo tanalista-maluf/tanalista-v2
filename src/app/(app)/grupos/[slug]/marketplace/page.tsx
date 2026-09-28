@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getGroupById } from '@/features/grupos/queries'
 import { getGroupListings, getUserListingsInGroup } from '@/features/marketplace/queries'
@@ -19,10 +20,11 @@ export default async function MarketplacePage({ params }: { params: Promise<{ sl
   const groupSlug = group.slug ?? group.id
   if (!group.is_member) redirect(`/grupos/${groupSlug}`)
 
+  const admin = createAdminClient()
   const [listings, myActive, profileData] = await Promise.all([
     getGroupListings(group.id, user.id),
     getUserListingsInGroup(group.id, user.id),
-    supabase.from('profiles').select('wallet_balance').eq('id', user.id).single(),
+    admin.from('profiles').select('wallet_balance').eq('id', user.id).single(),
   ])
 
   const walletBalance = profileData.data?.wallet_balance ?? 0
