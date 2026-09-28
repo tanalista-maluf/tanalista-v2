@@ -23,7 +23,7 @@ const SPORTS_CATEGORIES = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & P
 
 interface EventFormProps {
   eventId?: string
-  groupId: string
+  groupId?: string
   defaultValues?: Partial<EventSchema>
   isLocked?: boolean // campos críticos travados (status != DRAFT)
   onSuccess?: () => void
@@ -83,7 +83,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
         </div>
       )}
 
-      <input type="hidden" {...register('group_id')} />
+      {groupId && <input type="hidden" {...register('group_id')} />}
 
       {/* Informações básicas */}
       <section className="space-y-4">

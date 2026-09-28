@@ -32,7 +32,7 @@ export const eventSchema = z.object({
   ends_at: z.string().optional().or(z.literal('')),
   registration_deadline: z.string().min(1, 'Informe o prazo de inscrição'),
   organizer_exempt: z.boolean(),
-  group_id: z.string().uuid('Grupo inválido'),
+  group_id: z.string().uuid('Grupo inválido').optional(),
   recurrence: z.enum(['none', 'weekly', 'biweekly', 'monthly']),
   recurrence_count: z.number().int().min(1).max(52).optional(),
   use_teams: z.boolean().optional(),
