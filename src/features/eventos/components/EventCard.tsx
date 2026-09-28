@@ -22,6 +22,7 @@ interface EventCardProps {
   }
   confirmedCount?: number
   groupName?: string
+  isLoggedIn?: boolean
 }
 
 function formatPrice(cents: number) {
@@ -36,7 +37,7 @@ function getAccentColor(status: string, pct: number) {
   return 'bg-gradient-to-b from-primary to-emerald-500'
 }
 
-export function EventCard({ event, confirmedCount, groupName }: EventCardProps) {
+export function EventCard({ event, confirmedCount, groupName, isLoggedIn = true }: EventCardProps) {
   const startsAt = new Date(event.starts_at)
   const day = startsAt.getDate()
   const mon = format(startsAt, 'MMM', { locale: ptBR }).replace('.', '')
@@ -49,7 +50,7 @@ export function EventCard({ event, confirmedCount, groupName }: EventCardProps) 
   const isAlmostFull = !isFull && pct >= 0.8
 
   return (
-    <Link href={`/eventos/${event.slug ?? event.id}`} className="block">
+    <Link href={isLoggedIn ? `/eventos/${event.slug ?? event.id}` : `/e/${event.slug ?? event.id}`} className="block">
       <div className={`card-dark rounded-2xl flex items-stretch overflow-hidden relative ${isFull && !isDead ? 'opacity-75' : ''}`}>
         {/* Badge esgotado — overlay no canto superior direito */}
         {isFull && !isDead && (

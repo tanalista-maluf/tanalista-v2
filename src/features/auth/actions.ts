@@ -5,7 +5,14 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { LoginSchema, RegisterSchema, RecoverSchema, OnboardingStep1, OnboardingStep2 } from './schemas'
 
-export async function loginAction(data: LoginSchema) {
+// Só aceita caminhos relativos internos — evita open redirect via ?redirect=//evil.com
+function safeRedirect(path?: string | null): string | undefined {
+  if (!path) return undefined
+  if (!path.startsWith('/') || path.startsWith('//')) return undefined
+  return path
+}
+
+export async function loginAction(data: LoginSchema, redirectTo?: string) {
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -17,18 +24,21 @@ export async function loginAction(data: LoginSchema) {
     return { error: 'E-mail ou senha incorretos.' }
   }
 
-  redirect('/home')
+  redirect(safeRedirect(redirectTo) ?? '/home')
 }
 
-export async function registerAction(data: RegisterSchema) {
+export async function registerAction(data: RegisterSchema, redirectTo?: string) {
   const supabase = await createClient()
+
+  const next = safeRedirect(redirectTo)
+  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
   const { data: signUpData, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
       data: { full_name: data.full_name },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+      emailRedirectTo: callbackUrl,
     },
   })
 
@@ -62,13 +72,16 @@ export async function recoverAction(data: RecoverSchema) {
   return { success: true }
 }
 
-export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login') {
+export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login', redirectTo?: string) {
   const supabase = await createClient()
+
+  const next = safeRedirect(redirectTo)
+  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
+      redirectTo: callbackUrl,
       queryParams: {
         access_type: 'offline',
         prompt: 'consent',
@@ -182,7 +195,7 @@ export async function joinGroupOnboardingAction(groupId: string) {
   return { success: true }
 }
 
-export async function completeOnboardingAction() {
+export async function completeOnboardingAction(redirectTo?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -194,5 +207,5 @@ export async function completeOnboardingAction() {
     .update({ onboarding_completed: true })
     .eq('id', user.id)
 
-  redirect('/home')
+  redirect(safeRedirect(redirectTo) ?? '/home')
 }

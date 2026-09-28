@@ -27,6 +27,7 @@ export default function LoginPage() {
 function LoginForm() {
   const searchParams = useSearchParams()
   const errorParam = searchParams.get('error')
+  const redirectParam = searchParams.get('redirect')
 
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState<string | null>(
@@ -41,7 +42,7 @@ function LoginForm() {
 
   async function onSubmit(data: LoginSchema) {
     setServerError(null)
-    const result = await loginAction(data)
+    const result = await loginAction(data, redirectParam ?? undefined)
     if (result?.error) setServerError(result.error)
   }
 
@@ -117,12 +118,15 @@ function LoginForm() {
             <div className="flex-1 h-px bg-white/[0.08]" />
           </div>
 
-          <GoogleAuthButton label="Entrar com Google" />
+          <GoogleAuthButton label="Entrar com Google" redirectTo={redirectParam ?? undefined} />
         </form>
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
         Não tem conta?&nbsp;
-        <Link href="/cadastro" className="text-primary hover:underline font-medium">
+        <Link
+          href={redirectParam ? `/cadastro?redirect=${encodeURIComponent(redirectParam)}` : '/cadastro'}
+          className="text-primary hover:underline font-medium"
+        >
           Criar conta grátis
         </Link>
       </CardFooter>
