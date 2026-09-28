@@ -115,7 +115,7 @@ export async function joinEventAction(
   // Débito da carteira: confirma imediatamente
   if (method === 'WALLET') {
     // Verificar saldo
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from('profiles')
       .select('wallet_balance')
       .eq('id', user.id)

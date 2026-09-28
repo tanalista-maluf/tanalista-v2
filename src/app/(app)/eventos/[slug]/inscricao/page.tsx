@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getEventById } from '@/features/eventos/queries'
 import { InscricaoForm } from '@/features/participacoes/components/InscricaoForm'
@@ -32,8 +33,9 @@ export default async function InscricaoPage({
   // organizer_exempt controla apenas isenção de pagamento, não bloqueia inscrição
 
   // Buscar saldo da carteira e times do evento em paralelo
+  const admin = createAdminClient()
   const [{ data: profile }, { data: teamsRaw }] = await Promise.all([
-    supabase.from('profiles').select('wallet_balance').eq('id', user.id).single(),
+    admin.from('profiles').select('wallet_balance').eq('id', user.id).single(),
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', event.id).order('position'),
   ])
 
