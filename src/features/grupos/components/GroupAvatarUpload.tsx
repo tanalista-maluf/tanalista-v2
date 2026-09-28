@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { uploadGroupAvatarAction } from '../actions'
-import { Camera, Loader2, Users } from 'lucide-react'
+import { Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 
@@ -21,6 +21,11 @@ export function GroupAvatarUpload({ groupId, groupName, currentAvatarUrl }: Prop
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error('Imagem deve ter no máximo 1 MB.')
+      return
+    }
 
     const reader = new FileReader()
     reader.onload = (ev) => setPreview(ev.target?.result as string)
@@ -82,6 +87,7 @@ export function GroupAvatarUpload({ groupId, groupName, currentAvatarUrl }: Prop
       >
         {isPending ? 'Enviando...' : 'Alterar logo'}
       </button>
+      <p className="text-[10px] text-white/20">JPG, PNG ou WebP · máx. 1 MB</p>
 
       <input
         ref={inputRef}

@@ -675,7 +675,7 @@ export async function uploadEventCoverAction(formData: FormData) {
   const file = formData.get('cover') as File | null
 
   if (!file || file.size === 0) return { error: 'Nenhum arquivo enviado.' }
-  if (file.size > 5 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 5 MB.' }
+  if (file.size > 1 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 1 MB.' }
 
   const { data: event } = await supabase
     .from('events')
