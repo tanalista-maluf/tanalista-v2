@@ -69,19 +69,27 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       {/* Cover / gradiente */}
       <div
         className="rounded-2xl h-44 flex flex-col items-center justify-center text-center px-4 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #16532E 0%, #0D3320 60%, #091F14 100%)' }}
+        style={event.cover_url
+          ? { backgroundImage: `url(${event.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+          : { background: 'linear-gradient(135deg, #16532E 0%, #0D3320 60%, #091F14 100%)' }
+        }
       >
-        {event.category && (
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full mb-3">
-            {event.category}
-          </span>
+        {event.cover_url && (
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/45 to-black/60" />
         )}
-        <h1 className="text-2xl font-bold text-white leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-          {event.title}
-        </h1>
-        {event.groups && (
-          <p className="text-sm text-white/50 mt-1">{event.groups.name}</p>
-        )}
+        <div className="relative z-10 flex flex-col items-center">
+          {event.category && (
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary/70 bg-primary/10 border border-primary/20 px-3 py-1 rounded-full mb-3">
+              {event.category}
+            </span>
+          )}
+          <h1 className="text-2xl font-bold text-white leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            {event.title}
+          </h1>
+          {event.groups && (
+            <p className="text-sm text-white/50 mt-1">{event.groups.name}</p>
+          )}
+        </div>
       </div>
 
       {/* Countdown */}
