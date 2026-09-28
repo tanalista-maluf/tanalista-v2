@@ -19,6 +19,7 @@ import { ParticipantQRCode } from '@/features/eventos/components/ParticipantQRCo
 import { EventRating } from '@/features/avaliacoes/components/EventRating'
 import { getEventRatingSummary, getUserRating } from '@/features/avaliacoes/actions'
 import Link from 'next/link'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
 import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck } from 'lucide-react'
@@ -200,22 +201,11 @@ export default async function EventDetailPage({
 
   return (
     <main className="flex-1 max-w-2xl mx-auto w-full">
-      {/* Banner da capa — altura fixa, só nav + categoria/status + título */}
+      {/* Cabeçalho — nav + categoria/status + título, sempre em fundo simples */}
       <div
         className="relative px-4 pt-4 pb-5"
-        style={coverUrl && !event.is_organizer
-          ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-          : { background: 'radial-gradient(ellipse 120% 100% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 65%)' }
-        }
+        style={{ background: 'radial-gradient(ellipse 120% 100% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 65%)' }}
       >
-        {/* Gradient overlay quando há capa */}
-        {coverUrl && !event.is_organizer && (
-          <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-[#0D1A14]" />
-        )}
-
-        {/* Todo o conteúdo do banner fica acima do overlay */}
-        <div className="relative z-10">
-
         {/* Nav */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -244,19 +234,21 @@ export default async function EventDetailPage({
         <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-white" style={{ fontFamily: 'var(--font-heading)' }}>
           {event.title}
         </h1>
-
-        </div>{/* fim z-10 do banner */}
       </div>
 
-      {/* Conteúdo — fica abaixo do banner, sem sobrepor a imagem */}
+      {/* Conteúdo */}
       <div className="relative px-4 pb-5">
 
-        {/* Upload de capa — apenas para organizador (participantes veem via background) */}
-        {event.is_organizer && (
+        {/* Capa: widget de upload pro organizador, imagem estática (mesmo box) pra quem só participa */}
+        {event.is_organizer ? (
           <div className="mb-4">
             <EventCoverUpload eventId={id} currentCoverUrl={coverUrl} />
           </div>
-        )}
+        ) : coverUrl ? (
+          <div className="relative rounded-2xl overflow-hidden h-44 mb-4">
+            <Image src={coverUrl} alt={event.title} fill className="object-cover" />
+          </div>
+        ) : null}
 
         {/* Meta strip */}
         <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.02]">
