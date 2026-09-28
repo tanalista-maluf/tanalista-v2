@@ -30,7 +30,7 @@ export function OrganizerChecklist({ event }: Props) {
   const items: CheckItem[] = [
     {
       label: 'Descrição do evento',
-      done: !!event.description && event.description.trim().length > 20,
+      done: !!event.description && event.description.trim().length > 0,
       tip: 'Uma boa descrição aumenta a taxa de inscrição.',
     },
     {
