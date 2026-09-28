@@ -21,8 +21,8 @@ export function EventCoverUpload({ eventId, currentCoverUrl }: Props) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Imagem deve ter no máximo 5 MB.')
+    if (file.size > 1 * 1024 * 1024) {
+      toast.error('Imagem deve ter no máximo 1 MB.')
       return
     }
 
@@ -91,7 +91,7 @@ export function EventCoverUpload({ eventId, currentCoverUrl }: Props) {
             <>
               <ImagePlus className="size-7 text-white/25" />
               <p className="text-sm text-white/40">Adicionar foto de capa</p>
-              <p className="text-xs text-white/20">JPG, PNG ou WebP · máx. 5 MB</p>
+              <p className="text-xs text-white/20">JPG, PNG ou WebP · máx. 1 MB</p>
             </>
           )}
         </div>

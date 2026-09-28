@@ -220,7 +220,7 @@ export async function uploadGroupAvatarAction(formData: FormData): Promise<{ err
 
   const file = formData.get('avatar') as File | null
   if (!file || file.size === 0) return { error: 'Nenhum arquivo selecionado.' }
-  if (file.size > 2 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 2MB.' }
+  if (file.size > 1 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 1MB.' }
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     return { error: 'Formato inválido. Use JPG, PNG ou WebP.' }
   }
