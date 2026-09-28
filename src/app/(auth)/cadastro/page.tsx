@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { registerSchema, type RegisterSchema } from '@/features/auth/schemas'
 import { registerAction } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,17 @@ import { CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { GoogleAuthButton } from '@/features/auth/components/GoogleAuthButton'
 
 export default function CadastroPage() {
+  return (
+    <Suspense>
+      <CadastroForm />
+    </Suspense>
+  )
+}
+
+function CadastroForm() {
+  const searchParams = useSearchParams()
+  const redirectParam = searchParams.get('redirect')
+
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -27,7 +39,7 @@ export default function CadastroPage() {
 
   async function onSubmit(data: RegisterSchema) {
     setServerError(null)
-    const result = await registerAction(data)
+    const result = await registerAction(data, redirectParam ?? undefined)
     if (result?.error) {
       setServerError(result.error)
     } else if (result?.success) {
@@ -151,7 +163,7 @@ export default function CadastroPage() {
             <div className="flex-1 h-px bg-white/[0.08]" />
           </div>
 
-          <GoogleAuthButton label="Criar conta com Google" />
+          <GoogleAuthButton label="Criar conta com Google" redirectTo={redirectParam ?? undefined} />
 
           <p className="text-xs text-center text-muted-foreground">
             Ao criar uma conta você concorda com os{' '}
@@ -163,7 +175,10 @@ export default function CadastroPage() {
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
         Já tem conta?&nbsp;
-        <Link href="/login" className="text-primary hover:underline font-medium">
+        <Link
+          href={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login'}
+          className="text-primary hover:underline font-medium"
+        >
           Entrar
         </Link>
       </CardFooter>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { onboardingStep1Schema, onboardingStep2Schema, type OnboardingStep1, type OnboardingStep2 } from '@/features/auth/schemas'
@@ -38,6 +39,16 @@ const STEP_META = [
 ]
 
 export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingFlow />
+    </Suspense>
+  )
+}
+
+function OnboardingFlow() {
+  const searchParams = useSearchParams()
+  const nextParam = searchParams.get('next')
   const [step, setStep] = useState(1)
   const [serverError, setServerError] = useState<string | null>(null)
   const [savedCity, setSavedCity] = useState('')
@@ -97,6 +108,7 @@ export default function OnboardingPage() {
             city={savedCity}
             interests={interests}
             onBack={back}
+            redirectTo={nextParam ?? undefined}
           />
         )}
       </div>
@@ -258,10 +270,11 @@ function Step3({ interests, setInterests, onNext, onBack }: {
 // ── Etapa 4: Grupos sugeridos ────────────────────────────
 type Group = { id: string; name: string; category: string | null; city: string | null; member_count: number; description: string | null }
 
-function Step4({ city, interests, onBack }: {
+function Step4({ city, interests, onBack, redirectTo }: {
   city: string
   interests: string[]
   onBack: () => void
+  redirectTo?: string
 }) {
   const [groups, setGroups] = useState<Group[]>([])
   const [joined, setJoined] = useState<Set<string>>(new Set())
@@ -286,7 +299,7 @@ function Step4({ city, interests, onBack }: {
 
   async function handleComplete() {
     setCompleting(true)
-    await completeOnboardingAction()
+    await completeOnboardingAction(redirectTo)
   }
 
   return (

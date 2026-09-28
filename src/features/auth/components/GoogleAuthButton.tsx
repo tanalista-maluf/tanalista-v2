@@ -6,16 +6,17 @@ import { googleOAuthAction } from '../actions'
 
 interface Props {
   label?: string
+  redirectTo?: string
 }
 
-export function GoogleAuthButton({ label = 'Continuar com Google' }: Props) {
+export function GoogleAuthButton({ label = 'Continuar com Google', redirectTo }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleClick() {
     setLoading(true)
     setError(null)
-    const result = await googleOAuthAction()
+    const result = await googleOAuthAction('login', redirectTo)
     // Se chegou aqui, houve erro (redirect bem-sucedido não retorna)
     if (result?.error) {
       setError(result.error)

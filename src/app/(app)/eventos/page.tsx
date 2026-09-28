@@ -319,6 +319,7 @@ export default async function EventosPage({
                   event={e}
                   confirmedCount={confirmedCount}
                   groupName={e.groups?.name}
+                  isLoggedIn={!!user}
                 />
               )
             })}
