@@ -33,6 +33,13 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react', '@supabase/supabase-js'],
+    // Padrão do Next.js é 1MB — abaixo do limite de 5MB (capa de evento) e
+    // 2MB (avatar/logo) que o próprio código já valida. Sem isso, qualquer
+    // arquivo acima de 1MB é rejeitado pelo framework antes da Server Action
+    // rodar, e cai num 500 genérico em vez da mensagem amigável de tamanho.
+    serverActions: {
+      bodySizeLimit: '6mb',
+    },
   },
 };
 
