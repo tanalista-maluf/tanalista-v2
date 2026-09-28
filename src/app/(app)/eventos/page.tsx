@@ -149,6 +149,7 @@ export default async function EventosPage({
       cursor_created_at: params.cursor_created_at,
       cursor_id: params.cursor_id,
       status: ['OPEN', 'CONFIRMED', 'PENDING'],
+      excludePast: true,
     })
     events = result.events
     has_more = result.has_more
