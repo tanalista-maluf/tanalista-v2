@@ -4,6 +4,16 @@ import { formatPrice, formatDateTime } from '@/utils/format'
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? 'disabled')
 }
+
+// Escapa texto vindo de usuário antes de interpolar no HTML do e-mail
+function esc(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 const FROM = process.env.RESEND_FROM_EMAIL
   ? `TáNaLista <${process.env.RESEND_FROM_EMAIL}>`
   : 'TáNaLista <noreply@tanalista.app>'
@@ -70,12 +80,12 @@ export async function sendWithdrawalRequestAdmin(params: {
   const body = base(
     'Nova solicitação de saque',
     h2('Nova solicitação de saque') +
-    p(`<strong>${params.userName}</strong> (${params.userEmail}) solicitou um saque.`) +
+    p(`<strong>${esc(params.userName)}</strong> (${esc(params.userEmail)}) solicitou um saque.`) +
     infoBox([
       `Valor solicitado: <strong>${formatPrice(params.amountCents)}</strong>`,
       `Taxa (${((params.feeCents / params.amountCents) * 100).toFixed(0)}%): <strong>− ${formatPrice(params.feeCents)}</strong>`,
       `Valor a transferir: <strong>${formatPrice(params.netCents)}</strong>`,
-      `Chave PIX (${params.pixKeyType.toUpperCase()}): <strong>${params.pixKey}</strong>`,
+      `Chave PIX (${esc(params.pixKeyType.toUpperCase())}): <strong>${esc(params.pixKey)}</strong>`,
     ]) +
     p('Por favor, realize a transferência PIX manualmente e confirme o pagamento.')
   )
@@ -103,11 +113,11 @@ export async function sendEventReminder(params: {
   const body = base(
     `Lembrete: ${params.eventTitle}`,
     h2(`Seu evento é ${label}! 📅`) +
-    p(`Olá, <strong>${params.name}</strong>! Lembre-se que você está confirmado no evento:`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>! Lembre-se que você está confirmado no evento:`) +
     infoBox([
-      `Evento: <strong>${params.eventTitle}</strong>`,
+      `Evento: <strong>${esc(params.eventTitle)}</strong>`,
       `Data: <strong>${formatDateTime(params.eventDate)}</strong>`,
-      `Local: <strong>${params.eventAddress} — ${params.eventCity}</strong>`,
+      `Local: <strong>${esc(params.eventAddress)} — ${esc(params.eventCity)}</strong>`,
     ]) +
     p('Não se esqueça de trazer seu ingresso (QR Code disponível na aba Ingresso).') +
     btn('Ver ingresso', `${process.env.NEXT_PUBLIC_APP_URL}/eventos/${params.eventId}`)
@@ -134,11 +144,11 @@ export async function sendParticipationConfirmed(params: {
   const body = base(
     'Inscrição confirmada!',
     h2('Inscrição confirmada! 🎉') +
-    p(`Olá, <strong>${params.name}</strong>! Sua inscrição foi confirmada.`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>! Sua inscrição foi confirmada.`) +
     infoBox([
-      `Evento: <strong>${params.eventTitle}</strong>`,
+      `Evento: <strong>${esc(params.eventTitle)}</strong>`,
       `Data: <strong>${formatDateTime(params.eventDate)}</strong>`,
-      `Local: <strong>${params.eventCity}</strong>`,
+      `Local: <strong>${esc(params.eventCity)}</strong>`,
       params.price > 0 ? `Valor pago: <strong>${formatPrice(params.price)}</strong>` : 'Inscrição gratuita',
     ]) +
     p('Fique de olho nas notificações caso haja atualizações.') +
@@ -159,7 +169,7 @@ export async function sendWaitlistNotified(params: {
   const body = base(
     'Vaga disponível!',
     h2('Uma vaga abriu para você! ⏰') +
-    p(`Olá, <strong>${params.name}</strong>! Uma vaga no evento <strong>${params.eventTitle}</strong> está reservada para você.`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>! Uma vaga no evento <strong>${esc(params.eventTitle)}</strong> está reservada para você.`) +
     p(`Você tem até <strong>${formatDateTime(params.expiresAt)}</strong> para confirmar sua inscrição. Após esse prazo, a vaga passará para o próximo da lista.`) +
     btn('Confirmar inscrição', `${process.env.NEXT_PUBLIC_APP_URL}/eventos/${params.eventId}`)
   )
@@ -177,7 +187,7 @@ export async function sendEventCancelledToParticipant(params: {
   const body = base(
     'Evento cancelado',
     h2('O evento foi cancelado') +
-    p(`Olá, <strong>${params.name}</strong>. Infelizmente o evento <strong>${params.eventTitle}</strong> foi cancelado.`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>. Infelizmente o evento <strong>${esc(params.eventTitle)}</strong> foi cancelado.`) +
     (params.refundAmount > 0
       ? p(`O valor de <strong>${formatPrice(params.refundAmount)}</strong> foi creditado na sua carteira TáNaLista.`)
       : p('Sua inscrição era gratuita, não há valores a reembolsar.')) +
@@ -199,7 +209,7 @@ export async function sendOrganizerMinNotMet(params: {
   const body = base(
     'Mínimo de participantes não atingido',
     h2('Atenção: mínimo não atingido') +
-    p(`Olá, <strong>${params.name}</strong>. O evento <strong>${params.eventTitle}</strong> atingiu o ponto de verificação de mínimo de participantes.`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>. O evento <strong>${esc(params.eventTitle)}</strong> atingiu o ponto de verificação de mínimo de participantes.`) +
     infoBox([
       `Confirmados: <strong>${params.confirmedCount}</strong>`,
       `Mínimo exigido: <strong>${params.minParticipants}</strong>`,
@@ -223,7 +233,7 @@ export async function sendOrganizerEventCompleted(params: {
   const body = base(
     'Evento concluído!',
     h2('Evento concluído com sucesso! 🏁') +
-    p(`Olá, <strong>${params.name}</strong>. Seu evento <strong>${params.eventTitle}</strong> foi concluído.`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>. Seu evento <strong>${esc(params.eventTitle)}</strong> foi concluído.`) +
     infoBox([
       `Participantes: <strong>${params.participantCount}</strong>`,
       `Receita líquida: <strong>${formatPrice(params.netRevenue)}</strong>`,

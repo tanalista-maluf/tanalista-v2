@@ -22,7 +22,7 @@ export async function getGroups(opts: {
 
   let query = supabase
     .from('groups')
-    .select('*, group_members!inner(user_id, role)')
+    .select('*')
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(PAGE_SIZE + 1)
@@ -31,7 +31,7 @@ export async function getGroups(opts: {
     // Grupos do usuário (qualquer visibilidade)
     query = supabase
       .from('groups')
-      .select('*, group_members!inner(user_id, role)')
+      .select('*, group_members!inner(user_id)')
       .eq('group_members.user_id', opts.userId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
@@ -54,8 +54,30 @@ export async function getGroups(opts: {
   const rows = has_more ? data.slice(0, PAGE_SIZE) : data
   const last = rows[rows.length - 1]
 
+  const membershipByGroupId = new Map<string, 'OWNER' | 'MEMBER'>()
+  if (opts.userId && rows.length) {
+    const { data: memberships } = await supabase
+      .from('group_members')
+      .select('group_id, role')
+      .eq('user_id', opts.userId)
+      .in('group_id', rows.map((g) => g.id))
+    for (const m of memberships ?? []) {
+      membershipByGroupId.set(m.group_id, m.role)
+    }
+  }
+
+  const groups: GroupWithMeta[] = rows.map((g) => {
+    const role = membershipByGroupId.get(g.id) ?? null
+    return {
+      ...(g as GroupRow),
+      is_member: !!role,
+      is_owner: role === 'OWNER',
+      user_role: role,
+    }
+  })
+
   return {
-    groups: rows as GroupRow[],
+    groups,
     has_more,
     next_cursor: has_more && last ? { created_at: last.created_at, id: last.id } : null,
   }

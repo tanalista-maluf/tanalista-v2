@@ -14,11 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Camera, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
-
-const CATEGORIES = [
-  'Esportes', 'Gastronomia', 'Viagens', 'Música', 'Cinema', 'Teatro',
-  'Arte', 'Tecnologia', 'Negócios', 'Saúde', 'Educação', 'Outros',
-]
+import { GROUP_CATEGORIES as CATEGORIES } from '../constants'
 
 interface GroupFormProps {
   groupId?: string
