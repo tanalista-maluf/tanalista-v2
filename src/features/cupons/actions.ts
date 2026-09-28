@@ -5,6 +5,15 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean)
+
+async function assertAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || !ADMIN_EMAILS.includes(user.email ?? '')) throw new Error('Acesso negado.')
+  return user
+}
+
 // ── Resgatar cupom (usuário) ─────────────────────────────────────────────────
 export async function redeemCouponAction(code: string) {
   if (!code?.trim()) return { error: 'Informe o código do cupom.' }
@@ -83,6 +92,8 @@ const createSchema = z.object({
 })
 
 export async function createCouponAction(input: unknown) {
+  await assertAdmin()
+
   const parsed = createSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
@@ -103,6 +114,7 @@ export async function createCouponAction(input: unknown) {
 
 // ── Desativar/ativar cupom (admin) ───────────────────────────────────────────
 export async function toggleCouponAction(id: string, active: boolean) {
+  await assertAdmin()
   const admin = createAdminClient()
   await admin.from('coupons').update({ active }).eq('id', id)
   revalidatePath('/admin/cupons')

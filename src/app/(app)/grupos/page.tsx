@@ -9,6 +9,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Search, Plus } from 'lucide-react'
+import { GROUP_CATEGORIES } from '@/features/grupos/constants'
 
 interface SearchParams {
   q?: string
@@ -21,17 +22,7 @@ interface SearchParams {
 
 const CATEGORIES = [
   { label: 'Todos', value: '' },
-  { label: 'Futebol', value: 'Futebol' },
-  { label: 'Basquete', value: 'Basquete' },
-  { label: 'Vôlei', value: 'Vôlei' },
-  { label: 'Airsoft & Paintball', value: 'Airsoft & Paintball' },
-  { label: 'Corrida & Trilha', value: 'Corrida & Trilha' },
-  { label: 'Gastronomia', value: 'Gastronomia' },
-  { label: 'Negócios', value: 'Negócios' },
-  { label: 'Ensino', value: 'Ensino' },
-  { label: 'Música', value: 'Música' },
-  { label: 'Social', value: 'Social' },
-  { label: 'Outros', value: 'Outros' },
+  ...GROUP_CATEGORIES.map((c) => ({ label: c, value: c })),
 ]
 
 export default async function GruposPage({
@@ -140,7 +131,7 @@ export default async function GruposPage({
       ) : (
         <div className="space-y-3">
           {groups.map((group) => (
-            <GroupCard key={group.id} group={group} />
+            <GroupCard key={group.id} group={group} isMember={group.is_member} isOwner={group.is_owner} />
           ))}
         </div>
       )}

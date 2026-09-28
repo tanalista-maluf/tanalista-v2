@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { slugify } from '@/lib/utils'
+import { sendEventCancelledToParticipant } from '@/lib/emails'
 import type { EventSchema } from './schemas'
 
 // Preço em string "R$ xx,xx" → centavos
@@ -384,6 +385,20 @@ export async function cancelEventAction(eventId: string, reason?: string) {
       body: `"${event.title}" foi cancelado pelo organizador.${event.price > 0 ? ' Seu pagamento foi estornado para a carteira.' : ''}`,
       data: { event_id: eventId },
     })
+
+    // E-mail de cancelamento
+    const [{ data: profile }, { data: authUser }] = await Promise.all([
+      admin.from('profiles').select('full_name').eq('id', p.user_id).single(),
+      admin.auth.admin.getUserById(p.user_id),
+    ])
+    if (authUser?.user?.email) {
+      sendEventCancelledToParticipant({
+        to: authUser.user.email,
+        name: profile?.full_name ?? 'Participante',
+        eventTitle: event.title,
+        refundAmount: event.price > 0 ? event.price : 0,
+      }).catch((e) => console.error('[EMAIL] sendEventCancelledToParticipant:', e))
+    }
   }
 
   revalidatePath(`/eventos/${eventId}`)
