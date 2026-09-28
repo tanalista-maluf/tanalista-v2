@@ -690,12 +690,12 @@ export async function uploadEventCoverAction(formData: FormData) {
 
   const admin = createAdminClient()
   const { error: upError } = await admin.storage
-    .from('uploads')
+    .from('avatars')
     .upload(path, file, { upsert: true, contentType: file.type })
 
   if (upError) return { error: 'Erro ao fazer upload.' }
 
-  const { data: urlData } = admin.storage.from('uploads').getPublicUrl(path)
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(path)
   const coverUrl = `${urlData.publicUrl}?t=${Date.now()}`
 
   const { error: dbError } = await admin
