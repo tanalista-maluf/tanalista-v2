@@ -200,11 +200,11 @@ export default async function EventDetailPage({
 
   return (
     <main className="flex-1 max-w-2xl mx-auto w-full">
-      {/* Hero — com capa como background quando disponível */}
+      {/* Banner da capa — altura fixa, só nav + categoria/status + título */}
       <div
         className="relative px-4 pt-4 pb-5"
         style={coverUrl && !event.is_organizer
-          ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center top' }
+          ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
           : { background: 'radial-gradient(ellipse 120% 100% at 50% -10%, rgba(74,222,128,0.07) 0%, transparent 65%)' }
         }
       >
@@ -213,7 +213,7 @@ export default async function EventDetailPage({
           <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-[#0D1A14]" />
         )}
 
-        {/* Todo o conteúdo do hero fica acima do overlay */}
+        {/* Todo o conteúdo do banner fica acima do overlay */}
         <div className="relative z-10">
 
         {/* Nav */}
@@ -245,9 +245,15 @@ export default async function EventDetailPage({
           {event.title}
         </h1>
 
+        </div>{/* fim z-10 do banner */}
+      </div>
+
+      {/* Conteúdo — fica abaixo do banner, sem sobrepor a imagem */}
+      <div className="relative px-4 pb-5">
+
         {/* Upload de capa — apenas para organizador (participantes veem via background) */}
         {event.is_organizer && (
-          <div className="mt-3">
+          <div className="mb-4">
             <EventCoverUpload eventId={id} currentCoverUrl={coverUrl} />
           </div>
         )}
@@ -401,8 +407,7 @@ export default async function EventDetailPage({
           </div>
         )}
 
-        </div>{/* fim z-10 */}
-      </div>
+      </div>{/* fim do bloco de conteúdo */}
 
       {/* Checklist de publicação — organizador */}
       {event.is_organizer && (
