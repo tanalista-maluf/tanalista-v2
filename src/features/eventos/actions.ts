@@ -40,15 +40,17 @@ export async function createEventAction(data: EventSchema) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verificar que é membro do grupo
-  const { data: membership } = await supabase
-    .from('group_members')
-    .select('role')
-    .eq('group_id', data.group_id)
-    .eq('user_id', user.id)
-    .maybeSingle()
+  // Verificar que é membro do grupo (eventos avulsos, sem grupo, pulam essa checagem)
+  if (data.group_id) {
+    const { data: membership } = await supabase
+      .from('group_members')
+      .select('role')
+      .eq('group_id', data.group_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-  if (!membership) return { error: 'Você precisa ser membro do grupo para criar eventos.' }
+    if (!membership) return { error: 'Você precisa ser membro do grupo para criar eventos.' }
+  }
 
   const starts_at = new Date(data.starts_at)
   const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
@@ -58,7 +60,7 @@ export async function createEventAction(data: EventSchema) {
   const { data: event, error } = await supabase
     .from('events')
     .insert({
-      group_id: data.group_id,
+      group_id: data.group_id ?? null,
       organizer_id: user.id,
       title: data.title,
       slug,
@@ -123,7 +125,7 @@ export async function createEventAction(data: EventSchema) {
       const childMinCheck = new Date(childStart.getTime() - 12 * 60 * 60 * 1000)
 
       children.push({
-        group_id: data.group_id,
+        group_id: data.group_id ?? null,
         organizer_id: user.id,
         title: data.title,
         description: data.description || null,
@@ -152,13 +154,15 @@ export async function createEventAction(data: EventSchema) {
     await admin.from('events').update({ recurrence_rule: rrule }).eq('id', event.id)
   }
 
-  // Notificar membros do grupo sobre o novo evento
+  // Notificar membros do grupo sobre o novo evento (eventos avulsos não têm quem notificar)
   const adminClient = createAdminClient()
-  const { data: members } = await adminClient
-    .from('group_members')
-    .select('user_id')
-    .eq('group_id', data.group_id)
-    .neq('user_id', user.id)
+  const { data: members } = data.group_id
+    ? await adminClient
+      .from('group_members')
+      .select('user_id')
+      .eq('group_id', data.group_id)
+      .neq('user_id', user.id)
+    : { data: null }
 
   if (members && members.length > 0) {
     const { createNotificationAdmin } = await import('@/features/notificacoes/actions')

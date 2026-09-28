@@ -105,16 +105,6 @@ export default async function EventosPage({
     return `/eventos${qs ? `?${qs}` : ''}`
   }
 
-  // Buscar primeiro grupo do user para o botão "Criar evento"
-  const { data: membership } = user
-    ? await supabase
-      .from('group_members')
-      .select('group_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .maybeSingle()
-    : { data: null }
-
   // ── Dados por aba ─────────────────────────────────────────────────────────
   let events: Awaited<ReturnType<typeof getEvents>>['events'] = []
   let has_more = false
@@ -199,7 +189,7 @@ export default async function EventosPage({
         <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'var(--font-heading)' }}>
           Eventos
         </h1>
-        {membership && (
+        {user && (
           <Link
             href="/eventos/novo"
             className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -292,7 +282,7 @@ export default async function EventosPage({
               {!isMeus && (
                 <p className="text-xs text-white/20">Tente outros termos ou remova os filtros.</p>
               )}
-              {isMeus && sub === 'organizando' && membership && (
+              {isMeus && sub === 'organizando' && (
                 <Link href="/eventos/novo" className={cn(buttonVariants(), 'gap-2')}>
                   <Plus className="size-4" />
                   Criar primeiro evento

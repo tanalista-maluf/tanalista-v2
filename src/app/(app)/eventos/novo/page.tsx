@@ -3,8 +3,6 @@ import { redirect, notFound } from 'next/navigation'
 import { EventForm } from '@/features/eventos/components/EventForm'
 import Link from 'next/link'
 import { ChevronLeft, Users, Lock, Globe, ChevronRight, Plus } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { buttonVariants } from '@/components/ui/button'
 
 interface Prefill {
   group_id?: string
@@ -26,7 +24,37 @@ export default async function NovoEventoPage({
   if (!user) redirect('/login')
 
   const params = await searchParams
-  const groupId = params.group_id
+  const isStandalone = params.group_id === 'none'
+  const groupId = isStandalone ? undefined : params.group_id
+
+  const prefillDefaults = {
+    title: params.title,
+    address: params.address,
+    city: params.city,
+    price: params.price ? (Number(params.price) / 100).toFixed(2) : undefined,
+    capacity: params.capacity ? Number(params.capacity) : undefined,
+    min_participants: params.min_participants ? Number(params.min_participants) : undefined,
+  }
+
+  if (isStandalone) {
+    return (
+      <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <Link href="/eventos" className="text-white/50 hover:text-white">
+            <ChevronLeft className="size-5" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
+              Criar evento
+            </h1>
+            <p className="text-xs text-white/50">Evento avulso, sem grupo</p>
+          </div>
+        </div>
+
+        <EventForm defaultValues={prefillDefaults} />
+      </main>
+    )
+  }
 
   // Buscar todos os grupos onde o usuário é membro
   const { data: memberships } = await supabase
@@ -47,21 +75,9 @@ export default async function NovoEventoPage({
       role: string
     }[]
 
-  // Se não tem nenhum grupo, mostra mensagem
+  // Se não tem nenhum grupo, vai direto pro evento avulso
   if (groups.length === 0) {
-    return (
-      <main className="flex-1 max-w-lg mx-auto w-full px-4 py-12 text-center space-y-5">
-        <Users className="size-10 mx-auto text-white/20" />
-        <div>
-          <h1 className="text-xl font-bold text-white">Nenhum grupo encontrado</h1>
-          <p className="text-sm text-white/40 mt-1">Você precisa fazer parte de um grupo para criar eventos.</p>
-        </div>
-        <Link href="/grupos" className={cn(buttonVariants())}>
-          <Plus className="size-4" />
-          Criar ou entrar em um grupo
-        </Link>
-      </main>
-    )
+    redirect('/eventos/novo?group_id=none')
   }
 
   // Se veio com group_id na URL, valida e vai direto ao formulário
@@ -83,24 +99,9 @@ export default async function NovoEventoPage({
           </div>
         </div>
 
-        <EventForm
-          groupId={groupId}
-          defaultValues={{
-            title: params.title,
-            address: params.address,
-            city: params.city,
-            price: params.price ? (Number(params.price) / 100).toFixed(2) : undefined,
-            capacity: params.capacity ? Number(params.capacity) : undefined,
-            min_participants: params.min_participants ? Number(params.min_participants) : undefined,
-          }}
-        />
+        <EventForm groupId={groupId} defaultValues={prefillDefaults} />
       </main>
     )
-  }
-
-  // Se tem só 1 grupo, redireciona direto
-  if (groups.length === 1) {
-    redirect(`/eventos/novo?group_id=${groups[0].id}`)
   }
 
   // Seletor de grupo (2 ou mais grupos)
@@ -152,6 +153,20 @@ export default async function NovoEventoPage({
             <ChevronRight className="size-4 text-white/20 group-hover:text-primary/50 transition-colors shrink-0" />
           </Link>
         ))}
+
+        <Link
+          href="/eventos/novo?group_id=none"
+          className="flex items-center gap-4 card-dark rounded-2xl px-5 py-4 border border-dashed border-white/[0.12] hover:border-primary/30 transition-colors group"
+        >
+          <div className="w-11 h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/40 shrink-0">
+            <Plus className="size-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-white text-sm">Evento avulso</p>
+            <p className="text-xs text-white/35">Sem grupo — só para inscrição</p>
+          </div>
+          <ChevronRight className="size-4 text-white/20 group-hover:text-primary/50 transition-colors shrink-0" />
+        </Link>
       </div>
     </main>
   )
