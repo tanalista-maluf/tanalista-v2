@@ -58,6 +58,14 @@ export async function confirmWaitlistSpotAction(
     return { error: 'Sua reserva expirou. Você foi removido da fila.' }
   }
 
+  // Pode já existir uma participação CANCELLED de uma inscrição anterior
+  const { data: existing } = await admin
+    .from('participations')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
   const { data: event } = await supabase
     .from('events')
     .select('price, organizer_id, organizer_exempt, status')
@@ -69,11 +77,15 @@ export async function confirmWaitlistSpotAction(
   const isExempt = event.organizer_id === user.id && event.organizer_exempt
 
   if (isExempt || event.price === 0) {
-    await admin.from('participations').insert({
-      event_id: eventId,
-      user_id: user.id,
-      status: 'CONFIRMED',
-    })
+    if (existing) {
+      await admin.from('participations').update({ status: 'CONFIRMED' }).eq('id', existing.id)
+    } else {
+      await admin.from('participations').insert({
+        event_id: eventId,
+        user_id: user.id,
+        status: 'CONFIRMED',
+      })
+    }
     await admin.from('waitlist_entries').update({ status: 'CONFIRMED' }).eq('id', entry.id)
     revalidatePath(`/eventos/${eventId}`)
     redirect(`/eventos/${eventId}?joined=1`)
@@ -100,29 +112,45 @@ export async function confirmWaitlistSpotAction(
 
     if (debitError) return { error: 'Erro ao processar pagamento pela carteira.' }
 
-    await admin.from('participations').insert({
-      event_id: eventId,
-      user_id: user.id,
-      status: 'CONFIRMED',
-    })
+    if (existing) {
+      await admin.from('participations').update({ status: 'CONFIRMED' }).eq('id', existing.id)
+    } else {
+      await admin.from('participations').insert({
+        event_id: eventId,
+        user_id: user.id,
+        status: 'CONFIRMED',
+      })
+    }
     await admin.from('waitlist_entries').update({ status: 'CONFIRMED' }).eq('id', entry.id)
 
     revalidatePath(`/eventos/${eventId}`)
     redirect(`/eventos/${eventId}?joined=1`)
   }
 
-  // PIX ou cartão: criar participação PENDING
-  const { data: created } = await admin
-    .from('participations')
-    .insert({ event_id: eventId, user_id: user.id, status: 'PENDING' })
-    .select('id')
-    .single()
+  // PIX ou cartão: criar/atualizar participação PENDING
+  let participationId: string | undefined
+  if (existing) {
+    const { data: updated } = await admin
+      .from('participations')
+      .update({ status: 'PENDING' })
+      .eq('id', existing.id)
+      .select('id')
+      .single()
+    participationId = updated?.id
+  } else {
+    const { data: created } = await admin
+      .from('participations')
+      .insert({ event_id: eventId, user_id: user.id, status: 'PENDING' })
+      .select('id')
+      .single()
+    participationId = created?.id
+  }
 
-  if (!created) return { error: 'Erro ao criar inscrição.' }
+  if (!participationId) return { error: 'Erro ao criar inscrição.' }
 
   // Marcar fila como CONFIRMED (o pagamento ainda não foi feito, mas a vaga foi reservada)
   await admin.from('waitlist_entries').update({ status: 'CONFIRMED' }).eq('id', entry.id)
 
   revalidatePath(`/eventos/${eventId}`)
-  redirect(`/eventos/${eventId}/pagamento?participation_id=${created.id}&method=${method}`)
+  redirect(`/eventos/${eventId}/pagamento?participation_id=${participationId}&method=${method}`)
 }
