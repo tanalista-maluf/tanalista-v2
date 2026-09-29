@@ -35,9 +35,8 @@ export const onboardingStep2Schema = z.object({
   city: z.string().min(2, 'Informe sua cidade').max(100),
   phone: z
     .string()
-    .regex(/^\d{10,11}$/, 'Telefone inválido (DDD + número, sem espaços)')
-    .optional()
-    .or(z.literal('')),
+    .min(1, 'Informe seu WhatsApp')
+    .regex(/^\d{10,11}$/, 'Telefone inválido (DDD + número, sem espaços)'),
 })
 
 export type LoginSchema        = z.infer<typeof loginSchema>

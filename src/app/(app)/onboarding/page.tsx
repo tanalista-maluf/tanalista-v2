@@ -192,9 +192,10 @@ function Step2({ onNext, onBack, serverError, setServerError }: {
           {errors.city && <p className="text-xs text-red-400">{errors.city.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label className="text-white/60">Celular <span className="text-white/30 text-xs">(opcional)</span></Label>
+          <Label className="text-white/60">WhatsApp</Label>
           <Input type="tel" placeholder="11999998888" aria-invalid={!!errors.phone} {...register('phone')} />
           {errors.phone && <p className="text-xs text-red-400">{errors.phone.message}</p>}
+          <p className="text-xs text-white/30">DDD + número, sem espaços. Usaremos para notificações sobre seus eventos.</p>
         </div>
         <div className="flex gap-3">
           <button type="button" onClick={onBack}
@@ -281,6 +282,7 @@ function Step4({ city, interests, onBack, redirectTo }: {
   const [loaded, setLoaded] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [completing, setCompleting] = useState(false)
+  const [completeError, setCompleteError] = useState<string | null>(null)
 
   // Carregar grupos na montagem do step
   useState(() => {
@@ -299,7 +301,12 @@ function Step4({ city, interests, onBack, redirectTo }: {
 
   async function handleComplete() {
     setCompleting(true)
-    await completeOnboardingAction(redirectTo)
+    setCompleteError(null)
+    const result = await completeOnboardingAction(redirectTo)
+    if (result?.error) {
+      setCompleteError(result.error)
+      setCompleting(false)
+    }
   }
 
   return (
@@ -310,6 +317,8 @@ function Step4({ city, interests, onBack, redirectTo }: {
           {city ? `Grupos em ${city} que combinam com seus interesses.` : 'Grupos públicos disponíveis.'}
         </p>
       </div>
+
+      {completeError && <p className="text-sm text-red-400">{completeError}</p>}
 
       {!loaded ? (
         <div className="flex items-center justify-center py-8">
