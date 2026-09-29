@@ -114,6 +114,7 @@ export default async function PerfilPage() {
           <NotificationSettings
             initialEmail={profile.notif_email ?? true}
             initialPush={profile.notif_push ?? true}
+            initialNewEventChannel={(profile.notif_new_event_channel as 'EMAIL' | 'WHATSAPP') ?? 'EMAIL'}
           />
         </div>
 

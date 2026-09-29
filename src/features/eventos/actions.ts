@@ -169,7 +169,7 @@ export async function createEventAction(data: EventSchema) {
   const { data: members } = data.group_id
     ? await adminClient
       .from('group_members')
-      .select('user_id')
+      .select('user_id, profiles(full_name, notif_new_event_channel)')
       .eq('group_id', data.group_id)
       .neq('user_id', user.id)
     : { data: null }
@@ -186,6 +186,24 @@ export async function createEventAction(data: EventSchema) {
           data: { event_id: event.id },
         })
       )
+    )
+
+    // E-mail para quem prefere ser avisado por e-mail (WhatsApp ainda não está disponível)
+    const { sendNewEventToGroupMember } = await import('@/lib/emails')
+    const emailMembers = members.filter((m) => ((m.profiles as any)?.notif_new_event_channel ?? 'EMAIL') === 'EMAIL')
+    await Promise.allSettled(
+      emailMembers.map(async (m) => {
+        const { data: authUser } = await adminClient.auth.admin.getUserById(m.user_id)
+        if (!authUser?.user?.email) return
+        await sendNewEventToGroupMember({
+          to: authUser.user.email,
+          name: (m.profiles as any)?.full_name ?? 'Participante',
+          eventTitle: data.title,
+          eventDate: data.starts_at,
+          eventCity: data.city,
+          eventId: event.slug ?? event.id,
+        })
+      })
     )
   }
 
