@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { onboardingStep2Schema } from './schemas'
 import type { LoginSchema, RegisterSchema, RecoverSchema, OnboardingStep1, OnboardingStep2 } from './schemas'
 
 // Só aceita caminhos relativos internos — evita open redirect via ?redirect=//evil.com
@@ -138,12 +139,15 @@ export async function onboardingStep2Action(data: OnboardingStep2) {
 
   if (!user) return { error: 'Sessão expirada. Faça login novamente.' }
 
+  const parsed = onboardingStep2Schema.safeParse(data)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
   const admin = createAdminClient()
   const { error } = await admin
     .from('profiles')
     .update({
-      city: data.city,
-      phone: data.phone || null,
+      city: parsed.data.city,
+      phone: parsed.data.phone,
     })
     .eq('id', user.id)
 
@@ -202,6 +206,19 @@ export async function completeOnboardingAction(redirectTo?: string) {
   if (!user) return { error: 'Sessão expirada.' }
 
   const admin = createAdminClient()
+
+  // Garante que username/cidade/WhatsApp foram preenchidos, mesmo que o
+  // wizard tenha sido pulado via chamada direta da action.
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('username, city, phone')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.username || !profile?.city || !profile?.phone) {
+    return { error: 'Complete as etapas anteriores antes de continuar.' }
+  }
+
   await admin
     .from('profiles')
     .update({ onboarding_completed: true })
