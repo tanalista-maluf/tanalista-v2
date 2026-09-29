@@ -184,12 +184,13 @@ export default async function EventDetailPage({
     waitlistEntry = we
   }
 
-  // Enriquecer times com contagem de confirmados
+  // Enriquecer times com contagem de confirmados (via admin: RLS de participations
+  // só expõe a própria inscrição ou o organizador, o que zerava a contagem para os demais)
   let teams: { id: string; name: string; capacity: number; confirmed_count: number }[] = []
   if (teamsRaw && teamsRaw.length > 0) {
     const counts = await Promise.all(
       teamsRaw.map(async (t) => {
-        const { count } = await supabase
+        const { count } = await admin
           .from('participations')
           .select('*', { count: 'exact', head: true })
           .eq('team_id', t.id)

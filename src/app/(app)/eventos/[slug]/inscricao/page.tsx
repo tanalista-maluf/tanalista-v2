@@ -36,17 +36,18 @@ export default async function InscricaoPage({
   const admin = createAdminClient()
   const [{ data: profile }, { data: teamsRaw }] = await Promise.all([
     admin.from('profiles').select('wallet_balance').eq('id', user.id).single(),
-    supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', event.id).order('position'),
+    admin.from('event_teams').select('id, name, capacity, position').eq('event_id', event.id).order('position'),
   ])
 
   const walletBalance = (profile as any)?.wallet_balance ?? 0
 
-  // Enriquecer times com contagem de confirmados
+  // Enriquecer times com contagem de confirmados (via admin: RLS de participations
+  // só expõe a própria inscrição ou o organizador, o que zerava a contagem para os demais)
   let teams: { id: string; name: string; capacity: number; confirmed_count: number }[] = []
   if (teamsRaw && teamsRaw.length > 0) {
     const counts = await Promise.all(
       teamsRaw.map(async (t) => {
-        const { count } = await supabase
+        const { count } = await admin
           .from('participations')
           .select('*', { count: 'exact', head: true })
           .eq('team_id', t.id)
