@@ -1,9 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getEventById } from '@/features/eventos/queries'
 import { EventForm } from '@/features/eventos/components/EventForm'
+import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Ticket } from 'lucide-react'
 
 function centsToPriceString(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',')
@@ -24,6 +26,13 @@ export default async function EditarEventoPage({
 
   const eventSlug = event.slug ?? event.id
   const isLocked = event.status !== 'DRAFT'
+
+  const admin = createAdminClient()
+  const { data: eventCoupons } = await admin
+    .from('coupons')
+    .select('id, code, max_uses, uses_count, active, amount_cents')
+    .eq('event_id', event.id)
+    .order('created_at', { ascending: false })
 
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-6">
@@ -58,6 +67,13 @@ export default async function EditarEventoPage({
           group_id: event.group_id,
         }}
       />
+
+      <div className="card-dark rounded-2xl p-5 space-y-3">
+        <h2 className="font-bold text-white flex items-center gap-2">
+          <Ticket className="size-4 text-primary" />Cupons do evento
+        </h2>
+        <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} />
+      </div>
     </main>
   )
 }
