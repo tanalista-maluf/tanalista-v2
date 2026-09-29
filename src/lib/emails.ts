@@ -245,3 +245,32 @@ export async function sendOrganizerEventCompleted(params: {
   await getResend().emails.send({ from: FROM, to: params.to, subject: `Evento concluído: ${params.eventTitle}`, html: body })
 }
 
+// ── Email: novo evento em grupo que participa ─────────────────────────────────
+export async function sendNewEventToGroupMember(params: {
+  to: string
+  name: string
+  eventTitle: string
+  eventDate: string
+  eventCity: string
+  eventId: string
+}) {
+  const body = base(
+    `Novo evento: ${params.eventTitle}`,
+    h2('Novo evento no seu grupo! 🎉') +
+    p(`Olá, <strong>${esc(params.name)}</strong>! Um grupo que você participa acabou de criar um evento:`) +
+    infoBox([
+      `Evento: <strong>${esc(params.eventTitle)}</strong>`,
+      `Data: <strong>${formatDateTime(params.eventDate)}</strong>`,
+      `Cidade: <strong>${esc(params.eventCity)}</strong>`,
+    ]) +
+    btn('Ver evento', `${process.env.NEXT_PUBLIC_APP_URL}/eventos/${params.eventId}`)
+  )
+
+  await getResend().emails.send({
+    from: FROM,
+    to: params.to,
+    subject: `Novo evento: ${params.eventTitle}`,
+    html: body,
+  })
+}
+

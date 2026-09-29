@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { subscribePushAction, unsubscribePushAction } from '../push'
-import { setNotificationPreferenceAction } from '../actions'
-import { Bell, Mail, Smartphone, Loader2 } from 'lucide-react'
+import { setNotificationPreferenceAction, setNewEventChannelAction } from '../actions'
+import { Bell, Mail, Smartphone, Loader2, MessageCircle, PartyPopper } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -54,16 +54,29 @@ function NotifRow({ icon, label, description, enabled, loading, onToggle }: RowP
 interface Props {
   initialEmail: boolean
   initialPush: boolean
+  initialNewEventChannel: 'EMAIL' | 'WHATSAPP'
 }
 
-export function NotificationSettings({ initialEmail, initialPush }: Props) {
+export function NotificationSettings({ initialEmail, initialPush, initialNewEventChannel }: Props) {
   const [emailEnabled, setEmailEnabled] = useState(initialEmail)
   const [pushEnabled, setPushEnabled]   = useState(initialPush)
   const [pushSupported, setPushSupported] = useState(false)
   const [browserSubscribed, setBrowserSubscribed] = useState(false)
+  const [newEventChannel, setNewEventChannel] = useState(initialNewEventChannel)
 
   const [emailPending, startEmailTransition] = useTransition()
   const [pushPending,  startPushTransition]  = useTransition()
+  const [channelPending, startChannelTransition] = useTransition()
+
+  function chooseNewEventChannel(channel: 'EMAIL' | 'WHATSAPP') {
+    if (channel === newEventChannel) return
+    const prev = newEventChannel
+    setNewEventChannel(channel)
+    startChannelTransition(async () => {
+      const res = await setNewEventChannelAction(channel)
+      if (res.error) setNewEventChannel(prev)
+    })
+  }
 
   useEffect(() => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -119,6 +132,7 @@ export function NotificationSettings({ initialEmail, initialPush }: Props) {
   }
 
   return (
+    <>
     <div className="card-dark rounded-2xl divide-y divide-white/[0.06]">
       <NotifRow
         icon={<Mail className="size-4" />}
@@ -150,5 +164,45 @@ export function NotificationSettings({ initialEmail, initialPush }: Props) {
         </div>
       )}
     </div>
+
+    <div className="card-dark rounded-2xl p-4 space-y-3 mt-4">
+      <div className="flex items-center gap-3">
+        <div className="size-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <PartyPopper className="size-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white leading-tight">Novos eventos do grupo</p>
+          <p className="text-xs text-white/30 mt-0.5">Como avisar quando um grupo que você participa criar um evento</p>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => chooseNewEventChannel('EMAIL')}
+          disabled={channelPending}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 ${
+            newEventChannel === 'EMAIL'
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-white/10 text-white/50 hover:border-white/20'
+          }`}
+        >
+          <Mail className="size-3.5" />E-mail
+        </button>
+        <button
+          onClick={() => chooseNewEventChannel('WHATSAPP')}
+          disabled={channelPending}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 ${
+            newEventChannel === 'WHATSAPP'
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-white/10 text-white/50 hover:border-white/20'
+          }`}
+        >
+          <MessageCircle className="size-3.5" />WhatsApp
+        </button>
+      </div>
+      {newEventChannel === 'WHATSAPP' && (
+        <p className="text-xs text-white/25">Notificações via WhatsApp chegam em breve — por enquanto você continua recebendo no app.</p>
+      )}
+    </div>
+    </>
   )
 }

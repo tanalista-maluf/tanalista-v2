@@ -41,6 +41,24 @@ export async function setNotificationPreferenceAction(
   return {}
 }
 
+export async function setNewEventChannelAction(
+  channel: 'EMAIL' | 'WHATSAPP'
+): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('profiles')
+    .update({ notif_new_event_channel: channel })
+    .eq('id', user.id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/perfil')
+  return {}
+}
+
 export async function markNotificationReadAction(notificationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
