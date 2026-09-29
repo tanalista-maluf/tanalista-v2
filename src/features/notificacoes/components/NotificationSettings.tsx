@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { subscribePushAction, unsubscribePushAction } from '../push'
 import { setNotificationPreferenceAction, setNewEventChannelAction } from '../actions'
-import { Bell, Mail, Smartphone, Loader2, MessageCircle, PartyPopper } from 'lucide-react'
+import { Bell, Mail, Smartphone, Loader2, MessageCircle, PartyPopper, BellOff } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -54,7 +54,7 @@ function NotifRow({ icon, label, description, enabled, loading, onToggle }: RowP
 interface Props {
   initialEmail: boolean
   initialPush: boolean
-  initialNewEventChannel: 'EMAIL' | 'WHATSAPP'
+  initialNewEventChannel: 'EMAIL' | 'WHATSAPP' | 'NONE'
 }
 
 export function NotificationSettings({ initialEmail, initialPush, initialNewEventChannel }: Props) {
@@ -68,7 +68,7 @@ export function NotificationSettings({ initialEmail, initialPush, initialNewEven
   const [pushPending,  startPushTransition]  = useTransition()
   const [channelPending, startChannelTransition] = useTransition()
 
-  function chooseNewEventChannel(channel: 'EMAIL' | 'WHATSAPP') {
+  function chooseNewEventChannel(channel: 'EMAIL' | 'WHATSAPP' | 'NONE') {
     if (channel === newEventChannel) return
     const prev = newEventChannel
     setNewEventChannel(channel)
@@ -177,6 +177,17 @@ export function NotificationSettings({ initialEmail, initialPush, initialNewEven
       </div>
       <div className="flex gap-2">
         <button
+          onClick={() => chooseNewEventChannel('WHATSAPP')}
+          disabled={channelPending}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 ${
+            newEventChannel === 'WHATSAPP'
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-white/10 text-white/50 hover:border-white/20'
+          }`}
+        >
+          <MessageCircle className="size-3.5" />WhatsApp
+        </button>
+        <button
           onClick={() => chooseNewEventChannel('EMAIL')}
           disabled={channelPending}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 ${
@@ -188,15 +199,15 @@ export function NotificationSettings({ initialEmail, initialPush, initialNewEven
           <Mail className="size-3.5" />E-mail
         </button>
         <button
-          onClick={() => chooseNewEventChannel('WHATSAPP')}
+          onClick={() => chooseNewEventChannel('NONE')}
           disabled={channelPending}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-sm font-medium transition-colors disabled:opacity-50 ${
-            newEventChannel === 'WHATSAPP'
+            newEventChannel === 'NONE'
               ? 'border-primary bg-primary/10 text-primary'
               : 'border-white/10 text-white/50 hover:border-white/20'
           }`}
         >
-          <MessageCircle className="size-3.5" />WhatsApp
+          <BellOff className="size-3.5" />Nenhum
         </button>
       </div>
       {newEventChannel === 'WHATSAPP' && (

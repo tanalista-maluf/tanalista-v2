@@ -7,7 +7,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const profileSchema = z.object({
   full_name: z.string().min(2, 'Nome muito curto.').max(100),
-  phone: z.string().max(20).optional(),
+  phone: z
+    .string()
+    .min(1, 'Informe seu WhatsApp')
+    .regex(/^\d{10,11}$/, 'Telefone inválido (DDD + número, sem espaços)'),
   city: z.string().min(2, 'Cidade obrigatória.').max(100),
   bio: z.string().max(500).optional(),
 })

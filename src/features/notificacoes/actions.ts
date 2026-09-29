@@ -42,7 +42,7 @@ export async function setNotificationPreferenceAction(
 }
 
 export async function setNewEventChannelAction(
-  channel: 'EMAIL' | 'WHATSAPP'
+  channel: 'EMAIL' | 'WHATSAPP' | 'NONE'
 ): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

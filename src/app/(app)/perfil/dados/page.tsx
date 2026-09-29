@@ -29,7 +29,7 @@ export default async function DadosPessoaisPage() {
       </div>
 
       <div className="card-dark rounded-2xl p-4">
-        <ProfileForm profile={profile} />
+        <ProfileForm profile={profile} email={user.email ?? ''} />
       </div>
     </main>
   )
