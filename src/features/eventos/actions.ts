@@ -18,12 +18,22 @@ function calcWaitlistCapacity(capacity: number): number {
   return Math.max(1, Math.ceil(capacity * 0.1))
 }
 
+// DDMMAA a partir da data/hora de início, para compor o slug (ex.: 11/10/26 → "111026")
+function eventDateSuffix(startsAt: string | Date): string {
+  const d = new Date(startsAt)
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = String(d.getFullYear() % 100).padStart(2, '0')
+  return `${dd}${mm}${yy}`
+}
+
 async function generateUniqueEventSlug(
   supabase: Awaited<ReturnType<typeof createClient>>,
   title: string,
+  startsAt: string | Date,
   excludeId?: string
 ): Promise<string> {
-  const base = slugify(title) || 'evento'
+  const base = `${slugify(title) || 'evento'}-${eventDateSuffix(startsAt)}`
   let candidate = base
   let suffix = 2
   while (true) {
@@ -31,7 +41,7 @@ async function generateUniqueEventSlug(
     if (excludeId) q = q.neq('id', excludeId)
     const { data } = await q.maybeSingle()
     if (!data) return candidate
-    candidate = `${base}${suffix++}`
+    candidate = `${base}-${suffix++}`
   }
 }
 
@@ -55,7 +65,7 @@ export async function createEventAction(data: EventSchema) {
   const starts_at = new Date(data.starts_at)
   const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
 
-  const slug = await generateUniqueEventSlug(supabase, data.title)
+  const slug = await generateUniqueEventSlug(supabase, data.title, data.starts_at)
 
   const { data: event, error } = await supabase
     .from('events')
@@ -224,13 +234,13 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   if (isCriticalLocked) {
     const { data: current } = await supabase
       .from('events')
-      .select('title, description, address, slug')
+      .select('title, description, address, slug, starts_at')
       .eq('id', eventId)
       .single()
 
     const newSlug = current?.title !== data.title
-      ? await generateUniqueEventSlug(supabase, data.title, eventId)
-      : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, eventId))
+      ? await generateUniqueEventSlug(supabase, data.title, current!.starts_at, eventId)
+      : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, current!.starts_at, eventId))
 
     const { error } = await supabase
       .from('events')
@@ -260,9 +270,11 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
     .eq('id', eventId)
     .single()
 
-  const updatedSlug = current?.title !== data.title
-    ? await generateUniqueEventSlug(supabase, data.title, eventId)
-    : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, eventId))
+  const titleOrDateChanged = current?.title !== data.title ||
+    (current?.starts_at && eventDateSuffix(current.starts_at) !== eventDateSuffix(data.starts_at))
+  const updatedSlug = titleOrDateChanged
+    ? await generateUniqueEventSlug(supabase, data.title, data.starts_at, eventId)
+    : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, data.starts_at, eventId))
 
   const { error } = await supabase
     .from('events')
