@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2, AlertCircle, CheckCircle2, Wallet, ImagePlus, X } from 'lucide-react'
-import { formatPrice } from '@/utils/format'
+import { formatPrice, formatBalance } from '@/utils/format'
 import Image from 'next/image'
 
 async function uploadToCloudinary(file: File): Promise<string> {
@@ -117,7 +117,7 @@ export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: 
             Custo: <span className="font-semibold">R$ 1,00</span> por anúncio (debitado da carteira)
           </p>
           <p className={hasBalance ? 'text-white/40' : 'text-red-400'}>
-            Seu saldo: <span className="font-semibold">{formatPrice(walletBalance)}</span>
+            Seu saldo: <span className="font-semibold">{formatBalance(walletBalance)}</span>
             {!hasBalance && ' — saldo insuficiente, anúncio será salvo como rascunho'}
           </p>
         </div>

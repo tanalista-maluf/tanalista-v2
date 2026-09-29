@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Controller } from 'react-hook-form'
 import { requestWithdrawalAction } from '@/features/carteira/actions'
-import { formatPrice } from '@/utils/format'
+import { formatPrice, formatBalance } from '@/utils/format'
 import { toast } from 'sonner'
 import { CheckCheck, Info } from 'lucide-react'
 
@@ -91,7 +91,7 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="rounded-xl bg-white/[0.04] border border-white/8 p-4 text-sm">
-        Saldo disponível: <strong className="text-primary">{formatPrice(balance)}</strong>
+        Saldo disponível: <strong className="text-primary">{formatBalance(balance)}</strong>
       </div>
 
       {/* Aviso de taxa */}
