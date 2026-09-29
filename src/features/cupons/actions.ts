@@ -30,12 +30,13 @@ export async function redeemCouponAction(code: string) {
   const admin = createAdminClient()
   const normalizedCode = code.trim().toUpperCase()
 
-  // Buscar cupom
+  // Buscar cupom (apenas cupons de plataforma, não cupons de evento)
   const { data: coupon } = await admin
     .from('coupons')
     .select('*')
     .eq('code', normalizedCode)
     .eq('active', true)
+    .is('event_id', null)
     .maybeSingle()
 
   if (!coupon) return { error: 'Cupom inválido ou expirado.' }
@@ -121,7 +122,7 @@ export async function toggleCouponAction(id: string, active: boolean) {
 }
 
 // ── Validar cupom para inscrição (sem consumir) ──────────────────────────────
-export async function validateCouponForEventAction(code: string, eventPrice: number) {
+export async function validateCouponForEventAction(code: string, eventPrice: number, eventId?: string) {
   if (!code?.trim()) return { error: 'Informe o código.' }
 
   const supabase = await createClient()
@@ -131,12 +132,17 @@ export async function validateCouponForEventAction(code: string, eventPrice: num
   const admin = createAdminClient()
   const normalizedCode = code.trim().toUpperCase()
 
-  const { data: coupon } = await admin
+  let query = admin
     .from('coupons')
-    .select('id, amount_cents, expires_at, max_uses, uses_count')
+    .select('id, amount_cents, expires_at, max_uses, uses_count, event_id')
     .eq('code', normalizedCode)
     .eq('active', true)
-    .maybeSingle()
+
+  query = eventId
+    ? query.or(`event_id.is.null,event_id.eq.${eventId}`)
+    : query.is('event_id', null)
+
+  const { data: coupon } = await query.maybeSingle()
 
   if (!coupon) return { error: 'Cupom inválido ou expirado.' }
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return { error: 'Cupom expirado.' }
@@ -153,4 +159,93 @@ export async function validateCouponForEventAction(code: string, eventPrice: num
 
   const discount = Math.min(coupon.amount_cents, eventPrice)
   return { success: true, discount_cents: discount, coupon_id: coupon.id }
+}
+
+// ── Cupons de evento (organizador) ───────────────────────────────────────────
+async function assertEventOrganizer(eventId: string, userId: string) {
+  const admin = createAdminClient()
+  const { data: event } = await admin
+    .from('events')
+    .select('id, organizer_id, price')
+    .eq('id', eventId)
+    .single()
+
+  if (!event || event.organizer_id !== userId) throw new Error('Sem permissão.')
+  return event
+}
+
+const createEventCouponSchema = z.object({
+  code: z.string().min(3).max(30).toUpperCase(),
+  max_uses: z.number().int().min(1).max(999),
+})
+
+export async function createEventCouponAction(eventId: string, input: unknown) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const parsed = createEventCouponSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0].message }
+
+  let event
+  try {
+    event = await assertEventOrganizer(eventId, user.id)
+  } catch {
+    return { error: 'Sem permissão.' }
+  }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('coupons').insert({
+    code: parsed.data.code,
+    amount_cents: event.price,
+    max_uses: parsed.data.max_uses,
+    expires_at: null,
+    active: true,
+    uses_count: 0,
+    event_id: eventId,
+  })
+
+  if (error?.code === '23505') return { error: 'Já existe um cupom com este código.' }
+  if (error) return { error: 'Erro ao criar cupom.' }
+
+  revalidatePath(`/eventos/${eventId}`)
+  return { success: true }
+}
+
+export async function listEventCouponsAction(eventId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.', coupons: [] }
+
+  try {
+    await assertEventOrganizer(eventId, user.id)
+  } catch {
+    return { error: 'Sem permissão.', coupons: [] }
+  }
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('coupons')
+    .select('id, code, max_uses, uses_count, active, created_at')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false })
+
+  return { coupons: data ?? [] }
+}
+
+export async function toggleEventCouponAction(eventId: string, couponId: string, active: boolean) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  try {
+    await assertEventOrganizer(eventId, user.id)
+  } catch {
+    return { error: 'Sem permissão.' }
+  }
+
+  const admin = createAdminClient()
+  await admin.from('coupons').update({ active }).eq('id', couponId).eq('event_id', eventId)
+  revalidatePath(`/eventos/${eventId}`)
+  return { success: true }
 }

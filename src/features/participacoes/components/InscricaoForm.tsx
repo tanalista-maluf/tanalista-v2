@@ -58,7 +58,7 @@ export function InscricaoForm({
     if (!couponCode.trim()) return
     setCouponLoading(true)
     setCouponError('')
-    const result = await validateCouponForEventAction(couponCode, eventPrice)
+    const result = await validateCouponForEventAction(couponCode, eventPrice, eventId)
     setCouponLoading(false)
     if (result.error) {
       setCouponError(result.error)

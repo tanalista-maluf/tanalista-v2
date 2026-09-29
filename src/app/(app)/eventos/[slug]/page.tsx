@@ -22,7 +22,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
-import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket } from 'lucide-react'
+import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import { EventInviteButton } from '@/features/eventos/components/EventInviteButton'
 import { ChangeTeamButton } from '@/features/eventos/components/ChangeTeamButton'
 import { EventGallery } from '@/features/galeria/components/EventGallery'
@@ -147,6 +148,18 @@ export default async function EventDetailPage({
       .order('created_at', { ascending: true })
     joinRequests = (data ?? []) as any
   }
+
+  // Cupons do evento (apenas organizador)
+  let eventCoupons: { id: string; code: string; max_uses: number | null; uses_count: number; active: boolean }[] = []
+  if (event.is_organizer) {
+    const { data } = await admin
+      .from('coupons')
+      .select('id, code, max_uses, uses_count, active')
+      .eq('event_id', id)
+      .order('created_at', { ascending: false })
+    eventCoupons = (data ?? []) as any
+  }
+
   // Organizador pode participar como inscrito — verifica se já tem participação
   const organizerParticipationStatus = event.is_organizer ? event.user_participation_status : null
   const organizerCanJoin = event.is_organizer && isOpen && !isFull && !organizerParticipationStatus
@@ -449,6 +462,11 @@ export default async function EventDetailPage({
               <Users className="size-3" />Solicitações{joinRequests.length > 0 ? ` (${joinRequests.length})` : ''}
             </TabsTrigger>
           )}
+          {event.is_organizer && (
+            <TabsTrigger value="cupons" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
+              <Ticket className="size-3" />Cupons
+            </TabsTrigger>
+          )}
           {isFinished && (
             <TabsTrigger value="regras" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Regras</TabsTrigger>
           )}
@@ -616,6 +634,12 @@ export default async function EventDetailPage({
           <TabsContent value="solicitacoes" className="pt-4 space-y-3">
             <p className="text-xs text-white/40">{joinRequests.length} solicitação(ões) pendente(s)</p>
             <EventJoinRequests requests={joinRequests} eventId={id} />
+          </TabsContent>
+        )}
+
+        {event.is_organizer && (
+          <TabsContent value="cupons" className="pt-4">
+            <EventCoupons eventId={id} coupons={eventCoupons} />
           </TabsContent>
         )}
 

@@ -93,6 +93,7 @@ export async function joinEventAction(
       .select('id, amount_cents, expires_at, max_uses, uses_count')
       .eq('code', normalizedCode)
       .eq('active', true)
+      .or(`event_id.is.null,event_id.eq.${eventId}`)
       .maybeSingle()
 
     if (coupon &&
