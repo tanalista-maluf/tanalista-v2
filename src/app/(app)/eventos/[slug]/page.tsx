@@ -49,12 +49,14 @@ export default async function EventDetailPage({
   params: Promise<{ slug: string }>
   searchParams: Promise<{ invite?: string }>
 }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
   const { slug } = await params
   const { invite: inviteToken } = await searchParams
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  // Sem sessão (visitante ou bot de preview de link): manda para a página pública
+  // do evento, que tem og:image/descrição corretas e o CTA de login para participar.
+  if (!user) redirect(`/e/${slug}`)
 
   // Busca evento por slug ou UUID; extrai UUID para queries subsequentes
   const event = await getEventById(slug, user.id)
