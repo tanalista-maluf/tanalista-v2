@@ -6,7 +6,7 @@ import { joinEventAction, joinWaitlistAction } from '../actions'
 import { validateCouponForEventAction } from '@/features/cupons/actions'
 import { Button } from '@/components/ui/button'
 import { Loader2, Wallet, QrCode, CreditCard, ListPlus, Tag, Check, X } from 'lucide-react'
-import { formatPrice } from '@/utils/format'
+import { formatPrice, formatBalance } from '@/utils/format'
 import { toast } from 'sonner'
 import { TeamSelector } from '@/features/eventos/components/TeamSelector'
 
@@ -189,7 +189,7 @@ export function InscricaoForm({
                   <p className="text-sm font-medium">{m.label}</p>
                   <p className="text-xs text-white/50">
                     {m.id === 'WALLET'
-                      ? `Saldo: ${formatPrice(walletBalance)}${insufficient ? ' — insuficiente' : ''}`
+                      ? `Saldo: ${formatBalance(walletBalance)}${insufficient ? ' — insuficiente' : ''}`
                       : m.desc}
                   </p>
                 </div>
