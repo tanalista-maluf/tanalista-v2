@@ -53,6 +53,7 @@ export function InscricaoForm({
   const isFree = eventPrice === 0
   const hasTeams = teams && teams.length > 0
   const finalPrice = Math.max(0, eventPrice - couponDiscount)
+  const isCouponFree = couponApplied && finalPrice === 0
 
   async function applyCoupon() {
     if (!couponCode.trim()) return
@@ -164,43 +165,51 @@ export function InscricaoForm({
       )}
 
       {/* Seleção de método */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Forma de pagamento</p>
-        {METHODS.map((m) => {
-          const insufficient = m.id === 'WALLET' && walletBalance < eventPrice
-          return (
-            <button
-              key={m.id}
-              type="button"
-              disabled={insufficient}
-              onClick={() => setSelected(m.id)}
-              className={[
-                'w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-                selected === m.id
-                  ? 'border-primary bg-primary/5'
-                  : 'border-white/10 hover:border-primary/30',
-                insufficient ? 'opacity-50 cursor-not-allowed' : '',
-              ].join(' ')}
-            >
-              <m.icon className="size-5 text-primary shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{m.label}</p>
-                <p className="text-xs text-white/50">
-                  {m.id === 'WALLET'
-                    ? `Saldo: ${formatPrice(walletBalance)}${insufficient ? ' — insuficiente' : ''}`
-                    : m.desc}
-                </p>
-              </div>
-              {selected === m.id && (
-                <span className="size-4 rounded-full bg-primary shrink-0" />
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {!isCouponFree && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Forma de pagamento</p>
+          {METHODS.map((m) => {
+            const insufficient = m.id === 'WALLET' && walletBalance < finalPrice
+            return (
+              <button
+                key={m.id}
+                type="button"
+                disabled={insufficient}
+                onClick={() => setSelected(m.id)}
+                className={[
+                  'w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+                  selected === m.id
+                    ? 'border-primary bg-primary/5'
+                    : 'border-white/10 hover:border-primary/30',
+                  insufficient ? 'opacity-50 cursor-not-allowed' : '',
+                ].join(' ')}
+              >
+                <m.icon className="size-5 text-primary shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{m.label}</p>
+                  <p className="text-xs text-white/50">
+                    {m.id === 'WALLET'
+                      ? `Saldo: ${formatPrice(walletBalance)}${insufficient ? ' — insuficiente' : ''}`
+                      : m.desc}
+                  </p>
+                </div>
+                {selected === m.id && (
+                  <span className="size-4 rounded-full bg-primary shrink-0" />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {isCouponFree && (
+        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm text-primary">
+          Cupom aplicado — inscrição gratuita, sem necessidade de pagamento.
+        </div>
+      )}
 
       {/* Aviso PIX */}
-      {selected === 'PIX' && (
+      {!isCouponFree && selected === 'PIX' && (
         <div className="rounded-lg bg-yellow-400/5 border border-yellow-400/20 p-3 text-xs text-yellow-400">
           Após confirmar, você terá <strong>30 minutos</strong> para pagar o PIX.
           Se não pagar no prazo, a inscrição será cancelada automaticamente.
@@ -269,13 +278,13 @@ export function InscricaoForm({
         disabled={loading || (hasTeams && !selectedTeamId)}
         onClick={async () => {
           setLoading(true)
-          const result = await joinEventAction(eventId, selected, selectedTeamId ?? undefined, couponApplied ? couponCode : undefined)
+          const result = await joinEventAction(eventId, isCouponFree ? 'WALLET' : selected, selectedTeamId ?? undefined, couponApplied ? couponCode : undefined)
           setLoading(false)
           if (result?.error) toast.error(result.error)
         }}
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
-        {selected === 'PIX' ? 'Gerar PIX' : selected === 'CREDIT_CARD' ? 'Pagar com cartão' : 'Pagar com carteira'}
+        {isCouponFree ? 'Confirmar inscrição' : selected === 'PIX' ? 'Gerar PIX' : selected === 'CREDIT_CARD' ? 'Pagar com cartão' : 'Pagar com carteira'}
       </Button>
     </div>
   )
