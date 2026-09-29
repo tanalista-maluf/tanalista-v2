@@ -150,11 +150,11 @@ export default async function EventDetailPage({
   }
 
   // Cupons do evento (apenas organizador)
-  let eventCoupons: { id: string; code: string; max_uses: number | null; uses_count: number; active: boolean }[] = []
+  let eventCoupons: { id: string; code: string; max_uses: number | null; uses_count: number; active: boolean; amount_cents: number }[] = []
   if (event.is_organizer) {
     const { data } = await admin
       .from('coupons')
-      .select('id, code, max_uses, uses_count, active')
+      .select('id, code, max_uses, uses_count, active, amount_cents')
       .eq('event_id', id)
       .order('created_at', { ascending: false })
     eventCoupons = (data ?? []) as any
@@ -639,7 +639,7 @@ export default async function EventDetailPage({
 
         {event.is_organizer && (
           <TabsContent value="cupons" className="pt-4">
-            <EventCoupons eventId={id} coupons={eventCoupons} />
+            <EventCoupons eventId={id} eventPrice={event.price} coupons={eventCoupons} />
           </TabsContent>
         )}
 

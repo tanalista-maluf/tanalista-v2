@@ -177,6 +177,7 @@ async function assertEventOrganizer(eventId: string, userId: string) {
 const createEventCouponSchema = z.object({
   code: z.string().min(3).max(30).toUpperCase(),
   max_uses: z.number().int().min(1).max(999),
+  percent_off: z.number().int().min(1).max(100),
 })
 
 export async function createEventCouponAction(eventId: string, input: unknown) {
@@ -197,7 +198,7 @@ export async function createEventCouponAction(eventId: string, input: unknown) {
   const admin = createAdminClient()
   const { error } = await admin.from('coupons').insert({
     code: parsed.data.code,
-    amount_cents: event.price,
+    amount_cents: Math.round(event.price * (parsed.data.percent_off / 100)),
     max_uses: parsed.data.max_uses,
     expires_at: null,
     active: true,
@@ -226,7 +227,7 @@ export async function listEventCouponsAction(eventId: string) {
   const admin = createAdminClient()
   const { data } = await admin
     .from('coupons')
-    .select('id, code, max_uses, uses_count, active, created_at')
+    .select('id, code, max_uses, uses_count, active, amount_cents, created_at')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
 
