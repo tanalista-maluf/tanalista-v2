@@ -10,7 +10,7 @@ interface Props {
 export function ShareGroupButton({ groupSlug }: Props) {
   const [copied, setCopied] = useState(false)
 
-  const url = `${window.location.origin}/grupos/${groupSlug}`
+  const url = `${window.location.origin}/g/${groupSlug}`
 
   async function handleShare() {
     if (navigator.share) {
