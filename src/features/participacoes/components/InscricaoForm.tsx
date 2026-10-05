@@ -221,13 +221,13 @@ export function InscricaoForm({
         <div className="space-y-1.5">
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-white/30" />
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-yellow-400/60" />
               <input
                 type="text"
-                placeholder="Código de desconto (opcional)"
+                placeholder="CUPOM (opcional)"
                 value={couponCode}
                 onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-primary/40 transition-colors"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-yellow-400/5 border border-yellow-400/20 text-sm text-white placeholder:text-yellow-400/40 focus:outline-none focus:border-yellow-400/40 transition-colors"
               />
             </div>
             <button

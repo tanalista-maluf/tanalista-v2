@@ -47,12 +47,12 @@ export function RedeemCouponForm() {
           <Input
             value={code}
             onChange={e => setCode(e.target.value.toUpperCase())}
-            placeholder="CÓDIGO DO CUPOM"
-            className="uppercase tracking-widest"
+            placeholder="CUPOM"
+            className="uppercase tracking-widest bg-yellow-400/5 border-yellow-400/20 placeholder:text-yellow-400/40 focus-visible:border-yellow-400/40"
             autoFocus
           />
           <Button type="submit" disabled={loading || !code.trim()} className="shrink-0">
-            {loading ? '...' : 'Resgatar'}
+            {loading ? '...' : 'Aplicar'}
           </Button>
         </form>
       )}
