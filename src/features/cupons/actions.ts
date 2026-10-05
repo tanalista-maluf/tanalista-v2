@@ -199,6 +199,7 @@ export async function createEventCouponAction(eventId: string, input: unknown) {
   const { error } = await admin.from('coupons').insert({
     code: parsed.data.code,
     amount_cents: Math.round(event.price * (parsed.data.percent_off / 100)),
+    percent_off: parsed.data.percent_off,
     max_uses: parsed.data.max_uses,
     expires_at: null,
     active: true,
@@ -227,7 +228,7 @@ export async function listEventCouponsAction(eventId: string) {
   const admin = createAdminClient()
   const { data } = await admin
     .from('coupons')
-    .select('id, code, max_uses, uses_count, active, amount_cents, created_at')
+    .select('id, code, max_uses, uses_count, active, amount_cents, percent_off, created_at')
     .eq('event_id', eventId)
     .order('created_at', { ascending: false })
 

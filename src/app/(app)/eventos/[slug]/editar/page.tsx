@@ -30,7 +30,7 @@ export default async function EditarEventoPage({
   const admin = createAdminClient()
   const { data: eventCoupons } = await admin
     .from('coupons')
-    .select('id, code, max_uses, uses_count, active, amount_cents')
+    .select('id, code, max_uses, uses_count, active, amount_cents, percent_off')
     .eq('event_id', event.id)
     .order('created_at', { ascending: false })
 
