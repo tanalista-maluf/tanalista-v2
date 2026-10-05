@@ -16,6 +16,7 @@ interface Coupon {
   uses_count: number
   active: boolean
   amount_cents: number
+  percent_off: number | null
 }
 
 interface Props {
@@ -45,7 +46,7 @@ export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: P
     } else {
       toast.success('Cupom criado!')
       const amount_cents = Math.round(eventPrice * (percentOff / 100))
-      setCoupons(prev => [{ id: crypto.randomUUID(), code, max_uses: maxUses, uses_count: 0, active: true, amount_cents }, ...prev])
+      setCoupons(prev => [{ id: crypto.randomUUID(), code, max_uses: maxUses, uses_count: 0, active: true, amount_cents, percent_off: percentOff }, ...prev])
       setOpen(false)
       ;(e.target as HTMLFormElement).reset()
     }
@@ -69,7 +70,7 @@ export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: P
       {coupons.length > 0 && (
         <div className="space-y-2">
           {coupons.map(c => {
-            const pct = eventPrice > 0 ? Math.round((c.amount_cents / eventPrice) * 100) : 100
+            const pct = c.percent_off ?? (eventPrice > 0 ? Math.round((c.amount_cents / eventPrice) * 100) : 100)
             return (
               <div key={c.id} className="flex items-center gap-3 card-dark rounded-xl p-3">
                 <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">

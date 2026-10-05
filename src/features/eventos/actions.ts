@@ -282,14 +282,26 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
         `O valor de inscrição de "${current.title}" foi atualizado para ${formatPrice(newPrice)}.`
       )
 
-      // Mantém a isenção total dos cupons do evento que cobriam 100% do preço
-      // anterior — cupons com desconto parcial (intencional) não são tocados.
-      await admin
+      // Recalcula o desconto dos cupons do evento a partir do percentual
+      // salvo, para que um cupom de 20%/40%/100% continue nesse mesmo
+      // percentual do novo preço.
+      const { data: eventCoupons } = await admin
         .from('coupons')
-        .update({ amount_cents: newPrice })
+        .select('id, percent_off')
         .eq('event_id', eventId)
         .eq('active', true)
-        .eq('amount_cents', current.price)
+        .not('percent_off', 'is', null)
+
+      if (eventCoupons && eventCoupons.length > 0) {
+        await Promise.all(
+          eventCoupons.map((c) =>
+            admin
+              .from('coupons')
+              .update({ amount_cents: Math.round(newPrice * ((c.percent_off as number) / 100)) })
+              .eq('id', c.id)
+          )
+        )
+      }
     }
 
     revalidatePath(`/eventos/${newSlug}`)
