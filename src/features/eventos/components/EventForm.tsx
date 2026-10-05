@@ -79,7 +79,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
 
       {isLocked && (
         <div className="rounded-lg bg-yellow-400/5 border border-yellow-400/20 p-3 text-xs text-yellow-400">
-          Este evento já está publicado. Apenas a descrição e o endereço podem ser editados.
+          Este evento já está publicado. Apenas a descrição, o endereço e o valor podem ser editados.
         </div>
       )}
 
@@ -219,7 +219,6 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
             <Input
               id="price"
               placeholder="0,00"
-              disabled={isLocked}
               aria-invalid={!!errors.price}
               {...register('price')}
             />

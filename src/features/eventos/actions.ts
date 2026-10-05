@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { slugify } from '@/lib/utils'
+import { formatPrice } from '@/utils/format'
 import { sendEventCancelledToParticipant } from '@/lib/emails'
 import type { EventSchema } from './schemas'
 
@@ -252,7 +253,7 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   if (isCriticalLocked) {
     const { data: current } = await supabase
       .from('events')
-      .select('title, description, address, slug, starts_at')
+      .select('title, description, address, slug, starts_at, price')
       .eq('id', eventId)
       .single()
 
@@ -260,17 +261,25 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       ? await generateUniqueEventSlug(supabase, data.title, current!.starts_at, eventId)
       : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, current!.starts_at, eventId))
 
+    const newPrice = parsePriceToCents(data.price)
+
     const { error } = await supabase
       .from('events')
-      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', cancel_before_hours: data.cancel_before_hours ?? null, slug: newSlug })
+      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', cancel_before_hours: data.cancel_before_hours ?? null, slug: newSlug, price: newPrice })
       .eq('id', eventId)
     if (error) return { error: 'Erro ao atualizar evento.' }
 
-    // Notifica só se o endereço mudou
+    // Notifica só se o endereço ou o valor mudou
     if (current && data.address !== current.address) {
       await notifyParticipants(
         'Endereço do evento alterado',
         `O local de "${current.title}" foi atualizado para: ${data.address}`
+      )
+    }
+    if (current && newPrice !== current.price) {
+      await notifyParticipants(
+        'Valor do evento alterado',
+        `O valor de inscrição de "${current.title}" foi atualizado para ${formatPrice(newPrice)}.`
       )
     }
 
