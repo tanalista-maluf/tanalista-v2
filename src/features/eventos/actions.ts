@@ -281,6 +281,15 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
         'Valor do evento alterado',
         `O valor de inscrição de "${current.title}" foi atualizado para ${formatPrice(newPrice)}.`
       )
+
+      // Mantém a isenção total dos cupons do evento que cobriam 100% do preço
+      // anterior — cupons com desconto parcial (intencional) não são tocados.
+      await admin
+        .from('coupons')
+        .update({ amount_cents: newPrice })
+        .eq('event_id', eventId)
+        .eq('active', true)
+        .eq('amount_cents', current.price)
     }
 
     revalidatePath(`/eventos/${newSlug}`)
