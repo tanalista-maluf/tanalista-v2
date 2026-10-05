@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag } from 'lucide-react'
 import Image from 'next/image'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
+import { ShareGroupButton } from '@/features/grupos/components/ShareGroupButton'
 import { RequestGroupJoinButton } from '@/features/grupos/components/RequestGroupJoinButton'
 import { ReportButton } from '@/features/reports/components/ReportButton'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -168,6 +169,7 @@ export default async function GroupDetailPage({
               Criar evento
             </Link>
           )}
+          <ShareGroupButton groupSlug={groupSlug} />
         </div>
 
         {/* Link de convite — apenas dono de grupo privado */}
