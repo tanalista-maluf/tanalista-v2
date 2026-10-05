@@ -53,11 +53,14 @@ export default async function GroupDetailPage({
 }: {
   params: Promise<{ slug: string }>
 }) {
+  const { slug } = await params
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // Sem sessão (visitante ou bot de preview de link): manda para a página
+  // pública do grupo, que tem og:image/descrição corretas e o CTA de login.
+  if (!user) redirect(`/g/${slug}`)
 
-  const { slug } = await params
   const group = await getGroupById(slug, user.id)
   if (!group) notFound()
 
