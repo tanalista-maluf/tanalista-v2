@@ -377,6 +377,15 @@ export default async function EventDetailPage({
                 userId={user.id}
               />
             )}
+            {!event.is_organizer && event.user_participation_status === 'CONFIRMED' && isOpen &&
+              (event as any).cancel_before_hours !== null && (event as any).cancel_before_hours !== undefined && (
+                <CancelParticipationButton
+                  participationId={event.user_participation_id!}
+                  eventId={id}
+                  eventPrice={event.price}
+                  cancelBeforeHours={(event as any).cancel_before_hours}
+                />
+            )}
           </div>
         </div>
 
