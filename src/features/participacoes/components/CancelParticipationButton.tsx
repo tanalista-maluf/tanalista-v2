@@ -56,7 +56,7 @@ export function CancelParticipationButton({
           <AlertDialogTitle>Cancelar inscrição?</AlertDialogTitle>
           <AlertDialogDescription>
             Você perderá sua vaga neste evento.
-            {eventPrice > 0 && ' O valor será reembolsado como crédito na sua carteira TáNaLista.'}
+            {eventPrice > 0 && ' O valor será reembolsado como crédito na sua carteira TáNaLista — você pode usar o saldo para se inscrever em outros eventos ou solicitar o saque quando quiser.'}
             {cancelBeforeHours !== null && cancelBeforeHours !== undefined && cancelBeforeHours > 0 && (
               <span className="block mt-1 text-yellow-400/80">
                 Política do organizador: cancelamento com reembolso até {cancelBeforeHours}h antes do evento.
