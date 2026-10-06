@@ -27,15 +27,25 @@ export async function POST(request: NextRequest) {
   }
 
   const dataId = event.data?.id ?? null
+  const admin = createAdminClient()
   const validation = validateMPWebhook(rawBody, signature, requestId, timestamp, secret, dataId)
   if (!validation.valid) {
     console.warn('[WEBHOOK] Invalid signature:', validation.reason)
+    try {
+      await admin.from('webhook_failures').insert({
+        source: 'mercadopago',
+        event_type: event.type ?? 'unknown',
+        payload: JSON.parse(rawBody),
+        error: `Invalid signature: ${validation.reason}`,
+      })
+    } catch (logErr) {
+      console.error('[WEBHOOK] Failed to log signature-failure dead-letter:', logErr)
+    }
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
   // Aceita imediatamente para liberar o webhook (MP re-envia se não responder em < 2s)
   // Processamento assíncrono abaixo
-  const admin = createAdminClient()
 
   try {
     if (event.type === 'payment') {
