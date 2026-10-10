@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
 import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket } from 'lucide-react'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
+import { EventBroadcastForm } from '@/features/eventos/components/EventBroadcastForm'
 import { EventInviteButton } from '@/features/eventos/components/EventInviteButton'
 import { ChangeTeamButton } from '@/features/eventos/components/ChangeTeamButton'
 import { EventGallery } from '@/features/galeria/components/EventGallery'
@@ -555,6 +556,7 @@ export default async function EventDetailPage({
         </TabsContent>
 
         <TabsContent value="participantes" className="pt-3 space-y-3">
+          {event.is_organizer && <EventBroadcastForm eventId={id} />}
           <p className="text-[11px] text-white/30 font-medium">
             {event.confirmed_count} confirmados · {event.waitlist_count} na fila
           </p>
