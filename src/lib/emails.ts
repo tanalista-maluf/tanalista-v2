@@ -274,3 +274,29 @@ export async function sendNewEventToGroupMember(params: {
   })
 }
 
+// ── Email: aviso do organizador para os participantes ─────────────────────────
+export async function sendEventBroadcastToParticipant(params: {
+  to: string
+  name: string
+  eventTitle: string
+  eventId: string
+  message: string
+}) {
+  const messageBox = `<div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;color:#2B2D31;line-height:1.6;white-space:pre-wrap;">${esc(params.message)}</div>`
+
+  const body = base(
+    `Aviso: ${params.eventTitle}`,
+    h2(`Aviso do organizador 📢`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>! O organizador de <strong>${esc(params.eventTitle)}</strong> enviou um aviso:`) +
+    messageBox +
+    btn('Ver evento', `${process.env.NEXT_PUBLIC_APP_URL}/eventos/${params.eventId}`)
+  )
+
+  await getResend().emails.send({
+    from: FROM,
+    to: params.to,
+    subject: `Aviso: ${params.eventTitle}`,
+    html: body,
+  })
+}
+

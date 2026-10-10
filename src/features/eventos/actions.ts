@@ -768,3 +768,79 @@ export async function uploadEventCoverAction(formData: FormData) {
   revalidatePath(`/eventos/${event.slug ?? eventId}`)
   return { success: true, coverUrl }
 }
+
+// ── Aviso do organizador para os participantes confirmados ──────────────────
+export async function sendEventBroadcastAction(eventId: string, message: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const trimmed = message.trim()
+  if (!trimmed) return { error: 'Escreva uma mensagem.' }
+  if (trimmed.length > 500) return { error: 'Mensagem muito longa (máx. 500 caracteres).' }
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('id, title, organizer_id')
+    .eq('id', eventId)
+    .single()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  const { data: participants } = await admin
+    .from('participations')
+    .select('user_id')
+    .eq('event_id', eventId)
+    .eq('status', 'CONFIRMED')
+
+  if (!participants || participants.length === 0) {
+    return { error: 'Nenhum participante confirmado para notificar.' }
+  }
+
+  const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
+  const { sendEventBroadcastToParticipant } = await import('@/lib/emails')
+  const { sendPushToUser } = await import('@/lib/push')
+
+  let sent = 0
+  await Promise.allSettled(participants.map(async (p) => {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('full_name, notif_email, notif_push')
+      .eq('id', p.user_id)
+      .single()
+
+    await createNotificationAdmin({
+      userId: p.user_id,
+      type: 'EVENT_MESSAGE',
+      title: `Aviso: ${event.title}`,
+      body: trimmed,
+      data: { event_id: eventId },
+    })
+
+    if (profile?.notif_push ?? true) {
+      await sendPushToUser(p.user_id, {
+        title: `Aviso: ${event.title}`,
+        body: trimmed,
+        url: `/eventos/${eventId}`,
+      }).catch(() => {})
+    }
+
+    if (profile?.notif_email ?? true) {
+      const { data: authUser } = await admin.auth.admin.getUserById(p.user_id)
+      if (authUser?.user?.email) {
+        await sendEventBroadcastToParticipant({
+          to: authUser.user.email,
+          name: profile?.full_name ?? 'Participante',
+          eventTitle: event.title,
+          eventId,
+          message: trimmed,
+        }).catch(() => {})
+      }
+    }
+
+    sent++
+  }))
+
+  return { success: true, sent }
+}
