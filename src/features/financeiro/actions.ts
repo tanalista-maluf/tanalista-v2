@@ -50,8 +50,9 @@ export async function claimEventPayoutAction(eventId: string) {
   const { error: creditError } = await admin.rpc('wallet_credit', {
     p_user_id:    user.id,
     p_amount:     net,
-    p_type:       'DEPOSIT',
+    p_type:       'PAYOUT',
     p_description: `Receita do evento: ${event.title}`,
+    p_event_id:   eventId,
   })
 
   if (creditError) {
