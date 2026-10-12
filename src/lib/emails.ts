@@ -82,8 +82,6 @@ export async function sendWithdrawalRequestAdmin(params: {
     h2('Nova solicitação de saque') +
     p(`<strong>${esc(params.userName)}</strong> (${esc(params.userEmail)}) solicitou um saque.`) +
     infoBox([
-      `Valor solicitado: <strong>${formatPrice(params.amountCents)}</strong>`,
-      `Taxa (${((params.feeCents / params.amountCents) * 100).toFixed(0)}%): <strong>− ${formatPrice(params.feeCents)}</strong>`,
       `Valor a transferir: <strong>${formatPrice(params.netCents)}</strong>`,
       `Chave PIX (${esc(params.pixKeyType.toUpperCase())}): <strong>${esc(params.pixKey)}</strong>`,
     ]) +
