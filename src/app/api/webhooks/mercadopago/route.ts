@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { validateMPWebhook } from '@/lib/webhook-validation'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
 import { sendParticipationConfirmed } from '@/lib/emails'
+import type { Json } from '@/types/database'
 
 // Desativar body parser automático (precisamos do rawBody para HMAC)
 export const runtime = 'nodejs'
@@ -109,7 +110,7 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
       .from('payments')
       .update({
         status: newStatus,
-        gateway_response: mpPayment as unknown as Record<string, unknown>,
+        gateway_response: mpPayment as unknown as Json,
       })
       .eq('id', existingPayment.id)
   } else {
@@ -137,7 +138,7 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
       method,
       status: newStatus,
       gateway_transaction_id: mpPaymentId,
-      gateway_response: mpPayment as unknown as Record<string, unknown>,
+      gateway_response: mpPayment as unknown as Json,
     })
   }
 

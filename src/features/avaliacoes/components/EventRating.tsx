@@ -17,7 +17,7 @@ interface Props {
   average: number
   count: number
   ratings: RatingEntry[]
-  userRating: { rating: number; comment: string } | null
+  userRating: { rating: number; comment: string | null } | null
   isParticipant: boolean
 }
 

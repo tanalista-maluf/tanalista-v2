@@ -1493,6 +1493,7 @@ export type Database = {
         | "GROUP_JOIN_REJECTED"
         | "GROUP_OWNERSHIP_TRANSFERRED"
         | "EVENT_MESSAGE"
+        | "WAITLIST_PROMOTED"
       participation_status: "CONFIRMED" | "PENDING" | "CANCELLED" | "WAITLISTED"
       payment_method: "PIX" | "CREDIT_CARD" | "WALLET"
       payment_status:
@@ -1509,6 +1510,7 @@ export type Database = {
         | "WITHDRAWAL"
         | "PAYOUT"
         | "BONUS"
+        | "ADJUSTMENT"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1667,6 +1669,7 @@ export const Constants = {
         "GROUP_JOIN_REJECTED",
         "GROUP_OWNERSHIP_TRANSFERRED",
         "EVENT_MESSAGE",
+        "WAITLIST_PROMOTED",
       ],
       participation_status: ["CONFIRMED", "PENDING", "CANCELLED", "WAITLISTED"],
       payment_method: ["PIX", "CREDIT_CARD", "WALLET"],
@@ -1685,6 +1688,7 @@ export const Constants = {
         "WITHDRAWAL",
         "PAYOUT",
         "BONUS",
+        "ADJUSTMENT",
       ],
     },
   },

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { calculateFees } from '@/lib/mercadopago'
 
 // Sair da fila de espera
 export async function leaveWaitlistAction(eventId: string) {
@@ -21,9 +22,12 @@ export async function leaveWaitlistAction(eventId: string) {
 
   if (!entry) return { error: 'Você não está na fila deste evento.' }
 
-  const { error } = await supabase
+  // A entrada é apagada: o enum da fila não tem um status de desistência, e a
+  // linha ocuparia as unicidades (evento, usuário) e (evento, posição).
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('waitlist_entries')
-    .update({ status: 'CANCELLED' })
+    .delete()
     .eq('id', entry.id)
 
   if (error) return { error: 'Erro ao sair da fila.' }
@@ -76,9 +80,12 @@ export async function confirmWaitlistSpotAction(
 
   const isExempt = event.organizer_id === user.id && event.organizer_exempt
 
+  // A linha de participations é reaproveitada; não herda cupom da inscrição anterior
+  const noCoupon = { discount_cents: 0, coupon_id: null }
+
   if (isExempt || event.price === 0) {
     if (existing) {
-      await admin.from('participations').update({ status: 'CONFIRMED' }).eq('id', existing.id)
+      await admin.from('participations').update({ status: 'CONFIRMED', ...noCoupon }).eq('id', existing.id)
     } else {
       await admin.from('participations').insert({
         event_id: eventId,
@@ -112,16 +119,33 @@ export async function confirmWaitlistSpotAction(
 
     if (debitError) return { error: 'Erro ao processar pagamento pela carteira.' }
 
+    let walletParticipationId = existing?.id
     if (existing) {
-      await admin.from('participations').update({ status: 'CONFIRMED' }).eq('id', existing.id)
+      await admin.from('participations').update({ status: 'CONFIRMED', ...noCoupon }).eq('id', existing.id)
     } else {
-      await admin.from('participations').insert({
+      const { data: created } = await admin.from('participations').insert({
         event_id: eventId,
         user_id: user.id,
         status: 'CONFIRMED',
-      })
+      }).select('id').single()
+      walletParticipationId = created?.id
     }
     await admin.from('waitlist_entries').update({ status: 'CONFIRMED' }).eq('id', entry.id)
+
+    // Registrar pagamento na tabela payments: é o que entra no repasse ao
+    // organizador e o que é devolvido se a inscrição for cancelada
+    if (walletParticipationId) {
+      const fees = calculateFees(event.price, 'WALLET')
+      await admin.from('payments').insert({
+        participation_id: walletParticipationId,
+        payer_id: user.id,
+        amount: event.price,
+        platform_fee: fees.platform_fee,
+        gateway_fee: fees.gateway_fee,
+        method: 'WALLET',
+        status: 'APPROVED',
+      })
+    }
 
     revalidatePath(`/eventos/${eventId}`)
     redirect(`/eventos/${eventId}?joined=1`)
@@ -132,7 +156,7 @@ export async function confirmWaitlistSpotAction(
   if (existing) {
     const { data: updated } = await admin
       .from('participations')
-      .update({ status: 'PENDING' })
+      .update({ status: 'PENDING', ...noCoupon })
       .eq('id', existing.id)
       .select('id')
       .single()

@@ -34,7 +34,7 @@ export async function getEvents(opts: {
   group_id?: string
   cursor_created_at?: string
   cursor_id?: string
-  status?: string[]
+  status?: EventRow['status'][]
   onlyMine?: boolean
   excludePast?: boolean
 }) {

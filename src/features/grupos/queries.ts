@@ -35,7 +35,7 @@ export async function getGroups(opts: {
       .eq('group_members.user_id', opts.userId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
-      .limit(PAGE_SIZE + 1)
+      .limit(PAGE_SIZE + 1) as unknown as typeof query
   }
 
   if (opts.city) query = query.ilike('city', `%${opts.city}%`)
@@ -62,7 +62,7 @@ export async function getGroups(opts: {
       .eq('user_id', opts.userId)
       .in('group_id', rows.map((g) => g.id))
     for (const m of memberships ?? []) {
-      membershipByGroupId.set(m.group_id, m.role)
+      membershipByGroupId.set(m.group_id, m.role as 'OWNER' | 'MEMBER')
     }
   }
 

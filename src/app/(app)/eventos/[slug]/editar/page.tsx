@@ -50,7 +50,7 @@ export default async function EditarEventoPage({
 
       <EventForm
         eventId={event.id}
-        groupId={event.group_id}
+        groupId={event.group_id ?? undefined}
         isLocked={isLocked}
         defaultValues={{
           title: event.title,
@@ -67,7 +67,7 @@ export default async function EditarEventoPage({
           organizer_exempt: event.organizer_exempt,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
-          group_id: event.group_id,
+          group_id: event.group_id ?? undefined,
         }}
       />
 

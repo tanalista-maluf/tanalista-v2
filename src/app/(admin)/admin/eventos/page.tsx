@@ -2,8 +2,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { formatPrice } from '@/utils/format'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Constants } from '@/types/database'
 
 export const dynamic = 'force-dynamic'
+
+const EVENT_STATUSES = Constants.public.Enums.event_status
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   DRAFT:       { label: 'Rascunho',           className: 'text-white/40 bg-white/5' },
@@ -37,7 +40,8 @@ export default async function AdminEventosPage({
     .range(offset, offset + pageSize - 1)
 
   if (q) query = query.ilike('title', `%${q}%`)
-  if (status) query = query.eq('status', status)
+  const statusFilter = EVENT_STATUSES.find((s) => s === status)
+  if (statusFilter) query = query.eq('status', statusFilter)
 
   const { data: events, count } = await query
   const totalPages = Math.ceil((count ?? 0) / pageSize)

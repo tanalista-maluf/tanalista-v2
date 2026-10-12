@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
 import { checkRateLimit } from '@/lib/rate-limit'
+import type { Json } from '@/types/database'
 
 // Recarga de carteira — usa credenciais DA PLATAFORMA (não do organizador)
 // Doc 15 Adendo 02: não há organizer em uma recarga
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       method: 'PIX',
       status: 'PENDING',
       gateway_transaction_id: String(mpPayment.id),
-      gateway_response: mpPayment as unknown as Record<string, unknown>,
+      gateway_response: mpPayment as unknown as Json,
     })
 
     return NextResponse.json({
