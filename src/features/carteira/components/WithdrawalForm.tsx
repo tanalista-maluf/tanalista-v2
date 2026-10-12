@@ -12,15 +12,7 @@ import { Controller } from 'react-hook-form'
 import { requestWithdrawalAction } from '@/features/carteira/actions'
 import { formatPrice, formatBalance } from '@/utils/format'
 import { toast } from 'sonner'
-import { CheckCheck, Info } from 'lucide-react'
-
-// Taxa de saque: 1% do valor solicitado (cobrada pelo gateway de transferência PIX)
-const WITHDRAWAL_FEE_PCT = 1
-
-function calcFee(amountCents: number) {
-  const fee = Math.round(amountCents * (WITHDRAWAL_FEE_PCT / 100))
-  return { fee, net: amountCents - fee, total: amountCents }
-}
+import { CheckCheck } from 'lucide-react'
 
 const schema = z.object({
   amount: z.string().min(1, 'Informe o valor.'),
@@ -44,7 +36,6 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
 
   const amountRaw = useWatch({ control, name: 'amount', defaultValue: '' })
   const amountCents = Math.round(parseFloat(amountRaw.replace(',', '.')) * 100) || 0
-  const { fee, net } = calcFee(amountCents)
   const showBreakdown = amountCents >= 500
 
   async function onSubmit(data: FormData) {
@@ -54,9 +45,8 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
     if (isNaN(amount_cents)) { toast.error('Valor inválido.'); return }
     if (amount_cents < 500) { toast.error('Valor mínimo: R$ 5,00.'); return }
 
-    const { total } = calcFee(amount_cents)
-    if (total > balance) {
-      toast.error('Saldo insuficiente para cobrir o valor e a taxa.')
+    if (amount_cents > balance) {
+      toast.error('Saldo insuficiente.')
       return
     }
 
@@ -94,14 +84,6 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
         Saldo disponível: <strong className="text-primary">{formatBalance(balance)}</strong>
       </div>
 
-      {/* Aviso de taxa */}
-      <div className="flex items-start gap-2.5 rounded-xl bg-yellow-400/5 border border-yellow-400/15 p-3.5">
-        <Info className="size-4 text-yellow-400 shrink-0 mt-0.5" />
-        <p className="text-sm text-white/60">
-          Saques estão sujeitos a uma taxa de <strong className="text-white">{WITHDRAWAL_FEE_PCT}%</strong>. O valor líquido será transferido para a sua chave PIX.
-        </p>
-      </div>
-
       <div className="space-y-1.5">
         <Label>Valor a sacar (R$)</Label>
         <Input
@@ -115,18 +97,10 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
 
       {/* Breakdown em tempo real */}
       {showBreakdown && (
-        <div className="rounded-xl bg-white/[0.03] border border-white/8 divide-y divide-white/6 text-sm">
-          <div className="flex justify-between px-4 py-2.5 text-white/50">
-            <span>Valor solicitado</span>
-            <span>{formatPrice(amountCents)}</span>
-          </div>
-          <div className="flex justify-between px-4 py-2.5 text-yellow-400/80">
-            <span>Taxa de saque ({WITHDRAWAL_FEE_PCT}%)</span>
-            <span>− {formatPrice(fee)}</span>
-          </div>
+        <div className="rounded-xl bg-white/[0.03] border border-white/8 text-sm">
           <div className="flex justify-between px-4 py-2.5 font-bold text-primary">
             <span>Você receberá</span>
-            <span>{formatPrice(net)}</span>
+            <span>{formatPrice(amountCents)}</span>
           </div>
         </div>
       )}
@@ -170,7 +144,7 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
       </div>
 
       <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? 'Processando...' : `Solicitar saque de ${showBreakdown ? formatPrice(net) : '—'}`}
+        {isSubmitting ? 'Processando...' : `Solicitar saque de ${showBreakdown ? formatPrice(amountCents) : '—'}`}
       </Button>
     </form>
   )

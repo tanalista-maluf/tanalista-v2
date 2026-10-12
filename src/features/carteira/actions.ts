@@ -6,8 +6,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWithdrawalRequestAdmin } from '@/lib/emails'
 
-const WITHDRAWAL_FEE_PCT = 1 // 1% de taxa de saque
-
 const withdrawalSchema = z.object({
   amount_cents: z.number({ error: 'Valor inválido.' }).int().min(500, 'Valor mínimo: R$ 5,00').max(500000, 'Valor máximo: R$ 5.000,00'),
   cpf: z.string().regex(/^\d{11}$/, 'CPF inválido — informe 11 dígitos sem pontuação.'),
@@ -25,8 +23,9 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
 
   const { amount_cents, cpf, pix_key, pix_key_type } = parsed.data
 
-  const fee_cents = Math.round(amount_cents * (WITHDRAWAL_FEE_PCT / 100))
-  const net_cents = amount_cents - fee_cents
+  // Sem taxa de saque: a taxa de gateway já é cobrada no momento do pagamento/depósito.
+  const fee_cents = 0
+  const net_cents = amount_cents
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -48,7 +47,7 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
     p_user_id: user.id,
     p_amount: amount_cents,
     p_type: 'WITHDRAWAL',
-    p_description: `Saque via PIX — líquido ${(net_cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (taxa ${WITHDRAWAL_FEE_PCT}%)`,
+    p_description: `Saque via PIX`,
   })
 
   if (debitError) return { error: 'Erro ao processar saque.' }
