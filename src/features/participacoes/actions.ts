@@ -59,18 +59,22 @@ export async function joinEventAction(
     return { error: 'Evento lotado. Tente a fila de espera.', code: 'FULL' }
   }
 
+  // Toda escrita em participations passa pelo service_role: anon/authenticated
+  // não têm INSERT/UPDATE na tabela, senão o usuário se confirmaria sem pagar.
+  const admin = createAdminClient()
+
   // Organizador isento: confirma diretamente
   const isOrganizerExempt = event.organizer_id === user.id && event.organizer_exempt
 
   if (isOrganizerExempt || event.price === 0) {
     // Confirmar diretamente sem pagamento
     if (existing) {
-      await supabase
+      await admin
         .from('participations')
         .update({ status: 'CONFIRMED', payment_id: null, ...(teamId ? { team_id: teamId } : {}) })
         .eq('id', existing.id)
     } else {
-      await supabase.from('participations').insert({
+      await admin.from('participations').insert({
         event_id: eventId,
         user_id: user.id,
         status: 'CONFIRMED',
@@ -82,7 +86,6 @@ export async function joinEventAction(
   }
 
   // Aplicar cupom de desconto se fornecido
-  const admin = createAdminClient()
   let effectivePrice = event.price
   let appliedCouponId: string | null = null
 

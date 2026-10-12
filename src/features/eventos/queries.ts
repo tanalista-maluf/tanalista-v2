@@ -3,6 +3,18 @@ import type { EventRow } from '@/types/database'
 
 const PAGE_SIZE = 20
 
+// Colunas de events legíveis pelo cliente do usuário. Lista explícita porque
+// anon/authenticated não têm SELECT em mp_access_token (GRANT por coluna),
+// então um select('*') nessa tabela falha com permission denied.
+const EVENT_COLUMNS = `
+  id, group_id, organizer_id, title, slug, description, cover_url, address,
+  city, category, status, price, capacity, min_participants, waitlist_capacity,
+  starts_at, ends_at, registration_deadline, min_check_at, organizer_exempt,
+  visibility, invite_token, confirmed_count, rating_average, rating_count,
+  cancel_before_hours, custom_rules, recurrence_rule, parent_event_id,
+  recurrence_index, payout_claimed_at, created_at, updated_at
+`
+
 export type EventWithMeta = EventRow & {
   group_name: string
   organizer_name: string
@@ -31,7 +43,7 @@ export async function getEvents(opts: {
   let query = supabase
     .from('events')
     .select(`
-      *,
+      ${EVENT_COLUMNS},
       groups(name),
       profiles!events_organizer_id_fkey(full_name)
     `)
@@ -87,7 +99,7 @@ export async function getEventById(slugOrId: string, userId?: string) {
   const { data: event, error } = await supabase
     .from('events')
     .select(`
-      *,
+      ${EVENT_COLUMNS},
       groups(id, name, owner_id),
       profiles!events_organizer_id_fkey(id, full_name, username)
     `)
@@ -152,7 +164,7 @@ export async function getOrganizerEvents(organizerId: string) {
 
   const { data, error } = await supabase
     .from('events')
-    .select('*, groups(name)')
+    .select(`${EVENT_COLUMNS}, groups(name)`)
     .eq('organizer_id', organizerId)
     .order('starts_at', { ascending: true })
 

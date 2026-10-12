@@ -381,7 +381,9 @@ export async function publishEventAction(eventId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const { error } = await supabase
+  // status não é gravável pelo cliente do usuário (GRANT de UPDATE por coluna)
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('events')
     .update({ status: 'OPEN' })
     .eq('id', eventId)
