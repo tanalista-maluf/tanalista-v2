@@ -485,3 +485,79 @@ export async function deleteGroupAction(groupId: string): Promise<{ error?: stri
 
   redirect('/grupos')
 }
+
+// ── Aviso do dono do grupo para todos os membros ─────────────────────────────
+export async function sendGroupBroadcastAction(groupId: string, message: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const trimmed = message.trim()
+  if (!trimmed) return { error: 'Escreva uma mensagem.' }
+  if (trimmed.length > 500) return { error: 'Mensagem muito longa (máx. 500 caracteres).' }
+
+  const { data: group } = await supabase
+    .from('groups')
+    .select('id, name, owner_id')
+    .eq('id', groupId)
+    .single()
+
+  if (!group || group.owner_id !== user.id) return { error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  const { data: members } = await admin
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', groupId)
+    .neq('user_id', user.id)
+
+  if (!members || members.length === 0) {
+    return { error: 'Nenhum outro membro para notificar.' }
+  }
+
+  const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
+  const { sendGroupBroadcastToMember } = await import('@/lib/emails')
+  const { sendPushToUser } = await import('@/lib/push')
+
+  let sent = 0
+  await Promise.allSettled(members.map(async (m) => {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('full_name, notif_email, notif_push')
+      .eq('id', m.user_id)
+      .single()
+
+    await createNotificationAdmin({
+      userId: m.user_id,
+      type: 'GROUP_MESSAGE',
+      title: `Aviso: ${group.name}`,
+      body: trimmed,
+      data: { group_id: groupId },
+    })
+
+    if (profile?.notif_push ?? true) {
+      await sendPushToUser(m.user_id, {
+        title: `Aviso: ${group.name}`,
+        body: trimmed,
+        url: `/grupos/${groupId}`,
+      }).catch(() => {})
+    }
+
+    if (profile?.notif_email ?? true) {
+      const { data: authUser } = await admin.auth.admin.getUserById(m.user_id)
+      if (authUser?.user?.email) {
+        await sendGroupBroadcastToMember({
+          to: authUser.user.email,
+          name: profile?.full_name ?? 'Participante',
+          groupName: group.name,
+          groupId,
+          message: trimmed,
+        }).catch(() => {})
+      }
+    }
+
+    sent++
+  }))
+
+  return { success: true, sent }
+}

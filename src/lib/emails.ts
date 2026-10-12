@@ -298,3 +298,29 @@ export async function sendEventBroadcastToParticipant(params: {
   })
 }
 
+// ── Email: aviso do dono do grupo para os membros ──────────────────────────────
+export async function sendGroupBroadcastToMember(params: {
+  to: string
+  name: string
+  groupName: string
+  groupId: string
+  message: string
+}) {
+  const messageBox = `<div style="background:#f4f4f5;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;color:#2B2D31;line-height:1.6;white-space:pre-wrap;">${esc(params.message)}</div>`
+
+  const body = base(
+    `Aviso: ${params.groupName}`,
+    h2(`Aviso do grupo 📢`) +
+    p(`Olá, <strong>${esc(params.name)}</strong>! O dono do grupo <strong>${esc(params.groupName)}</strong> enviou um aviso:`) +
+    messageBox +
+    btn('Ver grupo', `${process.env.NEXT_PUBLIC_APP_URL}/grupos/${params.groupId}`)
+  )
+
+  await getResend().emails.send({
+    from: FROM,
+    to: params.to,
+    subject: `Aviso: ${params.groupName}`,
+    html: body,
+  })
+}
+

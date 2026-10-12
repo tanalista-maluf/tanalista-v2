@@ -13,6 +13,7 @@ import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Li
 import Image from 'next/image'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import { ShareGroupButton } from '@/features/grupos/components/ShareGroupButton'
+import { GroupBroadcastForm } from '@/features/grupos/components/GroupBroadcastForm'
 import { RequestGroupJoinButton } from '@/features/grupos/components/RequestGroupJoinButton'
 import { ReportButton } from '@/features/reports/components/ReportButton'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -186,6 +187,8 @@ export default async function GroupDetailPage({
           </div>
         )}
       </div>
+
+      {group.is_owner && <GroupBroadcastForm groupId={group.id} />}
 
       {/* Marketplace — only visible to members */}
       {group.is_member && (
