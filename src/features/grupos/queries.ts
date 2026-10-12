@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { GroupRow, GroupMemberRow } from '@/types/database'
+import type { GroupRow, GroupMemberRow } from '@/types/rows'
 
 const PAGE_SIZE = 20
 

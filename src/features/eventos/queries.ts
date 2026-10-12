@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { EventRow } from '@/types/database'
+import type { EventRow } from '@/types/rows'
 
 const PAGE_SIZE = 20
 
