@@ -58,6 +58,7 @@ export async function redeemCouponAction(code: string) {
     .select('id')
     .eq('coupon_id', coupon.id)
     .eq('user_id', user.id)
+    .limit(1)
     .maybeSingle()
 
   if (alreadyUsed) return { error: 'Você já utilizou este cupom.' }
@@ -159,9 +160,10 @@ export async function validateCouponForEventAction(code: string, eventPrice: num
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return { error: 'Cupom expirado.' }
   if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) return { error: 'Cupom esgotado.' }
 
+  // Cupom de grupo vale 1 uso por evento; os demais, 1 uso por usuário
   let usedQuery = admin.from('coupon_uses').select('id').eq('coupon_id', coupon.id).eq('user_id', user.id)
-  usedQuery = eventId ? usedQuery.eq('event_id', eventId) : usedQuery.is('event_id', null)
-  const { data: alreadyUsed } = await usedQuery.maybeSingle()
+  if (coupon.group_id && eventId) usedQuery = usedQuery.eq('event_id', eventId)
+  const { data: alreadyUsed } = await usedQuery.limit(1).maybeSingle()
 
   if (alreadyUsed) return { error: 'Você já utilizou este cupom.' }
 
