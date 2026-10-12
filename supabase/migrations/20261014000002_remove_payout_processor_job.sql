@@ -1,0 +1,12 @@
+-- Remove o job 'payout-processor' (diário, 02:00).
+--
+-- Ele nunca processou repasse nenhum: só inseria a notificação "Repasse
+-- disponível — está sendo processado" para o organizador de todo evento
+-- COMPLETED sem lançamento PAYOUT, contando com uma Edge Function que nunca
+-- foi criada. Sem controle de repetição, repetia o aviso todo dia para o
+-- mesmo evento (por exemplo, um evento gratuito concluído).
+--
+-- O repasse continua manual, pelo botão "Resgatar receita" em /financeiro.
+-- O repasse automático (antiga 20261011000001, removida do repo sem nunca
+-- ter sido aplicada) fica para uma migration própria.
+SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'payout-processor';
