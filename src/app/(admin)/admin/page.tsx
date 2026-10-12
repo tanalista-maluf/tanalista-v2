@@ -26,7 +26,14 @@ async function getStats() {
     admin.from('events').select('*', { count: 'exact', head: true }).in('status', ['OPEN', 'CONFIRMED']),
     admin.from('groups').select('*', { count: 'exact', head: true }),
     admin.from('participations').select('*', { count: 'exact', head: true }).eq('status', 'CONFIRMED'),
-    admin.from('payments').select('amount, platform_fee').eq('status', 'APPROVED').gte('created_at', thirtyDaysAgo),
+    // Só conta pagamentos de inscrição efetivamente confirmada — exclui
+    // depósitos de carteira (sem participation_id) e pagamentos cuja
+    // inscrição foi cancelada depois de aprovada.
+    admin.from('payments')
+      .select('amount, platform_fee, participations!payments_participation_id_fkey!inner(status)')
+      .eq('status', 'APPROVED')
+      .eq('participations.status', 'CONFIRMED')
+      .gte('created_at', thirtyDaysAgo),
     admin.from('events')
       .select('id, title, status, starts_at, capacity, organizer_id, profiles!events_organizer_id_fkey(full_name, username)')
       .order('created_at', { ascending: false })
