@@ -113,6 +113,14 @@ export async function joinEventAction(
     }
   }
 
+  // Registra o desconto aplicado na própria participação — necessário para
+  // que um eventual reembolso (removeParticipantAction/cancelParticipationAction)
+  // calcule o valor a devolver com base no que foi de fato pago, não no preço cheio.
+  const discountCents = event.price - effectivePrice
+  const couponFields = appliedCouponId
+    ? { discount_cents: discountCents, coupon_id: appliedCouponId }
+    : {}
+
   // Débito da carteira: confirma imediatamente
   if (method === 'WALLET') {
     // Verificar saldo
@@ -149,13 +157,14 @@ export async function joinEventAction(
     // Criar/atualizar participação como CONFIRMADA
     let walletParticipationId: string
     if (existing) {
-      await admin.from('participations').update({ status: 'CONFIRMED', ...(teamId ? { team_id: teamId } : {}) }).eq('id', existing.id)
+      await admin.from('participations').update({ status: 'CONFIRMED', ...couponFields, ...(teamId ? { team_id: teamId } : {}) }).eq('id', existing.id)
       walletParticipationId = existing.id
     } else {
       const { data: created } = await admin.from('participations').insert({
         event_id: eventId,
         user_id: user.id,
         status: 'CONFIRMED',
+        ...couponFields,
         ...(teamId ? { team_id: teamId } : {}),
       }).select('id').single()
       walletParticipationId = created?.id ?? ''
@@ -181,11 +190,6 @@ export async function joinEventAction(
   }
 
   // PIX ou cartão: criar participação PENDING e redirecionar para pagamento
-  const discountCents = event.price - effectivePrice
-  const couponFields = appliedCouponId
-    ? { discount_cents: discountCents, coupon_id: appliedCouponId }
-    : {}
-
   let participationId: string
 
   if (existing) {
