@@ -152,13 +152,17 @@ export default async function EventDetailPage({
     joinRequests = (data ?? []) as any
   }
 
-  // Cupons do evento (apenas organizador)
-  let eventCoupons: { id: string; code: string; max_uses: number | null; uses_count: number; active: boolean; amount_cents: number; percent_off: number | null }[] = []
+  // Cupons do evento (apenas organizador) — inclui cupons de grupo (válidos em
+  // qualquer evento dentro do mesmo grupo)
+  let eventCoupons: { id: string; code: string; max_uses: number | null; uses_count: number; active: boolean; amount_cents: number; percent_off: number | null; group_id: string | null }[] = []
   if (event.is_organizer) {
+    const scopeFilter = event.group_id
+      ? `event_id.eq.${id},group_id.eq.${event.group_id}`
+      : `event_id.eq.${id}`
     const { data } = await admin
       .from('coupons')
-      .select('id, code, max_uses, uses_count, active, amount_cents, percent_off')
-      .eq('event_id', id)
+      .select('id, code, max_uses, uses_count, active, amount_cents, percent_off, group_id')
+      .or(scopeFilter)
       .order('created_at', { ascending: false })
     eventCoupons = (data ?? []) as any
   }
@@ -653,7 +657,7 @@ export default async function EventDetailPage({
 
         {event.is_organizer && (
           <TabsContent value="cupons" className="pt-4">
-            <EventCoupons eventId={id} eventPrice={event.price} coupons={eventCoupons} />
+            <EventCoupons eventId={id} eventPrice={event.price} coupons={eventCoupons} groupId={event.group_id} />
           </TabsContent>
         )}
 

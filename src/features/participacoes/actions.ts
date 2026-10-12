@@ -22,7 +22,7 @@ export async function joinEventAction(
   // Buscar evento
   const { data: event } = await supabase
     .from('events')
-    .select('status, price, capacity, organizer_id, organizer_exempt, registration_deadline')
+    .select('status, price, capacity, organizer_id, organizer_exempt, registration_deadline, group_id')
     .eq('id', eventId)
     .single()
 
@@ -93,12 +93,15 @@ export async function joinEventAction(
 
   if (couponCode && event.price > 0) {
     const normalizedCode = couponCode.trim().toUpperCase()
+    const scopeFilter = event.group_id
+      ? `event_id.eq.${eventId},group_id.eq.${event.group_id},and(event_id.is.null,group_id.is.null)`
+      : `event_id.eq.${eventId},and(event_id.is.null,group_id.is.null)`
     const { data: coupon } = await admin
       .from('coupons')
-      .select('id, amount_cents, expires_at, max_uses, uses_count')
+      .select('id, amount_cents, percent_off, expires_at, max_uses, uses_count')
       .eq('code', normalizedCode)
       .eq('active', true)
-      .or(`event_id.is.null,event_id.eq.${eventId}`)
+      .or(scopeFilter)
       .maybeSingle()
 
     if (coupon &&
@@ -109,10 +112,14 @@ export async function joinEventAction(
         .select('id')
         .eq('coupon_id', coupon.id)
         .eq('user_id', user.id)
+        .eq('event_id', eventId)
         .maybeSingle()
 
       if (!alreadyUsed) {
-        effectivePrice = Math.max(0, event.price - coupon.amount_cents)
+        const discount = coupon.percent_off != null
+          ? Math.round(event.price * (coupon.percent_off / 100))
+          : coupon.amount_cents
+        effectivePrice = Math.max(0, event.price - discount)
         appliedCouponId = coupon.id
       }
     }
@@ -154,7 +161,7 @@ export async function joinEventAction(
     if (appliedCouponId) {
       const { data: coupon } = await admin.from('coupons').select('uses_count').eq('id', appliedCouponId).single()
       await Promise.all([
-        admin.from('coupon_uses').insert({ coupon_id: appliedCouponId, user_id: user.id }),
+        admin.from('coupon_uses').insert({ coupon_id: appliedCouponId, user_id: user.id, event_id: eventId }),
         admin.from('coupons').update({ uses_count: (coupon?.uses_count ?? 0) + 1 }).eq('id', appliedCouponId),
       ])
     }
@@ -220,7 +227,7 @@ export async function joinEventAction(
   if (appliedCouponId) {
     const { data: coupon } = await admin.from('coupons').select('uses_count').eq('id', appliedCouponId).single()
     await Promise.all([
-      admin.from('coupon_uses').insert({ coupon_id: appliedCouponId, user_id: user.id }),
+      admin.from('coupon_uses').insert({ coupon_id: appliedCouponId, user_id: user.id, event_id: eventId }),
       admin.from('coupons').update({ uses_count: (coupon?.uses_count ?? 0) + 1 }).eq('id', appliedCouponId),
     ])
   }

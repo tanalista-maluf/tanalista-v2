@@ -28,10 +28,13 @@ export default async function EditarEventoPage({
   const isLocked = event.status !== 'DRAFT'
 
   const admin = createAdminClient()
+  const couponScopeFilter = event.group_id
+    ? `event_id.eq.${event.id},group_id.eq.${event.group_id}`
+    : `event_id.eq.${event.id}`
   const { data: eventCoupons } = await admin
     .from('coupons')
-    .select('id, code, max_uses, uses_count, active, amount_cents, percent_off')
-    .eq('event_id', event.id)
+    .select('id, code, max_uses, uses_count, active, amount_cents, percent_off, group_id')
+    .or(couponScopeFilter)
     .order('created_at', { ascending: false })
 
   return (
@@ -72,7 +75,7 @@ export default async function EditarEventoPage({
         <h2 className="font-bold text-white flex items-center gap-2">
           <Ticket className="size-4 text-primary" />Cupons do evento
         </h2>
-        <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} />
+        <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} groupId={event.group_id} />
       </div>
     </main>
   )

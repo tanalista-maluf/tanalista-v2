@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { createEventCouponAction, toggleEventCouponAction } from '../actions'
 import { formatPrice } from '@/utils/format'
 import { toast } from 'sonner'
-import { Ticket } from 'lucide-react'
+import { Ticket, Users } from 'lucide-react'
 
 interface Coupon {
   id: string
@@ -17,18 +18,21 @@ interface Coupon {
   active: boolean
   amount_cents: number
   percent_off: number | null
+  group_id: string | null
 }
 
 interface Props {
   eventId: string
   eventPrice: number
   coupons: Coupon[]
+  groupId?: string | null
 }
 
-export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: Props) {
+export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons, groupId }: Props) {
   const [coupons, setCoupons] = useState(initialCoupons)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [groupWide, setGroupWide] = useState(false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -38,7 +42,7 @@ export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: P
     const maxUses = parseInt(fd.get('max_uses') as string, 10)
     const percentOff = parseInt(fd.get('percent_off') as string, 10)
 
-    const result = await createEventCouponAction(eventId, { code, max_uses: maxUses, percent_off: percentOff })
+    const result = await createEventCouponAction(eventId, { code, max_uses: maxUses, percent_off: percentOff, group_wide: groupWide })
     setLoading(false)
 
     if (result.error) {
@@ -46,8 +50,12 @@ export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: P
     } else {
       toast.success('Cupom criado!')
       const amount_cents = Math.round(eventPrice * (percentOff / 100))
-      setCoupons(prev => [{ id: crypto.randomUUID(), code, max_uses: maxUses, uses_count: 0, active: true, amount_cents, percent_off: percentOff }, ...prev])
+      setCoupons(prev => [{
+        id: crypto.randomUUID(), code, max_uses: maxUses, uses_count: 0, active: true,
+        amount_cents, percent_off: percentOff, group_id: groupWide ? (groupId ?? null) : null,
+      }, ...prev])
       setOpen(false)
+      setGroupWide(false)
       ;(e.target as HTMLFormElement).reset()
     }
   }
@@ -71,15 +79,24 @@ export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: P
         <div className="space-y-2">
           {coupons.map(c => {
             const pct = c.percent_off ?? (eventPrice > 0 ? Math.round((c.amount_cents / eventPrice) * 100) : 100)
+            const displayAmount = c.percent_off != null ? Math.round(eventPrice * (pct / 100)) : c.amount_cents
+            const isGroupWide = !!c.group_id
             return (
               <div key={c.id} className="flex items-center gap-3 card-dark rounded-xl p-3">
                 <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                  <Ticket className="size-4" />
+                  {isGroupWide ? <Users className="size-4" /> : <Ticket className="size-4" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{c.code}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold text-white truncate">{c.code}</p>
+                    {isGroupWide && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
+                        Grupo
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-white/40">
-                    {pct}% off ({formatPrice(c.amount_cents)}) · {c.uses_count}/{c.max_uses ?? '∞'} usos
+                    {pct}% off ({formatPrice(displayAmount)}) · {c.uses_count}/{c.max_uses ?? '∞'} usos
                   </p>
                 </div>
                 <button
@@ -115,8 +132,16 @@ export function EventCoupons({ eventId, eventPrice, coupons: initialCoupons }: P
               <Input name="max_uses" type="number" min="1" max="999" placeholder="5" required />
             </div>
           </div>
+          {groupId && (
+            <div className="flex items-start gap-2.5 rounded-lg bg-white/[0.03] border border-white/8 p-3">
+              <Checkbox id="group_wide" checked={groupWide} onCheckedChange={(v) => setGroupWide(!!v)} />
+              <Label htmlFor="group_wide" className="font-normal cursor-pointer text-xs text-white/60 leading-relaxed">
+                Válido em todos os eventos do grupo (não só este), até 1 uso por pessoa por evento
+              </Label>
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="ghost" onClick={() => { setOpen(false); setGroupWide(false) }}>Cancelar</Button>
             <Button type="submit" disabled={loading}>{loading ? 'Criando...' : 'Criar cupom'}</Button>
           </div>
         </form>
