@@ -98,7 +98,7 @@ export async function joinEventAction(
       : `event_id.eq.${eventId},and(event_id.is.null,group_id.is.null)`
     const { data: coupon } = await admin
       .from('coupons')
-      .select('id, amount_cents, percent_off, expires_at, max_uses, uses_count')
+      .select('id, amount_cents, percent_off, expires_at, max_uses, uses_count, group_id')
       .eq('code', normalizedCode)
       .eq('active', true)
       .or(scopeFilter)
@@ -107,13 +107,10 @@ export async function joinEventAction(
     if (coupon &&
       (!coupon.expires_at || new Date(coupon.expires_at) >= new Date()) &&
       (coupon.max_uses === null || coupon.uses_count < coupon.max_uses)) {
-      const { data: alreadyUsed } = await admin
-        .from('coupon_uses')
-        .select('id')
-        .eq('coupon_id', coupon.id)
-        .eq('user_id', user.id)
-        .eq('event_id', eventId)
-        .maybeSingle()
+      // Cupom de grupo vale 1 uso por evento; os demais, 1 uso por usuário
+      let usedQuery = admin.from('coupon_uses').select('id').eq('coupon_id', coupon.id).eq('user_id', user.id)
+      if (coupon.group_id) usedQuery = usedQuery.eq('event_id', eventId)
+      const { data: alreadyUsed } = await usedQuery.limit(1).maybeSingle()
 
       if (!alreadyUsed) {
         const discount = coupon.percent_off != null
