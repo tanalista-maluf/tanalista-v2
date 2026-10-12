@@ -48,8 +48,14 @@ export async function joinEventAction(
     }
   }
 
-  // Verificar capacidade
-  const { count } = await supabase
+  // Toda escrita em participations passa pelo service_role: anon/authenticated
+  // não têm INSERT/UPDATE na tabela, senão o usuário se confirmaria sem pagar.
+  const admin = createAdminClient()
+
+  // Verificar capacidade. Conta com o service_role: pelo cliente do usuário a
+  // RLS só devolve as inscrições dele (ou as do evento que organiza), e a
+  // contagem ficaria abaixo do real.
+  const { count } = await admin
     .from('participations')
     .select('*', { count: 'exact', head: true })
     .eq('event_id', eventId)
@@ -58,10 +64,6 @@ export async function joinEventAction(
   if ((count ?? 0) >= event.capacity) {
     return { error: 'Evento lotado. Tente a fila de espera.', code: 'FULL' }
   }
-
-  // Toda escrita em participations passa pelo service_role: anon/authenticated
-  // não têm INSERT/UPDATE na tabela, senão o usuário se confirmaria sem pagar.
-  const admin = createAdminClient()
 
   // Organizador isento: confirma diretamente
   const isOrganizerExempt = event.organizer_id === user.id && event.organizer_exempt
