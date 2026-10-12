@@ -21,6 +21,7 @@ const TYPE_CONFIG: Record<string, { label: string; icon: typeof ArrowDownLeft; i
   WITHDRAWAL: { label: 'Saque', icon: ArrowUpRight, isCredit: false },
   PAYOUT: { label: 'Repasse', icon: ArrowDownLeft, isCredit: true },
   BONUS:  { label: 'Crédito', icon: Gift, isCredit: true },
+  ADJUSTMENT: { label: 'Ajuste', icon: RefreshCw, isCredit: false },
 }
 
 export function TransactionList({ transactions }: TransactionListProps) {
