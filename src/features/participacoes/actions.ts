@@ -48,8 +48,14 @@ export async function joinEventAction(
     }
   }
 
-  // Verificar capacidade
-  const { count } = await supabase
+  // Toda escrita em participations passa pelo service_role: anon/authenticated
+  // não têm INSERT/UPDATE na tabela, senão o usuário se confirmaria sem pagar.
+  const admin = createAdminClient()
+
+  // Verificar capacidade. Conta com o service_role: pelo cliente do usuário a
+  // RLS só devolve as inscrições dele (ou as do evento que organiza), e a
+  // contagem ficaria abaixo do real.
+  const { count } = await admin
     .from('participations')
     .select('*', { count: 'exact', head: true })
     .eq('event_id', eventId)
@@ -65,12 +71,12 @@ export async function joinEventAction(
   if (isOrganizerExempt || event.price === 0) {
     // Confirmar diretamente sem pagamento
     if (existing) {
-      await supabase
+      await admin
         .from('participations')
         .update({ status: 'CONFIRMED', payment_id: null, ...(teamId ? { team_id: teamId } : {}) })
         .eq('id', existing.id)
     } else {
-      await supabase.from('participations').insert({
+      await admin.from('participations').insert({
         event_id: eventId,
         user_id: user.id,
         status: 'CONFIRMED',
@@ -82,7 +88,6 @@ export async function joinEventAction(
   }
 
   // Aplicar cupom de desconto se fornecido
-  const admin = createAdminClient()
   let effectivePrice = event.price
   let appliedCouponId: string | null = null
 
