@@ -17,7 +17,7 @@ Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha
 
 - **Login com Google:** `tanalista://auth/callback` precisa estar em Authentication → URL Configuration → Redirect URLs do Supabase. Sem isso o Google volta para o site em vez do app.
 - **Confirmação de e-mail do cadastro:** o link do e-mail abre `https://www.tanalista.app/app/email-confirmado`, que também precisa estar nas Redirect URLs.
-- **Cartão:** o formulário é o Card Payment Brick do Mercado Pago, numa página do site (`/embed/cartao`) aberta em WebView; o app recebe só o token do cartão. Depende de `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` no site (a chave pública da mesma conta de `MERCADOPAGO_PLATFORM_ACCESS_TOKEN`). Sem ela, a opção de cartão não aparece nem no app nem no site.
+- **Cartão:** o formulário é o Card Payment Brick do Mercado Pago, numa página do site (`/embed/cartao`) aberta em WebView; o app recebe só o token do cartão. Depende de `MERCADOPAGO_PLATFORM_PUBLIC_KEY` no site (a chave pública da mesma aplicação de `MERCADOPAGO_PLATFORM_ACCESS_TOKEN`). Sem ela, a opção de cartão não aparece nem no app nem no site.
 
 ## Rodar localmente
 
