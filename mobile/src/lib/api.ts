@@ -39,3 +39,10 @@ export type CancelParticipationResponse =
 export function cancelParticipation(participationId: string) {
   return apiPost<CancelParticipationResponse>(`/api/v1/participations/${participationId}/cancel`)
 }
+
+export type PixPayment = { payment_id: string; qr_code?: string; qr_code_base64?: string; expires_at: string }
+
+// Gera a cobrança PIX de uma inscrição pendente, ou devolve a que já existe
+export function createPixPayment(participationId: string) {
+  return apiPost<PixPayment | { error: string }>(`/api/v1/participations/${participationId}/pix`)
+}

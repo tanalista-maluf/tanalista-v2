@@ -2,7 +2,9 @@
 # Pré-requisitos: ./e2e/setup-local.sh rodado, `npm run dev` na raiz do repo
 # e `npx expo start` em mobile/.
 # Com o build próprio (npx expo run:ios | run:android), nos dois sistemas:
+#   eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
 #   maestro test -e APP_ID=app.tanalista \
+#     -e SUPABASE_URL=$API_URL -e SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY \
 #     -e APP_URL='exp+tanalista://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \
 #     e2e/main-flow.yaml
 # Com o Expo Go: APP_URL=exp://localhost:8081 e APP_ID=host.exp.Exponent (iOS)
@@ -150,8 +152,48 @@ appId: ${APP_ID}
       - back
 - assertVisible: "Próximos eventos"
 - tapOn: "Torneio pago de sábado.*"
-- assertVisible: "Inscrição paga: por enquanto, conclua pelo site."
-- takeScreenshot: 06-evento-pago
+# Evento pago: a inscrição fica pendente e abre o PIX; sair e voltar pelo botão Pagar
+- tapOn:
+    id: "join"
+- assertVisible: "Pagamento via PIX"
+- assertVisible:
+    id: "copy-pix"
+- takeScreenshot: 06-pix
+- tapOn:
+    id: "copy-pix"
+- assertVisible: "Código copiado"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Sua inscrição aguarda o pagamento por PIX."
+- tapOn:
+    id: "pay"
+- assertVisible:
+    id: "copy-pix"
+# O pagamento chega (aqui, pelo script que faz o papel do webhook)
+- runScript:
+    file: confirm-payment.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- extendedWaitUntil:
+    visible:
+      id: "payment-confirmed"
+    timeout: 15000
+- takeScreenshot: 07-pix-confirmado
+- tapOn:
+    id: "payment-done"
+- assertVisible:
+    id: "status-confirmed"
 - runFlow:
     when:
       platform: iOS
@@ -198,24 +240,51 @@ appId: ${APP_ID}
 - swipe:
     direction: DOWN
 - assertVisible: "Futebol de quinta.*1/14 inscritos"
-- takeScreenshot: 07-lista-final
-# Meus eventos: só o evento em que Bruno se inscreveu, e o cancelamento por ele
+- takeScreenshot: 08-lista-final
+# Meus eventos: só os eventos em que Bruno se inscreveu, e o cancelamento por ele
 - tapOn:
     id: "tab-mine"
 - assertVisible: "Futebol de quinta.*Inscrito.*1/14 inscritos"
+- assertVisible: "Torneio pago de sábado.*Inscrito.*1/20 inscritos"
 - assertNotVisible: "Racha lotado.*"
-- takeScreenshot: 08-meus-eventos
+- takeScreenshot: 09-meus-eventos
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
     id: "status-confirmed"
 - tapOn:
     id: "cancel"
 - assertVisible: "Cancelar inscrição\\?"
-- takeScreenshot: 09-confirmar-cancelamento
+- takeScreenshot: 10-confirmar-cancelamento
 - tapOn: "Confirmar cancelamento"
 - assertVisible:
     id: "join"
-- takeScreenshot: 10-cancelado
+- takeScreenshot: 11-cancelado
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertNotVisible: "Futebol de quinta.*"
+# Cancelar a inscrição paga devolve o valor para a carteira
+- tapOn: "Torneio pago de sábado.*"
+- tapOn:
+    id: "cancel"
+- assertVisible: ".*volta integralmente como crédito na sua carteira.*"
+- tapOn: "Confirmar cancelamento"
+- assertVisible:
+    id: "join"
+- runScript:
+    file: check-refund.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
 - runFlow:
     when:
       platform: iOS
