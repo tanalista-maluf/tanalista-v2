@@ -89,8 +89,7 @@ export async function createListingAction(groupId: string, data: ListingSchema) 
       p_amount:     LISTING_COST_CENTS,
       p_type:       'PAYMENT',
       p_description: `Anúncio no marketplace: ${data.title}`,
-      p_event_id:   null,
-    })
+      })
 
     if (debitError) {
       // Reverter para draft se débito falhar
@@ -143,7 +142,6 @@ export async function publishDraftListingAction(listingId: string) {
     p_amount:     LISTING_COST_CENTS,
     p_type:       'PAYMENT',
     p_description: `Anúncio no marketplace: ${listing.title}`,
-    p_event_id:   null,
   })
 
   if (debitError) return { error: 'Erro ao debitar saldo.' }

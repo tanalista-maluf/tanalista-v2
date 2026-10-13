@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrganizerMPClient, getPlatformMPClient, calculateFees, Payment } from '@/lib/mercadopago'
+import type { Json } from '@/types/database'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       method: 'PIX',
       status: 'PENDING',
       gateway_transaction_id: String(mpPayment.id),
-      gateway_response: mpPayment as unknown as Record<string, unknown>,
+      gateway_response: mpPayment as unknown as Json,
     }).select('id').single()
 
     // Associar pagamento à participação

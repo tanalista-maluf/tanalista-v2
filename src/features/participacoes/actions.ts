@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWaitlistNotified } from '@/lib/emails'
 import { calculateFees } from '@/lib/mercadopago'
+import { refundParticipationPayments, releaseCouponUse } from '@/lib/refunds'
 
 // ── Inscrição no evento ──────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ export async function joinEventAction(
   // Verificar se já está inscrito
   const { data: existing } = await supabase
     .from('participations')
-    .select('id, status')
+    .select('id, status, coupon_id')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -51,6 +52,12 @@ export async function joinEventAction(
   // Toda escrita em participations passa pelo service_role: anon/authenticated
   // não têm INSERT/UPDATE na tabela, senão o usuário se confirmaria sem pagar.
   const admin = createAdminClient()
+
+  // Uma inscrição cancelada por um caminho que não devolve o cupom (ex.: PIX
+  // expirado, via webhook) ainda segura o uso; devolve antes de validar o novo
+  if (existing?.coupon_id) {
+    await releaseCouponUse(admin, { couponId: existing.coupon_id, userId: user.id, eventId })
+  }
 
   // Verificar capacidade. Conta com o service_role: pelo cliente do usuário a
   // RLS só devolve as inscrições dele (ou as do evento que organiza), e a
@@ -73,7 +80,7 @@ export async function joinEventAction(
     if (existing) {
       await admin
         .from('participations')
-        .update({ status: 'CONFIRMED', payment_id: null, ...(teamId ? { team_id: teamId } : {}) })
+        .update({ status: 'CONFIRMED', payment_id: null, discount_cents: 0, coupon_id: null, ...(teamId ? { team_id: teamId } : {}) })
         .eq('id', existing.id)
     } else {
       await admin.from('participations').insert({
@@ -125,10 +132,10 @@ export async function joinEventAction(
   // Registra o desconto aplicado na própria participação — necessário para
   // que um eventual reembolso (removeParticipantAction/cancelParticipationAction)
   // calcule o valor a devolver com base no que foi de fato pago, não no preço cheio.
+  // Gravado sempre, também zerado: a linha de participations é reaproveitada
+  // numa reinscrição e não pode herdar o desconto da inscrição anterior.
   const discountCents = event.price - effectivePrice
-  const couponFields = appliedCouponId
-    ? { discount_cents: discountCents, coupon_id: appliedCouponId }
-    : {}
+  const couponFields = { discount_cents: discountCents, coupon_id: appliedCouponId }
 
   // Débito da carteira: confirma imediatamente
   if (method === 'WALLET') {
@@ -235,22 +242,15 @@ export async function joinEventAction(
 
 // ── Cancelamento de inscrição ────────────────────────────────────────────────
 
-export async function cancelParticipationAction(
-  participationId: string,
-  confirmedGatewayFee: boolean
-) {
+export async function cancelParticipationAction(participationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  if (!confirmedGatewayFee) {
-    return { error: 'Você deve confirmar o desconto da taxa do gateway.' }
-  }
-
   // Buscar participação com evento (inclui cancel_before_hours)
   const { data: participation } = await supabase
     .from('participations')
-    .select('*, events(id, starts_at, price, status, organizer_id, cancel_before_hours)')
+    .select('*, events(id, starts_at, price, status, organizer_id, cancel_before_hours, payout_claimed_at)')
     .eq('id', participationId)
     .eq('user_id', user.id)
     .single()
@@ -276,30 +276,46 @@ export async function cancelParticipationAction(
     }
   }
 
-  if (['CANCELLED', 'COMPLETED'].includes(event.status)) {
+  // Depois do repasse ao organizador, o valor já saiu: estornar pagaria duas vezes
+  if (['CANCELLED', 'COMPLETED'].includes(event.status) || event.payout_claimed_at) {
     return { error: 'Este evento não permite cancelamento.' }
   }
 
   const admin = createAdminClient()
 
+  // Estorno para a carteira do que foi de fato pago (nada, se a inscrição
+  // foi gratuita por cupom ou por isenção do organizador). Vem antes de
+  // cancelar: se falhar, a inscrição continua como estava e dá para tentar de novo.
+  if (participation.status === 'CONFIRMED') {
+    const refunded = await refundParticipationPayments(admin, {
+      participationId,
+      userId: user.id,
+      eventId: event.id,
+      description: 'Estorno de inscrição cancelada',
+    })
+    if (refunded === null) return { error: 'Erro ao estornar o pagamento. Tente novamente.' }
+  }
+
   // Cancelar participação
   const { error: cancelError } = await admin
     .from('participations')
-    .update({ status: 'CANCELLED' })
+    .update({ status: 'CANCELLED', discount_cents: 0, coupon_id: null })
     .eq('id', participationId)
 
-  if (cancelError) return { error: 'Erro ao cancelar inscrição.' }
-
-  // Estorno para carteira se era inscrição confirmada paga
-  if (participation.status === 'CONFIRMED' && event.price > 0) {
-    await admin.rpc('wallet_credit', {
-      p_user_id: user.id,
-      p_amount: event.price,
-      p_type: 'REFUND',
-      p_description: `Estorno de inscrição cancelada`,
-      p_event_id: event.id,
-    })
+  if (cancelError) {
+    console.error('[CANCEL] participation update error after refund:', participationId, cancelError)
+    return { error: 'Erro ao cancelar inscrição.' }
   }
+
+  // Um PIX ainda pendente desta inscrição carrega o preço com o desconto do
+  // cupom que está sendo devolvido; não pode ser reaproveitado numa reinscrição
+  await admin
+    .from('payments')
+    .update({ status: 'CANCELLED' })
+    .eq('participation_id', participationId)
+    .eq('status', 'PENDING')
+
+  await releaseCouponUse(admin, { couponId: participation.coupon_id, userId: user.id, eventId: event.id })
 
   // Promover próximo da fila e enviar e-mail quando uma vaga confirmada é liberada
   if (participation.status === 'CONFIRMED') {
@@ -348,33 +364,43 @@ export async function joinWaitlistAction(eventId: string, teamId?: string) {
 
   if (!event || event.status !== 'OPEN') return { error: 'Inscrições encerradas.' }
 
-  // Verificar se já está na fila
-  const { data: existingEntry } = await supabase
+  const admin = createAdminClient()
+
+  // Verificar se já está na fila. Cada pessoa tem uma única linha por evento
+  // (unique), então uma entrada antiga EXPIRED/CONFIRMED é reaproveitada.
+  const { data: existingEntry } = await admin
     .from('waitlist_entries')
-    .select('id')
+    .select('id, status')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
-    .in('status', ['WAITING', 'NOTIFIED'])
     .maybeSingle()
 
-  if (existingEntry) return { error: 'Você já está na fila de espera.' }
+  if (existingEntry && ['WAITING', 'NOTIFIED'].includes(existingEntry.status)) {
+    return { error: 'Você já está na fila de espera.' }
+  }
 
-  // Obter próxima posição
-  const { count: currentCount } = await supabase
+  // Próxima posição: depois da maior já usada no evento. Contar só os ativos
+  // repetia posições de entradas antigas, e (event_id, position) é unique.
+  const { data: last } = await admin
     .from('waitlist_entries')
-    .select('*', { count: 'exact', head: true })
+    .select('position')
     .eq('event_id', eventId)
-    .in('status', ['WAITING', 'NOTIFIED'])
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  const position = (currentCount ?? 0) + 1
-
-  const { error } = await supabase.from('waitlist_entries').insert({
-    event_id: eventId,
-    user_id: user.id,
+  const position = (last?.position ?? 0) + 1
+  const entry = {
     position,
-    status: 'WAITING',
-    ...(teamId ? { team_id: teamId } : {}),
-  })
+    status: 'WAITING' as const,
+    notified_at: null,
+    expires_at: null,
+    team_id: teamId ?? null,
+  }
+
+  const { error } = existingEntry
+    ? await admin.from('waitlist_entries').update(entry).eq('id', existingEntry.id)
+    : await admin.from('waitlist_entries').insert({ event_id: eventId, user_id: user.id, ...entry })
 
   if (error) return { error: 'Erro ao entrar na fila.' }
 
@@ -392,37 +418,44 @@ export async function removeParticipantAction(participationId: string, eventId: 
   // Verificar que o user é o organizador
   const { data: event } = await supabase
     .from('events')
-    .select('organizer_id, price, title')
+    .select('organizer_id, price, title, payout_claimed_at')
     .eq('id', eventId)
     .single()
 
   if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  // Depois do repasse, o valor já foi para o organizador: estornar pagaria duas vezes
+  if (event.payout_claimed_at) {
+    return { error: 'A receita deste evento já foi resgatada; não é possível remover participantes.' }
+  }
 
   const admin = createAdminClient()
 
   // Buscar participação com valor pago e cupom
   const { data: participation } = await admin
     .from('participations')
-    .select('user_id, status, discount_cents, coupon_id')
+    .select('user_id, status, coupon_id')
     .eq('id', participationId)
     .eq('event_id', eventId)
     .single()
 
   if (!participation) return { error: 'Participação não encontrada.' }
 
-  // Reembolso: devolve apenas o valor efetivamente pago (descontando cupom)
-  if (participation.status === 'CONFIRMED' && event.price > 0) {
-    const refundAmount = Math.max(0, event.price - (participation.discount_cents ?? 0))
-    if (refundAmount > 0) {
-      await admin.rpc('wallet_credit', {
-        p_user_id: participation.user_id,
-        p_amount: refundAmount,
-        p_type: 'REFUND',
-        p_description: `Removido do evento: ${event.title}`,
+  // Reembolso: devolve apenas o valor efetivamente pago
+  const refundedAmount = participation.status === 'CONFIRMED'
+    ? await refundParticipationPayments(admin, {
+        participationId,
+        userId: participation.user_id,
+        eventId,
+        description: `Removido do evento: ${event.title}`,
       })
-    }
-    // Cupom já utilizado não é devolvido (foi consumido na inscrição)
-  }
+    : 0
+
+  // Sem estorno confirmado a inscrição não é apagada: o pagamento perderia o
+  // vínculo com ela e não poderia mais ser devolvido
+  if (refundedAmount === null) return { error: 'Erro ao estornar o pagamento. Tente novamente.' }
+
+  await releaseCouponUse(admin, { couponId: participation.coupon_id, userId: participation.user_id, eventId })
 
   // Remover participação
   await admin.from('participations').delete().eq('id', participationId)
@@ -433,7 +466,7 @@ export async function removeParticipantAction(participationId: string, eventId: 
     userId: participation.user_id,
     type: 'EVENT_CANCELLED',
     title: 'Você foi removido do evento',
-    body: `O organizador removeu sua participação em "${event.title}".${event.price > 0 ? ' O valor foi devolvido à sua carteira.' : ''}`,
+    body: `O organizador removeu sua participação em "${event.title}".${refundedAmount > 0 ? ' O valor pago foi devolvido à sua carteira.' : ''}`,
     data: { event_id: eventId },
   })
 

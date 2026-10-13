@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { validateMPWebhook } from '@/lib/webhook-validation'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
 import { sendParticipationConfirmed } from '@/lib/emails'
+import type { Json } from '@/types/database'
 
 // Desativar body parser automático (precisamos do rawBody para HMAC)
 export const runtime = 'nodejs'
@@ -81,8 +82,11 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
     .eq('gateway_transaction_id', mpPaymentId)
     .maybeSingle()
 
-  if (existingPayment?.status === 'APPROVED') {
-    console.log(`[WEBHOOK] Payment ${mpPaymentId} already approved — skipping`)
+  // REFUNDED também é final: o app já estornou para a carteira no cancelamento.
+  // Reprocessar voltaria o pagamento para APPROVED (o MP continua informando
+  // 'approved'), reabrindo o estorno em dobro e a confirmação sem pagamento.
+  if (existingPayment?.status === 'APPROVED' || existingPayment?.status === 'REFUNDED') {
+    console.log(`[WEBHOOK] Payment ${mpPaymentId} already ${existingPayment.status} — skipping`)
     return
   }
 
@@ -109,7 +113,7 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
       .from('payments')
       .update({
         status: newStatus,
-        gateway_response: mpPayment as unknown as Record<string, unknown>,
+        gateway_response: mpPayment as unknown as Json,
       })
       .eq('id', existingPayment.id)
   } else {
@@ -137,7 +141,7 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
       method,
       status: newStatus,
       gateway_transaction_id: mpPaymentId,
-      gateway_response: mpPayment as unknown as Record<string, unknown>,
+      gateway_response: mpPayment as unknown as Json,
     })
   }
 

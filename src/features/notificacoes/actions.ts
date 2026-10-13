@@ -3,10 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { Database, Json } from '@/types/database'
 
 export async function createNotificationAdmin(params: {
   userId: string
-  type: string
+  type: Database['public']['Enums']['notification_type']
   title: string
   body: string
   data?: Record<string, unknown>
@@ -17,7 +18,7 @@ export async function createNotificationAdmin(params: {
     type: params.type,
     title: params.title,
     body: params.body,
-    data: params.data ?? {},
+    data: (params.data ?? {}) as Json,
     read: false,
   })
 }
@@ -33,7 +34,7 @@ export async function setNotificationPreferenceAction(
   const admin = createAdminClient()
   const { error } = await admin
     .from('profiles')
-    .update({ [channel]: enabled })
+    .update(channel === 'notif_email' ? { notif_email: enabled } : { notif_push: enabled })
     .eq('id', user.id)
 
   if (error) return { error: error.message }

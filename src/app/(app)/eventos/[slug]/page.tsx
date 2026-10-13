@@ -121,16 +121,20 @@ export default async function EventDetailPage({
     }
   }
 
+  // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
+  const activeParticipationStatus =
+    event.user_participation_status === 'CANCELLED' ? null : event.user_participation_status
+
   const spotsLeft = event.capacity - event.confirmed_count
   const isFull = spotsLeft <= 0
   const isOpen = event.status === 'OPEN'
-  const canJoin = isOpen && !isFull && !event.user_participation_status && !event.is_organizer
+  const canJoin = isOpen && !isFull && !activeParticipationStatus && !event.is_organizer
 
   // Join request for non-PUBLIC events
   const eventVisibilityField = (event as any).visibility ?? 'PUBLIC'
   const admin = createAdminClient()
   let existingJoinRequest: { status: string } | null = null
-  if (eventVisibilityField !== 'PUBLIC' && !event.is_organizer && !event.user_participation_status) {
+  if (eventVisibilityField !== 'PUBLIC' && !event.is_organizer && !activeParticipationStatus) {
     const { data: req } = await admin
       .from('event_join_requests')
       .select('status')
@@ -168,7 +172,7 @@ export default async function EventDetailPage({
   }
 
   // Organizador pode participar como inscrito — verifica se já tem participação
-  const organizerParticipationStatus = event.is_organizer ? event.user_participation_status : null
+  const organizerParticipationStatus = event.is_organizer ? activeParticipationStatus : null
   const organizerCanJoin = event.is_organizer && isOpen && !isFull && !organizerParticipationStatus
 
   const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED'
@@ -178,7 +182,7 @@ export default async function EventDetailPage({
   const userRating = canRate ? await getUserRating(id, user.id) : null
 
   // Fila de espera
-  const isOnWaitlist = !event.user_participation_status && !event.is_organizer && event.waitlist_position !== null
+  const isOnWaitlist = !activeParticipationStatus && !event.is_organizer && event.waitlist_position !== null
   let waitlistEntry: { id: string; status: string; position: number; notified_at: string | null; expires_at: string | null; team_id: string | null } | null = null
   if (isOnWaitlist) {
     const { data: we } = await supabase
@@ -369,7 +373,7 @@ export default async function EventDetailPage({
                   </span>
                 )}
               </>
-            ) : eventVisibilityField !== 'PUBLIC' && !event.user_participation_status ? (
+            ) : eventVisibilityField !== 'PUBLIC' && !activeParticipationStatus && existingJoinRequest?.status !== 'APPROVED' ? (
               <RequestEventJoinButton
                 eventId={id}
                 existingStatus={existingJoinRequest?.status as 'PENDING' | 'REJECTED' | null}
