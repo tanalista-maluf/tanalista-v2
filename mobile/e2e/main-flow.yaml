@@ -20,7 +20,18 @@ appId: ${APP_ID}
       visible: "Enter URL"
     commands:
       - openLink: ${APP_URL}
-# No build próprio, o menu de desenvolvedor abre sozinho na primeira execução
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
 - runFlow:
     when:
       visible: "Fast refresh|Fast Refresh"
@@ -82,7 +93,18 @@ appId: ${APP_ID}
       visible: "Enter URL"
     commands:
       - openLink: ${APP_URL}
-# No build próprio, o menu de desenvolvedor abre sozinho na primeira execução
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
 - runFlow:
     when:
       visible: "Fast refresh|Fast Refresh"
