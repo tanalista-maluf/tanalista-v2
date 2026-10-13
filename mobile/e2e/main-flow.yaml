@@ -1,0 +1,75 @@
+# Fluxo principal de ponta a ponta, no simulador de iOS com Expo Go.
+# Pré-requisitos: ./e2e/setup-local.sh rodado, `npm run dev` na raiz do repo
+# e `npx expo start --ios` em mobile/. Rodar com: maestro test e2e/main-flow.yaml
+appId: host.exp.Exponent
+---
+- openLink: exp://127.0.0.1:8081
+- extendedWaitUntil:
+    visible: "Eventos|Entre para ver seus eventos"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo Go de cima do cabeçalho
+- swipe:
+    start: "89%, 10%"
+    end: "50%, 85%"
+    duration: 800
+- runFlow:
+    when:
+      visible:
+        id: "sign-out"
+    commands:
+      - tapOn:
+          id: "sign-out"
+- assertVisible: "Entre para ver seus eventos"
+- takeScreenshot: 01-login
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-errada"
+- tapOn:
+    id: "submit"
+- assertVisible: "E-mail ou senha incorretos."
+- takeScreenshot: 02-login-erro
+- tapOn:
+    id: "password"
+- eraseText: 20
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+- assertVisible: "Futebol de quinta.*0/14 inscritos"
+- assertVisible: "Racha lotado.*Lotado"
+- takeScreenshot: 03-lista
+- waitForAnimationToEnd
+- tapOn: "Futebol de quinta.*"
+- assertVisible:
+    id: "join"
+- takeScreenshot: 04-evento-gratuito
+- tapOn:
+    id: "join"
+- assertVisible:
+    id: "status-confirmed"
+- takeScreenshot: 05-inscrito
+- tapOn: "Eventos"
+- tapOn: "Torneio pago de sábado.*"
+- assertVisible: "Inscrição paga: por enquanto, conclua pelo site."
+- takeScreenshot: 06-evento-pago
+- tapOn: "Eventos"
+- tapOn: ".*Treino fechado.*"
+- assertVisible: "Evento privado. Peça a entrada ao organizador pelo site."
+- tapOn: "Eventos"
+- tapOn: "Racha lotado.*"
+- assertVisible: "Evento lotado."
+- tapOn: "Eventos"
+- swipe:
+    direction: DOWN
+- assertVisible: "Futebol de quinta.*1/14 inscritos"
+- takeScreenshot: 07-lista-final
+- tapOn:
+    id: "sign-out"
+- assertVisible: "Entre para ver seus eventos"
