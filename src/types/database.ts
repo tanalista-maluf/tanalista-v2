@@ -1405,7 +1405,28 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      refund_participation_payments: {
+        Args: {
+          p_description: string
+          p_event_id: string
+          p_participation_id: string
+          p_user_id: string
+        }
+        Returns: number
+      }
+      release_coupon_use: {
+        Args: { p_coupon_id: string; p_event_id: string; p_user_id: string }
+        Returns: boolean
+      }
       team_confirmed_count: { Args: { p_team_id: string }; Returns: number }
+      transfer_group_ownership: {
+        Args: {
+          p_current_owner: string
+          p_group_id: string
+          p_new_owner: string
+        }
+        Returns: undefined
+      }
       unaccent: { Args: { "": string }; Returns: string }
       wallet_credit: {
         Args: {

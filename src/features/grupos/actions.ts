@@ -448,14 +448,21 @@ export async function transferGroupOwnershipAction(groupId: string, newOwnerUser
     .maybeSingle()
   if (!target) return { error: 'O usuário selecionado não é membro do grupo.' }
 
+  if (newOwnerUserId === user.id) return { error: 'Você já é o dono do grupo.' }
+
   const admin = createAdminClient()
 
-  // Transfere: rebaixa o atual para ADMIN, promove o novo para OWNER
-  const [r1, r2] = await Promise.all([
-    admin.from('group_members').update({ role: 'ADMIN' }).eq('group_id', groupId).eq('user_id', user.id),
-    admin.from('group_members').update({ role: 'OWNER' }).eq('group_id', groupId).eq('user_id', newOwnerUserId),
-  ])
-  if (r1.error || r2.error) return { error: 'Erro ao transferir liderança. Tente novamente.' }
+  // Numa transação só: troca groups.owner_id, promove o novo dono e o antigo
+  // volta a ser membro
+  const { error: transferError } = await admin.rpc('transfer_group_ownership', {
+    p_group_id: groupId,
+    p_current_owner: user.id,
+    p_new_owner: newOwnerUserId,
+  })
+  if (transferError) {
+    console.error('[GROUP] transfer_group_ownership error:', groupId, transferError)
+    return { error: 'Erro ao transferir liderança. Tente novamente.' }
+  }
 
   // Notifica o novo dono
   const { data: group } = await admin.from('groups').select('name, slug').eq('id', groupId).maybeSingle()

@@ -8,6 +8,27 @@ import { sendWaitlistNotified } from '@/lib/emails'
 import { calculateFees } from '@/lib/mercadopago'
 import { refundParticipationPayments, releaseCouponUse, releaseStaleCouponUses } from '@/lib/refunds'
 
+// Em evento privado só entra o organizador ou quem teve o pedido de entrada
+// aprovado. A página do evento já esconde o botão de inscrição dos demais, mas
+// as ações são chamáveis diretamente.
+async function canJoinPrivateEvent(
+  event: { visibility: string; organizer_id: string },
+  eventId: string,
+  userId: string
+): Promise<boolean> {
+  if (event.visibility !== 'PRIVATE' || event.organizer_id === userId) return true
+
+  const admin = createAdminClient()
+  const { data: request } = await admin
+    .from('event_join_requests')
+    .select('status')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  return request?.status === 'APPROVED'
+}
+
 // ── Inscrição no evento ──────────────────────────────────────────────────────
 
 export async function joinEventAction(
@@ -23,7 +44,7 @@ export async function joinEventAction(
   // Buscar evento
   const { data: event } = await supabase
     .from('events')
-    .select('status, price, capacity, organizer_id, organizer_exempt, registration_deadline, group_id')
+    .select('status, price, capacity, organizer_id, organizer_exempt, registration_deadline, group_id, visibility')
     .eq('id', eventId)
     .single()
 
@@ -31,6 +52,9 @@ export async function joinEventAction(
   if (event.status !== 'OPEN') return { error: 'Inscrições encerradas.' }
   if (new Date(event.registration_deadline) < new Date()) {
     return { error: 'Prazo de inscrição expirado.' }
+  }
+  if (!(await canJoinPrivateEvent(event, eventId, user.id))) {
+    return { error: 'Este evento é privado. Solicite a entrada ao organizador.' }
   }
 
   // Verificar se já está inscrito
@@ -362,11 +386,14 @@ export async function joinWaitlistAction(eventId: string, teamId?: string) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('status')
+    .select('status, organizer_id, visibility')
     .eq('id', eventId)
     .single()
 
   if (!event || event.status !== 'OPEN') return { error: 'Inscrições encerradas.' }
+  if (!(await canJoinPrivateEvent(event, eventId, user.id))) {
+    return { error: 'Este evento é privado. Solicite a entrada ao organizador.' }
+  }
 
   const admin = createAdminClient()
 
