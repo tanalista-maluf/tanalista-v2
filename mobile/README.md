@@ -21,12 +21,12 @@ Login por e-mail e senha, lista de próximos eventos, página do evento e inscri
 npx expo start --ios        # app no simulador, via Expo Go
 ```
 
-Para apontar o app para outro ambiente, copie `.env.example` para `.env.local` e preencha.
+Sem `.env.local`, o app usa o `.env` versionado, que aponta para **produção**. O `setup-local.sh` cria um `.env.local`, que tem precedência; apague-o para voltar a produção. No Android, o emulador alcança os serviços locais com `adb reverse tcp:54321 tcp:54321 && adb reverse tcp:3000 tcp:3000`.
 
 ## Verificações
 
 ```sh
 npx tsc --noEmit
 npx expo lint
-maestro test e2e/main-flow.yaml   # com os três comandos acima rodando
+maestro test -e APP_ID=host.exp.Exponent e2e/main-flow.yaml   # iOS; no Android, APP_ID=host.exp.exponent
 ```

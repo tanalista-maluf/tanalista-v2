@@ -7,6 +7,7 @@ import { Logo } from '@/components/logo'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { supabase } from '@/lib/supabase'
+import { useHeaderInset } from '@/lib/header'
 import { colors, fonts } from '@/lib/theme'
 
 async function fetchUpcomingEvents(): Promise<EventCardData[]> {
@@ -27,6 +28,7 @@ export default function EventsScreen() {
   const [events, setEvents] = useState<EventCardData[] | null>(null)
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const headerInset = useHeaderInset()
 
   useEffect(() => {
     let active = true
@@ -70,9 +72,14 @@ export default function EventsScreen() {
           data={events ?? []}
           keyExtractor={(event) => event.id}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingTop: 16 + headerInset }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              progressViewOffset={headerInset}
+            />
           }
           ListHeaderComponent={<Text style={styles.heading}>Próximos eventos</Text>}
           ListEmptyComponent={

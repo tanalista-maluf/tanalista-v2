@@ -7,6 +7,7 @@ import { Button, Card, OccupancyBar, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { joinEvent } from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
+import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -56,6 +57,7 @@ export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { session } = useSession()
   const insets = useSafeAreaInsets()
+  const headerInset = useHeaderInset()
   const userId = session!.user.id
 
   const [event, setEvent] = useState<EventDetail | null | undefined>(undefined)
@@ -114,7 +116,9 @@ export default function EventScreen() {
   return (
     <Screen>
       {header}
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[styles.content, { paddingTop: 16 + headerInset }]}>
         <View style={styles.hero}>
           {event.category ? (
             <View style={styles.category}>

@@ -39,7 +39,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
         // Devolve a mensagem de erro, ou null se entrou
         signIn: async (email, password) => {
           const { error } = await supabase.auth.signInWithPassword({ email, password })
-          return error ? 'E-mail ou senha incorretos.' : null
+          if (!error) return null
+          // 400 é credencial recusada; o resto é rede ou servidor fora do ar
+          return error.status === 400
+            ? 'E-mail ou senha incorretos.'
+            : 'Não foi possível entrar. Verifique sua conexão e tente de novo.'
         },
         signOut: async () => {
           await supabase.auth.signOut()
