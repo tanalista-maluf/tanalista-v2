@@ -46,8 +46,11 @@ export async function createGroupAction(data: GroupSchema): Promise<{ error?: st
     return { error: 'Erro ao criar grupo. Tente novamente.' }
   }
 
-  // Adiciona o criador como OWNER
-  await supabase.from('group_members').insert({
+  // Adiciona o criador como OWNER. Toda escrita em group_members passa pelo
+  // service_role: authenticated não tem INSERT/DELETE na tabela, senão qualquer
+  // usuário entraria em qualquer grupo, com o papel que quisesse.
+  const admin = createAdminClient()
+  await admin.from('group_members').insert({
     group_id: group.id,
     user_id: user.id,
     role: 'OWNER',
@@ -93,11 +96,14 @@ export async function joinGroupByInviteAction(token: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.', groupId: null }
 
-  const { data: group } = await supabase
+  // Com o service_role: quem ainda não é membro não enxerga um grupo privado
+  // pela RLS, e o convite existe justamente para esse caso
+  const admin = createAdminClient()
+  const { data: group } = await admin
     .from('groups')
     .select('id, name, slug, visibility')
     .eq('invite_token', token)
-    .single()
+    .maybeSingle()
 
   if (!group) return { error: 'Convite inválido ou expirado.', groupId: null, groupSlug: null }
 
@@ -111,7 +117,7 @@ export async function joinGroupByInviteAction(token: string) {
 
   if (existing) return { groupId: group.id, groupSlug: group.slug, alreadyMember: true }
 
-  const { error } = await supabase.from('group_members').insert({
+  const { error } = await admin.from('group_members').insert({
     group_id: group.id,
     user_id: user.id,
     role: 'MEMBER',
@@ -158,7 +164,8 @@ export async function joinGroupAction(groupId: string) {
   if (!group) return { error: 'Grupo não encontrado.' }
   if (group.visibility === 'PRIVATE') return { error: 'Grupo privado. Solicite convite ao administrador.' }
 
-  const { error } = await supabase.from('group_members').insert({
+  const admin = createAdminClient()
+  const { error } = await admin.from('group_members').insert({
     group_id: groupId,
     user_id: user.id,
     role: 'MEMBER',
@@ -190,7 +197,8 @@ export async function leaveGroupAction(groupId: string) {
     return { error: 'O dono do grupo não pode sair. Transfira a propriedade primeiro.' }
   }
 
-  await supabase
+  const admin = createAdminClient()
+  await admin
     .from('group_members')
     .delete()
     .eq('group_id', groupId)
@@ -262,7 +270,8 @@ export async function removeMemberAction(groupId: string, memberId: string) {
   if (ownership?.role !== 'OWNER') return { error: 'Apenas o dono pode remover membros.' }
   if (memberId === user.id) return { error: 'Use "sair do grupo" para se remover.' }
 
-  await supabase
+  const admin = createAdminClient()
+  await admin
     .from('group_members')
     .delete()
     .eq('group_id', groupId)
