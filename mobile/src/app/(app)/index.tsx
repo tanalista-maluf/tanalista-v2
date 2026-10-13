@@ -1,24 +1,15 @@
 import { router, Stack } from 'expo-router'
+import { CalendarX2 } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { EventCard, type EventCardData } from '@/components/event-card'
+import { Logo } from '@/components/logo'
+import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { formatEventDate, formatPrice } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
-import { colors, radius } from '@/lib/theme'
+import { colors, fonts } from '@/lib/theme'
 
-type EventItem = {
-  id: string
-  title: string
-  starts_at: string
-  city: string
-  price: number
-  capacity: number
-  confirmed_count: number
-  visibility: string
-  groups: { name: string } | null
-}
-
-async function fetchUpcomingEvents(): Promise<EventItem[]> {
+async function fetchUpcomingEvents(): Promise<EventCardData[]> {
   const { data, error } = await supabase
     .from('events')
     .select('id, title, starts_at, city, price, capacity, confirmed_count, visibility, groups(name)')
@@ -33,7 +24,7 @@ async function fetchUpcomingEvents(): Promise<EventItem[]> {
 
 export default function EventsScreen() {
   const { signOut } = useSession()
-  const [events, setEvents] = useState<EventItem[] | null>(null)
+  const [events, setEvents] = useState<EventCardData[] | null>(null)
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -59,12 +50,13 @@ export default function EventsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <Screen>
       <Stack.Screen
         options={{
-          title: 'Eventos',
+          title: '',
+          headerLeft: () => <Logo size={19} />,
           headerRight: () => (
-            <Pressable testID="sign-out" onPress={signOut} hitSlop={12}>
+            <Pressable testID="sign-out" onPress={signOut} hitSlop={12} accessibilityRole="button">
               <Text style={styles.signOut}>Sair</Text>
             </Pressable>
           ),
@@ -77,69 +69,37 @@ export default function EventsScreen() {
         <FlatList
           data={events ?? []}
           keyExtractor={(event) => event.id}
+          contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
+          ListHeaderComponent={<Text style={styles.heading}>Próximos eventos</Text>}
           ListEmptyComponent={
-            <Text style={styles.empty}>
-              {error ? 'Não foi possível carregar os eventos. Puxe para tentar de novo.' : 'Nenhum evento por vir.'}
-            </Text>
+            <View style={styles.empty}>
+              <CalendarX2 size={36} color={colors.text25} />
+              <Text style={styles.emptyText}>
+                {error ? 'Não foi possível carregar os eventos. Puxe para tentar de novo.' : 'Nenhum evento por vir.'}
+              </Text>
+            </View>
           }
-          renderItem={({ item }) => <EventCard event={item} />}
+          renderItem={({ item }) => (
+            <EventCard
+              event={item}
+              onPress={() => router.push({ pathname: '/events/[id]', params: { id: item.id } })}
+            />
+          )}
         />
       )}
-    </View>
-  )
-}
-
-function EventCard({ event }: { event: EventItem }) {
-  const spotsLeft = event.capacity - event.confirmed_count
-  const spots = spotsLeft <= 0 ? 'Lotado' : `${event.confirmed_count}/${event.capacity} inscritos`
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${event.title}. ${formatEventDate(event.starts_at)}. ${formatPrice(event.price)}. ${spots}`}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={() => router.push({ pathname: '/events/[id]', params: { id: event.id } })}>
-        <Text style={styles.date}>{formatEventDate(event.starts_at)}</Text>
-        <Text style={styles.title}>
-          {event.visibility === 'PRIVATE' ? '🔒 ' : ''}
-          {event.title}
-        </Text>
-        <Text style={styles.meta}>
-          {event.groups?.name ? `${event.groups.name} · ` : ''}
-          {event.city}
-        </Text>
-        <View style={styles.footer}>
-          <Text style={styles.price}>{formatPrice(event.price)}</Text>
-          <Text style={[styles.spots, spotsLeft <= 0 && styles.spotsFull]}>{spots}</Text>
-        </View>
-    </Pressable>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1 },
   list: { padding: 16, gap: 12 },
-  empty: { color: colors.muted, textAlign: 'center', marginTop: 48, fontSize: 15 },
-  signOut: { color: colors.muted, fontSize: 15 },
-  card: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius,
-    padding: 16,
-    gap: 6,
-  },
-  cardPressed: { opacity: 0.7 },
-  date: { color: colors.primary, fontSize: 13, fontWeight: '600', textTransform: 'uppercase' },
-  title: { color: colors.foreground, fontSize: 18, fontWeight: '700' },
-  meta: { color: colors.muted, fontSize: 14 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  price: { color: colors.foreground, fontSize: 15, fontWeight: '600' },
-  spots: { color: colors.muted, fontSize: 14 },
-  spotsFull: { color: colors.warning },
+  heading: { fontFamily: fonts.headingBlack, fontSize: 24, color: colors.foreground, letterSpacing: -0.5, marginBottom: 4 },
+  signOut: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.text50 },
+  empty: { alignItems: 'center', gap: 12, marginTop: 64, paddingHorizontal: 24 },
+  emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, textAlign: 'center' },
 })

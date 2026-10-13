@@ -3,11 +3,12 @@ import { useSession } from './ctx'
 
 SplashScreen.preventAutoHideAsync()
 
-// Segura a splash até a sessão guardada ser lida, para não piscar a tela errada
-export function SplashScreenController() {
+// Segura a splash até a sessão guardada ser lida e as fontes carregarem, para
+// não piscar a tela errada nem o texto na fonte do sistema
+export function SplashScreenController({ fontsReady }: { fontsReady: boolean }) {
   const { isLoading } = useSession()
 
-  if (!isLoading) {
+  if (!isLoading && fontsReady) {
     SplashScreen.hide()
   }
 

@@ -1,21 +1,20 @@
+import { Eye, EyeOff } from 'lucide-react-native'
 import { useState } from 'react'
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Logo } from '@/components/logo'
+import { Button, Card, Field, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { colors, radius } from '@/lib/theme'
+import { colors, fonts } from '@/lib/theme'
+
+// Criar conta e recuperar senha ainda acontecem no site
+const SITE_URL = 'https://www.tanalista.app'
 
 export default function SignIn() {
   const { signIn } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -33,81 +32,109 @@ export default function SignIn() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.form}>
-        <Text style={styles.logo}>
-          TáNa<Text style={styles.logoAccent}>Lista</Text>
-        </Text>
-        <Text style={styles.subtitle}>Entre para ver seus eventos</Text>
+    <Screen>
+      <SafeAreaView style={styles.flex}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <View style={styles.brand}>
+              <Logo size={26} />
+              <Text style={styles.tagline}>Organize eventos com pagamento confirmado</Text>
+            </View>
 
-        <TextInput
-          testID="email"
-          style={styles.input}
-          placeholder="E-mail"
-          placeholderTextColor={colors.muted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          testID="password"
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor={colors.muted}
-          secureTextEntry
-          textContentType="password"
-          value={password}
-          onChangeText={setPassword}
-          onSubmitEditing={handleSubmit}
-        />
+            <Card style={styles.card}>
+              <View style={styles.cardBody}>
+                <View>
+                  <Text style={styles.title}>Entrar na sua conta</Text>
+                  <Text style={styles.subtitle}>Bem-vindo de volta!</Text>
+                </View>
 
-        {error && <Text style={styles.error}>{error}</Text>}
+                {error && (
+                  <View style={styles.alert}>
+                    <Text style={styles.alertText}>{error}</Text>
+                  </View>
+                )}
 
-        <Pressable
-          testID="submit"
-          style={({ pressed }) => [styles.button, (pressed || loading) && styles.buttonPressed]}
-          onPress={handleSubmit}
-          disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color={colors.primaryForeground} />
-          ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
-          )}
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+                <Field
+                  testID="email"
+                  label="E-mail"
+                  placeholder="seu@email.com"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+                <Field
+                  testID="password"
+                  label="Senha"
+                  labelAction={
+                    <Pressable onPress={() => Linking.openURL(`${SITE_URL}/recuperar-senha`)} hitSlop={8}>
+                      <Text style={styles.link}>Esqueceu a senha?</Text>
+                    </Pressable>
+                  }
+                  secureTextEntry={!showPassword}
+                  textContentType="password"
+                  value={password}
+                  onChangeText={setPassword}
+                  onSubmitEditing={handleSubmit}
+                  trailing={
+                    <Pressable
+                      onPress={() => setShowPassword((shown) => !shown)}
+                      accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                      hitSlop={8}>
+                      {showPassword ? (
+                        <EyeOff size={18} color={colors.muted} />
+                      ) : (
+                        <Eye size={18} color={colors.muted} />
+                      )}
+                    </Pressable>
+                  }
+                />
+
+                <Button testID="submit" label="Entrar" onPress={handleSubmit} loading={loading} />
+              </View>
+
+              <View style={styles.cardFooter}>
+                <Text style={styles.footerText}>Não tem conta? </Text>
+                <Pressable onPress={() => Linking.openURL(`${SITE_URL}/cadastro`)} hitSlop={8}>
+                  <Text style={[styles.link, styles.footerLink]}>Criar conta grátis</Text>
+                </Pressable>
+              </View>
+            </Card>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Screen>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, justifyContent: 'center' },
-  form: { paddingHorizontal: 24, gap: 12 },
-  logo: { fontSize: 36, fontWeight: '800', color: colors.foreground, textAlign: 'center' },
-  logoAccent: { color: colors.primary },
-  subtitle: { fontSize: 15, color: colors.muted, textAlign: 'center', marginBottom: 20 },
-  input: {
-    backgroundColor: colors.card,
+  flex: { flex: 1 },
+  content: { flexGrow: 1, justifyContent: 'center', padding: 18, gap: 28 },
+  brand: { alignItems: 'center', gap: 10 },
+  tagline: { fontFamily: fonts.body, fontSize: 14, color: colors.text35, textAlign: 'center' },
+  card: { overflow: 'hidden' },
+  cardBody: { padding: 20, gap: 18 },
+  title: { fontFamily: fonts.heading, fontSize: 18, color: colors.foreground },
+  subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: 4 },
+  alert: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: colors.foreground,
+    borderColor: 'rgba(248,113,113,0.3)',
+    backgroundColor: 'rgba(248,113,113,0.05)',
+    borderRadius: 12,
+    padding: 12,
   },
-  error: { color: colors.destructive, fontSize: 14 },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: radius,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 8,
+  alertText: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive },
+  link: { fontFamily: fonts.body, fontSize: 13, color: colors.primary },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    paddingVertical: 16,
   },
-  buttonPressed: { opacity: 0.7 },
-  buttonText: { color: colors.primaryForeground, fontSize: 16, fontWeight: '700' },
+  footerText: { fontFamily: fonts.body, fontSize: 14, color: colors.muted },
+  footerLink: { fontFamily: fonts.bodySemi, fontSize: 14 },
 })
