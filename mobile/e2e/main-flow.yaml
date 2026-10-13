@@ -5,7 +5,7 @@ appId: host.exp.Exponent
 ---
 - openLink: exp://127.0.0.1:8081
 - extendedWaitUntil:
-    visible: "Eventos|Entre para ver seus eventos"
+    visible: "Próximos eventos|Entrar na sua conta"
     timeout: 30000
 - runFlow:
     when:
@@ -24,7 +24,7 @@ appId: host.exp.Exponent
     commands:
       - tapOn:
           id: "sign-out"
-- assertVisible: "Entre para ver seus eventos"
+- assertVisible: "Entrar na sua conta"
 - takeScreenshot: 01-login
 - tapOn:
     id: "email"
@@ -43,7 +43,7 @@ appId: host.exp.Exponent
 - tapOn:
     id: "submit"
 - assertVisible: "Futebol de quinta.*0/14 inscritos"
-- assertVisible: "Racha lotado.*Lotado"
+- assertVisible: "Racha lotado.*Esgotado"
 - takeScreenshot: 03-lista
 - waitForAnimationToEnd
 - tapOn: "Futebol de quinta.*"
@@ -55,21 +55,33 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "status-confirmed"
 - takeScreenshot: 05-inscrito
-- tapOn: "Eventos"
+- swipe:
+    start: "1%, 50%"
+    end: "85%, 50%"
+- assertVisible: "Próximos eventos"
 - tapOn: "Torneio pago de sábado.*"
 - assertVisible: "Inscrição paga: por enquanto, conclua pelo site."
 - takeScreenshot: 06-evento-pago
-- tapOn: "Eventos"
+- swipe:
+    start: "1%, 50%"
+    end: "85%, 50%"
+- assertVisible: "Próximos eventos"
 - tapOn: ".*Treino fechado.*"
 - assertVisible: "Evento privado. Peça a entrada ao organizador pelo site."
-- tapOn: "Eventos"
+- swipe:
+    start: "1%, 50%"
+    end: "85%, 50%"
+- assertVisible: "Próximos eventos"
 - tapOn: "Racha lotado.*"
 - assertVisible: "Evento lotado."
-- tapOn: "Eventos"
+- swipe:
+    start: "1%, 50%"
+    end: "85%, 50%"
+- assertVisible: "Próximos eventos"
 - swipe:
     direction: DOWN
 - assertVisible: "Futebol de quinta.*1/14 inscritos"
 - takeScreenshot: 07-lista-final
 - tapOn:
     id: "sign-out"
-- assertVisible: "Entre para ver seus eventos"
+- assertVisible: "Entrar na sua conta"
