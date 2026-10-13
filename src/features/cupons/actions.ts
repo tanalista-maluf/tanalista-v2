@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { releaseStaleCouponUses } from '@/lib/refunds'
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean)
 
@@ -158,7 +159,9 @@ export async function validateCouponForEventAction(code: string, eventPrice: num
 
   if (!coupon) return { error: 'Cupom inválido ou expirado.' }
   if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return { error: 'Cupom expirado.' }
-  if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) return { error: 'Cupom esgotado.' }
+
+  const released = await releaseStaleCouponUses(admin, { couponId: coupon.id, userId: user.id })
+  if (coupon.max_uses !== null && coupon.uses_count - released >= coupon.max_uses) return { error: 'Cupom esgotado.' }
 
   // Cupom de grupo vale 1 uso por evento; os demais, 1 uso por usuário
   let usedQuery = admin.from('coupon_uses').select('id').eq('coupon_id', coupon.id).eq('user_id', user.id)
