@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWaitlistNotified } from '@/lib/emails'
 import { calculateFees } from '@/lib/mercadopago'
-import { refundParticipationPayments, releaseCouponUse } from '@/lib/refunds'
+import { refundParticipationPayments, releaseCouponUse, releaseStaleCouponUses } from '@/lib/refunds'
 
 // ── Inscrição no evento ──────────────────────────────────────────────────────
 
@@ -111,9 +111,13 @@ export async function joinEventAction(
       .or(scopeFilter)
       .maybeSingle()
 
+    const released = coupon
+      ? await releaseStaleCouponUses(admin, { couponId: coupon.id, userId: user.id })
+      : 0
+
     if (coupon &&
       (!coupon.expires_at || new Date(coupon.expires_at) >= new Date()) &&
-      (coupon.max_uses === null || coupon.uses_count < coupon.max_uses)) {
+      (coupon.max_uses === null || coupon.uses_count - released < coupon.max_uses)) {
       // Cupom de grupo vale 1 uso por evento; os demais, 1 uso por usuário
       let usedQuery = admin.from('coupon_uses').select('id').eq('coupon_id', coupon.id).eq('user_id', user.id)
       if (coupon.group_id) usedQuery = usedQuery.eq('event_id', eventId)

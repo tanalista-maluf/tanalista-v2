@@ -49,12 +49,12 @@ export async function refundParticipationPayments(
 }
 
 // Devolve o uso do cupom de uma inscrição que deixou de valer, para que a
-// pessoa possa usá-lo de novo se voltar a se inscrever.
+// pessoa possa usá-lo de novo se voltar a se inscrever. Diz se havia um uso.
 export async function releaseCouponUse(
   admin: AdminClient,
   params: { couponId: string | null; userId: string; eventId: string }
-) {
-  if (!params.couponId) return
+): Promise<boolean> {
+  if (!params.couponId) return false
 
   // Usos de cupom de evento anteriores a coupon_uses.event_id não têm evento
   const { data: uses } = await admin
@@ -65,7 +65,7 @@ export async function releaseCouponUse(
     .or(`event_id.eq.${params.eventId},event_id.is.null`)
 
   const use = uses?.find((u) => u.event_id === params.eventId) ?? uses?.[0]
-  if (!use) return
+  if (!use) return false
 
   await admin.from('coupon_uses').delete().eq('id', use.id)
 
@@ -74,4 +74,33 @@ export async function releaseCouponUse(
     .from('coupons')
     .update({ uses_count: Math.max(0, (coupon?.uses_count ?? 1) - 1) })
     .eq('id', params.couponId)
+
+  return true
+}
+
+// Devolve os usos deste cupom que ainda estão presos a inscrições canceladas
+// da pessoa. O cancelamento pelo app já devolve o cupom; isto cobre inscrições
+// canceladas antes disso existir e serve de rede para qualquer outro caminho.
+// Precisa rodar antes de toda checagem de "cupom já usado" ou "esgotado", senão
+// a pessoa é barrada por um uso que não vale mais. Devolve quantos usos saíram,
+// para quem já leu uses_count antes de chamar.
+export async function releaseStaleCouponUses(
+  admin: AdminClient,
+  params: { couponId: string; userId: string }
+): Promise<number> {
+  const { data: cancelled } = await admin
+    .from('participations')
+    .select('id, event_id')
+    .eq('user_id', params.userId)
+    .eq('coupon_id', params.couponId)
+    .eq('status', 'CANCELLED')
+
+  let released = 0
+  for (const p of cancelled ?? []) {
+    if (await releaseCouponUse(admin, { couponId: params.couponId, userId: params.userId, eventId: p.event_id })) {
+      released++
+    }
+    await admin.from('participations').update({ discount_cents: 0, coupon_id: null }).eq('id', p.id)
+  }
+  return released
 }

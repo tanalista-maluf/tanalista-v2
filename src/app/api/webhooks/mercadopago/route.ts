@@ -4,6 +4,7 @@ import { validateMPWebhook } from '@/lib/webhook-validation'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
 import { sendParticipationConfirmed } from '@/lib/emails'
 import type { Json } from '@/types/database'
+import { releaseCouponUse } from '@/lib/refunds'
 
 // Desativar body parser automático (precisamos do rawBody para HMAC)
 export const runtime = 'nodejs'
@@ -222,11 +223,24 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
   }
 
   if (newStatus === 'REJECTED' || newStatus === 'CANCELLED') {
-    await admin
+    // A inscrição cancelada devolve o cupom, como no cancelamento pelo app;
+    // senão o uso fica preso e a pessoa não consegue aplicá-lo ao tentar de novo
+    const { data: pending } = await admin
       .from('participations')
-      .update({ status: 'CANCELLED' })
+      .select('user_id, event_id, coupon_id')
       .eq('id', externalRef)
       .eq('status', 'PENDING')
+      .maybeSingle()
+
+    await admin
+      .from('participations')
+      .update({ status: 'CANCELLED', discount_cents: 0, coupon_id: null })
+      .eq('id', externalRef)
+      .eq('status', 'PENDING')
+
+    if (pending) {
+      await releaseCouponUse(admin, { couponId: pending.coupon_id, userId: pending.user_id, eventId: pending.event_id })
+    }
 
     console.log(`[WEBHOOK] Participation ${externalRef} CANCELLED (payment ${newStatus})`)
   }
