@@ -11,7 +11,13 @@ Os tipos do banco são os do site: `../src/types/database.ts`.
 
 ## O que existe hoje
 
-Login por e-mail e senha, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola ou saldo da carteira) e cancelamento de inscrição. Evento privado ou lotado aparece com o motivo de não dar para se inscrever pelo app. Cartão, escolha de time e fila de espera ainda são só pelo site.
+Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola, cartão de crédito ou saldo da carteira), cancelamento de inscrição e perfil com exclusão de conta. Evento privado ou lotado aparece com o motivo de não dar para se inscrever pelo app. Recuperação de senha, escolha de time e fila de espera ainda são só pelo site.
+
+## Configuração fora do código
+
+- **Login com Google:** `tanalista://auth/callback` precisa estar em Authentication → URL Configuration → Redirect URLs do Supabase. Sem isso o Google volta para o site em vez do app.
+- **Confirmação de e-mail do cadastro:** o link do e-mail abre `https://www.tanalista.app/app/email-confirmado`, que também precisa estar nas Redirect URLs.
+- **Cartão:** o formulário é o Card Payment Brick do Mercado Pago, numa página do site (`/embed/cartao`) aberta em WebView; o app recebe só o token do cartão. Depende de `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` no site (a chave pública da mesma conta de `MERCADOPAGO_PLATFORM_ACCESS_TOKEN`). Sem ela, a opção de cartão não aparece nem no app nem no site.
 
 ## Rodar localmente
 
@@ -28,7 +34,7 @@ Sem `.env.local`, o app usa o `.env` versionado, que aponta para **produção**.
 ```sh
 npx tsc --noEmit
 npx expo lint
-# precisa do build próprio (o app usa expo-clipboard); ver o cabeçalho de e2e/main-flow.yaml
+# precisa do build próprio (o app usa módulos nativos fora do Expo Go); ver o cabeçalho de e2e/main-flow.yaml
 eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
 maestro test -e APP_ID=app.tanalista \
   -e APP_URL='exp+tanalista://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \

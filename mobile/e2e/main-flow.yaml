@@ -26,7 +26,7 @@ appId: ${APP_ID}
 # uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
 # depois de o app carregar, então espera por ele ou pelo app antes de decidir.
 - extendedWaitUntil:
-    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta"
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil"
     timeout: 40000
 - waitForAnimationToEnd
 - runFlow:
@@ -42,7 +42,7 @@ appId: ${APP_ID}
           start: "50%, 50%"
           end: "50%, 98%"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Entrar na sua conta"
+    visible: "Próximos eventos|Entrar na sua conta|Complete seu perfil"
     timeout: 30000
 - runFlow:
     when:
@@ -66,13 +66,23 @@ appId: ${APP_ID}
           start: "90%, 7%"
           end: "50%, 85%"
           duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
 - runFlow:
     when:
       visible:
-        id: "sign-out"
+        id: "profile"
     commands:
       - tapOn:
+          id: "profile"
+      - tapOn:
           id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
 - assertVisible: "Entrar na sua conta"
 - takeScreenshot: 01-login
 - tapOn:
@@ -99,7 +109,7 @@ appId: ${APP_ID}
 # uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
 # depois de o app carregar, então espera por ele ou pelo app antes de decidir.
 - extendedWaitUntil:
-    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta"
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil"
     timeout: 40000
 - waitForAnimationToEnd
 - runFlow:
@@ -336,6 +346,184 @@ appId: ${APP_ID}
 - tapOn:
     id: "tab-upcoming"
 - assertVisible: "Futebol de quinta.*0/14 inscritos"
+# Perfil: com inscrição em evento por vir, a conta não pode ser excluída
+- tapOn:
+    id: "profile"
+- assertVisible: "Bruno Participante"
+- assertVisible: "bruno@teste.local"
+- scrollUntilVisible:
+    element:
+      id: "delete-account"
+- tapOn:
+    id: "delete-account"
+- tapOn: "Excluir definitivamente"
+- scrollUntilVisible:
+    element: ".*inscrição em eventos que ainda vão acontecer.*"
+- takeScreenshot: 13-excluir-conta-pendencias
+- scrollUntilVisible:
+    element:
+      id: "sign-out"
+    direction: UP
 - tapOn:
     id: "sign-out"
 - assertVisible: "Entrar na sua conta"
+
+# ── Conta nova: cadastro, onboarding, cartão e exclusão da conta ─────────────
+- tapOn:
+    id: "go-sign-up"
+- assertVisible: "Criar conta"
+- tapOn:
+    id: "full-name"
+- inputText: "Dani Nova"
+- tapOn:
+    id: "email"
+- inputText: "dani@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senhafraca"
+- pressKey: Enter
+- assertVisible: "A senha deve conter ao menos uma letra maiúscula."
+- tapOn:
+    id: "password"
+- eraseText: 12
+- inputText: "Senha-teste-1"
+- takeScreenshot: 14-cadastro
+- pressKey: Enter
+# No ambiente local o e-mail não precisa de confirmação: o cadastro já entra.
+# O iOS pergunta se quer guardar a senha recém-criada.
+- extendedWaitUntil:
+    visible: "Complete seu perfil|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+- assertVisible: "Olá, Dani! Falta pouco."
+- tapOn:
+    id: "username"
+# "bruno" não: é o username que o cadastro deu ao Bruno
+- inputText: "bruno"
+- tapOn:
+    id: "phone"
+- inputText: "19988887777"
+- tapOn:
+    id: "city"
+- inputText: "Campinas"
+- pressKey: Enter
+- assertVisible: "Este @username já está em uso."
+- tapOn:
+    id: "username"
+- eraseText: 10
+- inputText: "dani_nova"
+- takeScreenshot: 15-onboarding
+- tapOn:
+    id: "city"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Próximos eventos"
+    timeout: 15000
+# Cartão recusado: a inscrição é cancelada e dá para se inscrever de novo
+- tapOn: "Torneio pago de sábado.*"
+- tapOn:
+    id: "join"
+- tapOn:
+    id: "method-card"
+- takeScreenshot: 16-checkout-cartao
+- tapOn:
+    id: "checkout-submit"
+- assertVisible:
+    id: "card-amount"
+    text: ".*30,00"
+- extendedWaitUntil:
+    visible: "Simular cartão recusado"
+    timeout: 30000
+- takeScreenshot: 17-cartao
+- tapOn: "Simular cartão recusado"
+- extendedWaitUntil:
+    visible: "Pagamento recusado. Cartão sem limite suficiente."
+    timeout: 15000
+- tapOn:
+    id: "card-done"
+- assertVisible:
+    id: "join"
+# Cartão aprovado confirma na hora
+- tapOn:
+    id: "join"
+- tapOn:
+    id: "method-card"
+- tapOn:
+    id: "checkout-submit"
+- extendedWaitUntil:
+    visible: "Pagar com cartão de teste"
+    timeout: 30000
+- tapOn: "Pagar com cartão de teste"
+- extendedWaitUntil:
+    visible:
+      id: "card-confirmed"
+    timeout: 15000
+- takeScreenshot: 18-cartao-confirmado
+- tapOn:
+    id: "card-done"
+- assertVisible:
+    id: "status-confirmed"
+# Cancelar devolve o valor para a carteira, e saldo impede excluir a conta
+- tapOn:
+    id: "cancel"
+- tapOn: "Confirmar cancelamento"
+- assertVisible:
+    id: "join"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- tapOn:
+    id: "profile"
+- assertVisible: "Dani Nova"
+- assertVisible: "@dani_nova"
+- scrollUntilVisible:
+    element:
+      id: "delete-account"
+- tapOn:
+    id: "delete-account"
+- tapOn: "Excluir definitivamente"
+- scrollUntilVisible:
+    element: ".*saldo na carteira.*"
+# Sem saldo (como depois de um saque), a exclusão acontece
+- runScript:
+    file: clear-wallet.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      USERNAME: dani_nova
+- tapOn:
+    id: "delete-account"
+- tapOn: "Excluir definitivamente"
+- extendedWaitUntil:
+    visible: "Entrar na sua conta"
+    timeout: 15000
+- runScript:
+    file: check-deleted.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      USERNAME: dani_nova
+# A conta excluída não entra mais
+- tapOn:
+    id: "email"
+- inputText: "dani@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "Senha-teste-1"
+- tapOn:
+    id: "submit"
+- assertVisible: "E-mail ou senha incorretos."
+- takeScreenshot: 19-conta-excluida

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getEventById } from '@/features/eventos/queries'
 import { InscricaoForm } from '@/features/participacoes/components/InscricaoForm'
+import { isCardPaymentEnabled } from '@/features/participacoes/card-payment'
 import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
 import { formatPrice, formatDateTime } from '@/utils/format'
 import { Calendar, MapPin, ChevronLeft } from 'lucide-react'
@@ -101,6 +102,7 @@ export default async function InscricaoPage({
         wantWaitlist={wantWaitlist}
         isFull={event.confirmed_count >= event.capacity}
         teams={teams.length > 0 ? teams : undefined}
+        cardEnabled={isCardPaymentEnabled()}
       />
     </main>
   )

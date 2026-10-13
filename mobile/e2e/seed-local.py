@@ -28,6 +28,14 @@ def user(name, email):
         "/auth/v1/admin/users",
         {"email": email, "password": "senha-teste-123", "email_confirm": True, "user_metadata": {"full_name": name}},
     )
+    # Perfil já completo: sem isto o app abriria o onboarding para estes usuários
+    request = urllib.request.Request(
+        API + "/rest/v1/profiles?id=eq." + created["id"],
+        data=json.dumps({"onboarding_completed": True, "city": "São Paulo", "phone": "11999990000"}).encode(),
+        headers=HEADERS,
+        method="PATCH",
+    )
+    urllib.request.urlopen(request, timeout=20).read()
     return created["id"]
 
 

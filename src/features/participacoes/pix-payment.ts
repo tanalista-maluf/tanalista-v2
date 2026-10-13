@@ -69,6 +69,19 @@ export async function createPixPayment(
     }
   }
 
+  // Cartão em análise no Mercado Pago: um PIX agora poderia ser pago em dobro
+  const { data: cardInReview } = await admin
+    .from('payments')
+    .select('id')
+    .eq('participation_id', participationId)
+    .eq('status', 'PENDING')
+    .eq('method', 'CREDIT_CARD')
+    .limit(1)
+
+  if (cardInReview && cardInReview.length > 0) {
+    return { error: 'O pagamento com cartão desta inscrição está em análise.', httpStatus: 400 }
+  }
+
   const effectivePrice = Math.max(0, event.price - (participation.discount_cents ?? 0))
   const fees = calculateFees(effectivePrice, 'PIX')
   const expiresAt = new Date(Date.now() + PIX_EXPIRATION_MS).toISOString()

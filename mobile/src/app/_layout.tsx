@@ -30,18 +30,28 @@ export default function Root() {
 }
 
 function RootNavigator() {
-  const { session, isLoading } = useSession()
+  const { session, profile, isLoading } = useSession()
   if (isLoading) return null
+
+  // Conta nova (por e-mail ou Google) completa o perfil antes de usar o app
+  const needsOnboarding = !!session && !!profile && !profile.onboarding_completed
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-      <Stack.Protected guard={!!session}>
+      <Stack.Protected guard={!!session && !needsOnboarding}>
         <Stack.Screen name="(app)" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={needsOnboarding}>
+        <Stack.Screen name="onboarding" />
       </Stack.Protected>
 
       <Stack.Protected guard={!session}>
         <Stack.Screen name="sign-in" />
+        <Stack.Screen name="sign-up" />
       </Stack.Protected>
+
+      <Stack.Screen name="auth/callback" />
     </Stack>
   )
 }
