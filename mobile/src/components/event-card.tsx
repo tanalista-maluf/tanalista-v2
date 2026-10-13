@@ -19,7 +19,18 @@ export type EventCardData = {
 
 // Mesmo desenho do cartão do site (src/features/eventos/components/EventCard.tsx):
 // barra lateral colorida pela lotação, bloco de data, e preço à direita
-export function EventCard({ event, onPress }: { event: EventCardData; onPress: () => void }) {
+export type EventCardBadge = { label: string; tone: 'primary' | 'warning' | 'danger' | 'muted' }
+
+// badge troca o preço por outra etiqueta (ex.: a situação da inscrição em "Meus eventos")
+export function EventCard({
+  event,
+  badge,
+  onPress,
+}: {
+  event: EventCardData
+  badge?: EventCardBadge
+  onPress: () => void
+}) {
   const { day, month, time } = dateParts(event.starts_at)
   const pct = event.capacity > 0 ? event.confirmed_count / event.capacity : 0
   const isFull = pct >= 1
@@ -30,7 +41,7 @@ export function EventCard({ event, onPress }: { event: EventCardData; onPress: (
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${event.title}. ${day} de ${month}, ${time}. ${formatPrice(event.price)}. ${spots}`}
+      accessibilityLabel={`${event.title}. ${day} de ${month}, ${time}. ${badge?.label ?? formatPrice(event.price)}. ${spots}`}
       onPress={onPress}
       style={({ pressed }) => [styles.card, isFull && styles.cardFull, pressed && styles.cardPressed]}>
       {accent ? (
@@ -80,7 +91,9 @@ export function EventCard({ event, onPress }: { event: EventCardData; onPress: (
       </View>
 
       <View style={styles.side}>
-        {isFull ? (
+        {badge ? (
+          <Badge label={badge.label} tone={badge.tone} />
+        ) : isFull ? (
           <Badge label="Esgotado" tone="danger" />
         ) : (
           <Badge label={formatPrice(event.price)} tone={event.price === 0 ? 'warning' : 'primary'} />

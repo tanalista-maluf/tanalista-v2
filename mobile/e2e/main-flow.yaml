@@ -199,6 +199,39 @@ appId: ${APP_ID}
     direction: DOWN
 - assertVisible: "Futebol de quinta.*1/14 inscritos"
 - takeScreenshot: 07-lista-final
+# Meus eventos: só o evento em que Bruno se inscreveu, e o cancelamento por ele
+- tapOn:
+    id: "tab-mine"
+- assertVisible: "Futebol de quinta.*Inscrito.*1/14 inscritos"
+- assertNotVisible: "Racha lotado.*"
+- takeScreenshot: 08-meus-eventos
+- tapOn: "Futebol de quinta.*"
+- assertVisible:
+    id: "status-confirmed"
+- tapOn:
+    id: "cancel"
+- assertVisible: "Cancelar inscrição\\?"
+- takeScreenshot: 09-confirmar-cancelamento
+- tapOn: "Confirmar cancelamento"
+- assertVisible:
+    id: "join"
+- takeScreenshot: 10-cancelado
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Você ainda não está inscrito em nenhum evento."
+- tapOn:
+    id: "tab-upcoming"
+- assertVisible: "Futebol de quinta.*0/14 inscritos"
 - tapOn:
     id: "sign-out"
 - assertVisible: "Entrar na sua conta"

@@ -31,3 +31,11 @@ export type JoinEventResponse =
 export function joinEvent(eventId: string) {
   return apiPost<JoinEventResponse>(`/api/v1/events/${eventId}/join`)
 }
+
+export type CancelParticipationResponse =
+  | { error: string; code?: 'NOT_ALLOWED' | 'TOO_LATE' }
+  | { success: true }
+
+export function cancelParticipation(participationId: string) {
+  return apiPost<CancelParticipationResponse>(`/api/v1/participations/${participationId}/cancel`)
+}
