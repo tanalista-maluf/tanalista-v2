@@ -28,6 +28,8 @@ interface InscricaoFormProps {
   wantWaitlist: boolean
   isFull: boolean
   teams?: Team[]
+  // O cartão depende da chave pública do Mercado Pago estar configurada
+  cardEnabled: boolean
 }
 
 const METHODS: { id: PaymentMethod; label: string; icon: React.ElementType; desc: string }[] = [
@@ -37,7 +39,7 @@ const METHODS: { id: PaymentMethod; label: string; icon: React.ElementType; desc
 ]
 
 export function InscricaoForm({
-  eventId, eventPrice, walletBalance, isOrganizer, organizerExempt, wantWaitlist, isFull, teams,
+  eventId, eventPrice, walletBalance, isOrganizer, organizerExempt, wantWaitlist, isFull, teams, cardEnabled,
 }: InscricaoFormProps) {
   const router = useRouter()
   const [selected, setSelected] = useState<PaymentMethod>('PIX')
@@ -168,7 +170,7 @@ export function InscricaoForm({
       {!isCouponFree && (
         <div className="space-y-2">
           <p className="text-sm font-medium">Forma de pagamento</p>
-          {METHODS.map((m) => {
+          {METHODS.filter((m) => m.id !== 'CREDIT_CARD' || cardEnabled).map((m) => {
             const insufficient = m.id === 'WALLET' && walletBalance < finalPrice
             return (
               <button

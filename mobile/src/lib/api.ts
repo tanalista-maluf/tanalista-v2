@@ -1,10 +1,10 @@
 import { supabase } from './supabase'
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL!
+export const apiUrl = process.env.EXPO_PUBLIC_API_URL!
 
 // Chama a API do site (/api/v1) autenticando com o token de acesso do Supabase.
 // Devolve o corpo da resposta mesmo em erro: as rotas respondem { error }.
-async function apiRequest<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T | { error: string }> {
+async function apiRequest<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T | { error: string }> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return { error: 'Sessão expirada. Entre novamente.' }
 
@@ -36,7 +36,7 @@ export type JoinEventResponse =
   | { status: 'CONFIRMED' }
   | { status: 'PENDING'; participationId: string }
 
-export type JoinMethod = 'PIX' | 'WALLET'
+export type JoinMethod = 'PIX' | 'WALLET' | 'CREDIT_CARD'
 
 // Sem options, vale para evento gratuito; em evento pago vai o meio de pagamento e o cupom
 export function joinEvent(eventId: string, options: { method?: JoinMethod; couponCode?: string } = {}) {
@@ -65,4 +65,36 @@ export type PixPayment = { payment_id: string; qr_code?: string; qr_code_base64?
 // Gera a cobrança PIX de uma inscrição pendente, ou devolve a que já existe
 export function createPixPayment(participationId: string) {
   return apiPost<PixPayment | { error: string }>(`/api/v1/participations/${participationId}/pix`)
+}
+
+export type CardToken = {
+  token: string
+  payment_method_id: string
+  issuer_id?: string | number
+  identification?: { type?: string; number?: string }
+}
+
+// Cobra a inscrição pendente no cartão. O token vem do formulário do Mercado
+// Pago (tela card/[participationId]); in_process = pagamento em análise.
+export function createCardPayment(participationId: string, card: CardToken) {
+  return apiPost<{ status: 'approved' | 'in_process' } | { error: string }>(
+    `/api/v1/participations/${participationId}/card`,
+    card
+  )
+}
+
+// Meios de pagamento que dependem de configuração do servidor
+export function fetchPaymentMethods() {
+  return apiGet<{ card: boolean } | { error: string }>('/api/v1/payment-methods')
+}
+
+export type OnboardingField = 'username' | 'city' | 'phone'
+
+export function completeOnboarding(data: Record<OnboardingField, string>) {
+  return apiPost<{ success: true } | { error: string; field?: OnboardingField }>('/api/v1/me/onboarding', data)
+}
+
+// blockers: pendências que a pessoa precisa resolver antes de excluir a conta
+export function deleteAccount() {
+  return apiRequest<{ success: true } | { error: string; blockers?: string[] }>('DELETE', '/api/v1/me')
 }

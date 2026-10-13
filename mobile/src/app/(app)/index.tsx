@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect } from 'expo-router'
-import { CalendarX2 } from 'lucide-react-native'
+import { CalendarX2, CircleUserRound } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { EventCard, type EventCardBadge, type EventCardData } from '@/components/event-card'
@@ -57,7 +57,7 @@ function participationBadge(status?: string): EventCardBadge | undefined {
 }
 
 export default function EventsScreen() {
-  const { session, signOut } = useSession()
+  const { session } = useSession()
   const userId = session!.user.id
   const [tab, setTab] = useState<Tab>('upcoming')
   const [events, setEvents] = useState<Partial<Record<Tab, ListedEvent[]>>>({})
@@ -101,8 +101,13 @@ export default function EventsScreen() {
           title: '',
           headerLeft: () => <Logo size={19} />,
           headerRight: () => (
-            <Pressable testID="sign-out" onPress={signOut} hitSlop={12} accessibilityRole="button">
-              <Text style={styles.signOut}>Sair</Text>
+            <Pressable
+              testID="profile"
+              onPress={() => router.push('/profile')}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Perfil">
+              <CircleUserRound size={24} color={colors.text70} />
             </Pressable>
           ),
         }}
@@ -179,7 +184,6 @@ const styles = StyleSheet.create({
   tabText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.text50 },
   tabTextActive: { fontFamily: fonts.bodyBold, color: colors.primary },
   heading: { fontFamily: fonts.headingBlack, fontSize: 24, color: colors.foreground, letterSpacing: -0.5 },
-  signOut: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.text50 },
   loading: { marginTop: 64 },
   empty: { alignItems: 'center', gap: 12, marginTop: 64, paddingHorizontal: 24 },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, textAlign: 'center' },

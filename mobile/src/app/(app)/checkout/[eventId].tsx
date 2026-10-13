@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import { QrCode, Tag, Wallet, X } from 'lucide-react-native'
+import { CreditCard, QrCode, Tag, Wallet, X } from 'lucide-react-native'
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, Screen } from '@/components/ui'
-import { fetchWalletBalance, joinEvent, validateCoupon, type JoinMethod } from '@/lib/api'
+import { fetchPaymentMethods, fetchWalletBalance, joinEvent, validateCoupon, type JoinMethod } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
@@ -23,11 +23,17 @@ import { colors, fonts, radius } from '@/lib/theme'
 type CheckoutEvent = { title: string; price: number }
 
 async function fetchCheckout(eventId: string) {
-  const [{ data: event }, wallet] = await Promise.all([
+  const [{ data: event }, wallet, methods] = await Promise.all([
     supabase.from('events').select('title, price').eq('id', eventId).maybeSingle(),
     fetchWalletBalance(),
+    fetchPaymentMethods(),
   ])
-  return { event: event as CheckoutEvent | null, balance: 'balance' in wallet ? wallet.balance : 0 }
+  return {
+    event: event as CheckoutEvent | null,
+    balance: 'balance' in wallet ? wallet.balance : 0,
+    // O cartão só aparece quando o servidor está configurado para cobrar
+    card: 'card' in methods && methods.card,
+  }
 }
 
 // Inscrição em evento pago: cupom, meio de pagamento e total. O servidor refaz
@@ -39,6 +45,7 @@ export default function CheckoutScreen() {
 
   const [event, setEvent] = useState<CheckoutEvent | null | undefined>(undefined)
   const [balance, setBalance] = useState(0)
+  const [cardEnabled, setCardEnabled] = useState(false)
   const [method, setMethod] = useState<JoinMethod>('PIX')
   const [code, setCode] = useState('')
   const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null)
@@ -53,6 +60,7 @@ export default function CheckoutScreen() {
       if (!active) return
       setEvent(result.event)
       setBalance(result.balance)
+      setCardEnabled(result.card)
     })
     return () => {
       active = false
@@ -81,7 +89,8 @@ export default function CheckoutScreen() {
     setSubmitting(true)
     setError(null)
     // Com cupom de 100% não há o que cobrar: o servidor confirma pelo caminho da carteira
-    const result = await joinEvent(eventId, { method: total === 0 ? 'WALLET' : method, couponCode: coupon?.code })
+    const chosen = total === 0 ? 'WALLET' : method
+    const result = await joinEvent(eventId, { method: chosen, couponCode: coupon?.code })
     setSubmitting(false)
 
     if ('error' in result) {
@@ -89,8 +98,11 @@ export default function CheckoutScreen() {
       return
     }
     if (result.status === 'PENDING') {
-      // replace: voltar do PIX cai na página do evento, não aqui
-      router.replace({ pathname: '/payment/[participationId]', params: { participationId: result.participationId } })
+      // replace: voltar do pagamento cai na página do evento, não aqui
+      router.replace({
+        pathname: chosen === 'CREDIT_CARD' ? '/card/[participationId]' : '/payment/[participationId]',
+        params: { participationId: result.participationId },
+      })
     } else {
       router.back()
     }
@@ -199,6 +211,16 @@ export default function CheckoutScreen() {
                 title="PIX"
                 detail="Copia e cola, confirmação em instantes"
               />
+              {cardEnabled ? (
+                <MethodOption
+                  testID="method-card"
+                  selected={method === 'CREDIT_CARD'}
+                  onPress={() => setMethod('CREDIT_CARD')}
+                  icon={<CreditCard size={20} color={method === 'CREDIT_CARD' ? colors.primary : colors.text50} />}
+                  title="Cartão de crédito"
+                  detail="À vista, confirmação na hora"
+                />
+              ) : null}
               <MethodOption
                 testID="method-wallet"
                 selected={method === 'WALLET'}
@@ -228,7 +250,13 @@ export default function CheckoutScreen() {
         <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Button
             testID="checkout-submit"
-            label={free || method === 'WALLET' ? 'Confirmar inscrição' : 'Pagar com PIX'}
+            label={
+              free || method === 'WALLET'
+                ? 'Confirmar inscrição'
+                : method === 'CREDIT_CARD'
+                  ? 'Pagar com cartão'
+                  : 'Pagar com PIX'
+            }
             onPress={() => handleSubmit(total)}
             loading={submitting}
             disabled={blocked}

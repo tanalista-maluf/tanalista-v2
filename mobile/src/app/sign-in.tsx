@@ -1,22 +1,23 @@
+import { Link } from 'expo-router'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { useState } from 'react'
-import { KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Logo } from '@/components/logo'
-import { Button, Card, Field, Screen } from '@/components/ui'
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { AuthShell, authStyles } from '@/components/auth-shell'
+import { Button, Field } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { colors, fonts } from '@/lib/theme'
+import { colors, fonts, radius } from '@/lib/theme'
 
-// Criar conta e recuperar senha ainda acontecem no site
+// Recuperar senha ainda acontece no site
 const SITE_URL = 'https://www.tanalista.app'
 
 export default function SignIn() {
-  const { signIn } = useSession()
+  const { signIn, signInWithGoogle } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   async function handleSubmit() {
     if (!email.trim() || !password) {
@@ -31,112 +32,104 @@ export default function SignIn() {
     if (message) setError(message)
   }
 
+  async function handleGoogle() {
+    setGoogleLoading(true)
+    setError(null)
+    const message = await signInWithGoogle()
+    setGoogleLoading(false)
+    if (message) setError(message)
+  }
+
   return (
-    <Screen>
-      <SafeAreaView style={styles.flex}>
-        {/* 'padding' nos dois sistemas: com a tela de ponta a ponta, o Android não
-            redimensiona mais a janela sozinho e o teclado cobria o botão */}
-        <KeyboardAvoidingView style={styles.flex} behavior="padding">
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <View style={styles.brand}>
-              <Logo size={26} />
-              <Text style={styles.tagline}>Organize eventos com pagamento confirmado</Text>
-            </View>
+    <AuthShell
+      title="Entrar na sua conta"
+      subtitle="Bem-vindo de volta!"
+      error={error}
+      footer={
+        <>
+          <Text style={authStyles.footerText}>Não tem conta? </Text>
+          <Link href="/sign-up" testID="go-sign-up" style={authStyles.footerLink}>
+            Criar conta grátis
+          </Link>
+        </>
+      }>
+      <Field
+        testID="email"
+        label="E-mail"
+        placeholder="seu@email.com"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        textContentType="emailAddress"
+        value={email}
+        onChangeText={setEmail}
+      />
+      <Field
+        testID="password"
+        label="Senha"
+        labelAction={
+          <Pressable onPress={() => Linking.openURL(`${SITE_URL}/recuperar-senha`)} hitSlop={8}>
+            <Text style={authStyles.link}>Esqueceu a senha?</Text>
+          </Pressable>
+        }
+        secureTextEntry={!showPassword}
+        textContentType="password"
+        value={password}
+        onChangeText={setPassword}
+        onSubmitEditing={handleSubmit}
+        trailing={
+          <Pressable
+            onPress={() => setShowPassword((shown) => !shown)}
+            accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            hitSlop={8}>
+            {showPassword ? <EyeOff size={18} color={colors.muted} /> : <Eye size={18} color={colors.muted} />}
+          </Pressable>
+        }
+      />
 
-            <Card style={styles.card}>
-              <View style={styles.cardBody}>
-                <View>
-                  <Text style={styles.title}>Entrar na sua conta</Text>
-                  <Text style={styles.subtitle}>Bem-vindo de volta!</Text>
-                </View>
+      <Button testID="submit" label="Entrar" onPress={handleSubmit} loading={loading} />
 
-                {error && (
-                  <View style={styles.alert}>
-                    <Text style={styles.alertText}>{error}</Text>
-                  </View>
-                )}
+      <View style={styles.divider}>
+        <View style={styles.line} />
+        <Text style={styles.dividerText}>ou</Text>
+        <View style={styles.line} />
+      </View>
 
-                <Field
-                  testID="email"
-                  label="E-mail"
-                  placeholder="seu@email.com"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-                <Field
-                  testID="password"
-                  label="Senha"
-                  labelAction={
-                    <Pressable onPress={() => Linking.openURL(`${SITE_URL}/recuperar-senha`)} hitSlop={8}>
-                      <Text style={styles.link}>Esqueceu a senha?</Text>
-                    </Pressable>
-                  }
-                  secureTextEntry={!showPassword}
-                  textContentType="password"
-                  value={password}
-                  onChangeText={setPassword}
-                  onSubmitEditing={handleSubmit}
-                  trailing={
-                    <Pressable
-                      onPress={() => setShowPassword((shown) => !shown)}
-                      accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                      hitSlop={8}>
-                      {showPassword ? (
-                        <EyeOff size={18} color={colors.muted} />
-                      ) : (
-                        <Eye size={18} color={colors.muted} />
-                      )}
-                    </Pressable>
-                  }
-                />
-
-                <Button testID="submit" label="Entrar" onPress={handleSubmit} loading={loading} />
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.footerText}>Não tem conta? </Text>
-                <Pressable onPress={() => Linking.openURL(`${SITE_URL}/cadastro`)} hitSlop={8}>
-                  <Text style={[styles.link, styles.footerLink]}>Criar conta grátis</Text>
-                </Pressable>
-              </View>
-            </Card>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Screen>
+      <Pressable
+        testID="google"
+        accessibilityRole="button"
+        onPress={handleGoogle}
+        disabled={googleLoading || loading}
+        style={({ pressed }) => [styles.google, (pressed || googleLoading) && styles.dim]}>
+        {googleLoading ? (
+          <ActivityIndicator color={colors.foreground} />
+        ) : (
+          <>
+            <Text style={styles.googleMark}>G</Text>
+            <Text style={styles.googleText}>Continuar com Google</Text>
+          </>
+        )}
+      </Pressable>
+    </AuthShell>
   )
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  content: { flexGrow: 1, justifyContent: 'center', padding: 18, gap: 28 },
-  brand: { alignItems: 'center', gap: 10 },
-  tagline: { fontFamily: fonts.body, fontSize: 14, color: colors.text35, textAlign: 'center' },
-  card: { overflow: 'hidden' },
-  cardBody: { padding: 20, gap: 18 },
-  title: { fontFamily: fonts.heading, fontSize: 18, color: colors.foreground },
-  subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.muted, marginTop: 4 },
-  alert: {
-    borderWidth: 1,
-    borderColor: 'rgba(248,113,113,0.3)',
-    backgroundColor: 'rgba(248,113,113,0.05)',
-    borderRadius: 12,
-    padding: 12,
-  },
-  alertText: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive },
-  link: { fontFamily: fonts.body, fontSize: 13, color: colors.primary },
-  cardFooter: {
+  google: {
     flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
     justifyContent: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-    backgroundColor: 'rgba(255,255,255,0.02)',
-    paddingVertical: 16,
+    minHeight: 48,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
   },
-  footerText: { fontFamily: fonts.body, fontSize: 14, color: colors.muted },
-  footerLink: { fontFamily: fonts.bodySemi, fontSize: 14 },
+  googleMark: { fontFamily: fonts.bodyBold, fontSize: 17, color: colors.foreground },
+  googleText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.foreground },
+  dim: { opacity: 0.6 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  line: { flex: 1, height: 1, backgroundColor: colors.cardBorder },
+  dividerText: { fontFamily: fonts.body, fontSize: 12, color: colors.text35 },
 })
