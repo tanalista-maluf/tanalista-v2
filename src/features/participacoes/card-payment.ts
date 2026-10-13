@@ -3,6 +3,7 @@ import { getOrganizerMPClient, getPlatformMPClient, calculateFees, Payment } fro
 import { sendParticipationConfirmed } from '@/lib/emails'
 import type { Json } from '@/types/database'
 import { z } from 'zod'
+import { getCardPublicKey } from './card-config'
 
 // Cobra no cartão de crédito uma inscrição pendente, sem nada de transporte:
 // é chamada pela rota do site (sessão em cookie) e pela API do app (token
@@ -32,7 +33,7 @@ const useStub = process.env.NODE_ENV !== 'production' && process.env.MERCADOPAGO
 
 // O formulário de cartão só funciona com a chave pública do Mercado Pago
 export function isCardPaymentEnabled() {
-  return useStub || !!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
+  return useStub || !!getCardPublicKey()
 }
 
 export const OPEN_PAYMENT_ERROR = 'Esta inscrição já tem um pagamento em andamento.'
