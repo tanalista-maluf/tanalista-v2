@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFees } from '@/lib/mercadopago'
 import { releaseCouponUse, releaseStaleCouponUses } from '@/lib/refunds'
 import type { Database } from '@/types/database'
+import { getOpenPayment, OPEN_PAYMENT_ERROR } from './card-payment'
 
 // Regra de inscrição em evento, sem nada de transporte: é chamada pela server
 // action do site (sessão em cookie) e pela API do app (token Bearer). Recebe o
@@ -13,7 +14,7 @@ import type { Database } from '@/types/database'
 export type JoinMethod = 'PIX' | 'CREDIT_CARD' | 'WALLET'
 
 export type JoinEventResult =
-  | { error: string; code?: 'FULL' | 'INSUFFICIENT_BALANCE' }
+  | { error: string; code?: 'FULL' | 'INSUFFICIENT_BALANCE' | 'PAYMENT_OPEN' }
   | { status: 'CONFIRMED' }
   | { status: 'PENDING'; participationId: string }
 
@@ -72,6 +73,10 @@ export async function joinEvent(
   if (existing) {
     if (existing.status === 'CANCELLED') {
       // Permite re-inscrição após cancelamento
+    } else if (existing.status === 'PENDING') {
+      // Inscrição aguardando pagamento: dá para refazer o checkout (outro meio
+      // de pagamento, outro cupom), desde que não haja cobrança em aberto
+      if (await getOpenPayment(existing.id)) return { error: OPEN_PAYMENT_ERROR, code: 'PAYMENT_OPEN' }
     } else {
       return { error: 'Você já está inscrito neste evento.' }
     }

@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrganizerMPClient, getPlatformMPClient, calculateFees, Payment } from '@/lib/mercadopago'
 import { sendParticipationConfirmed } from '@/lib/emails'
-import { releaseCouponUse } from '@/lib/refunds'
 import type { Json } from '@/types/database'
 import { z } from 'zod'
 
@@ -36,6 +35,24 @@ export function isCardPaymentEnabled() {
   return useStub || !!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
 }
 
+export const OPEN_PAYMENT_ERROR = 'Esta inscrição já tem um pagamento em andamento.'
+
+// Cobrança em aberto de uma inscrição pendente: PIX gerado e ainda não pago,
+// ou cartão em análise. Enquanto existir, não se troca o meio de pagamento,
+// para a pessoa não pagar duas vezes.
+export async function getOpenPayment(participationId: string): Promise<'PIX' | 'CARD_REVIEW' | null> {
+  const { data } = await createAdminClient()
+    .from('payments')
+    .select('method')
+    .eq('participation_id', participationId)
+    .eq('status', 'PENDING')
+    .limit(1)
+
+  const method = data?.[0]?.method
+  if (!method) return null
+  return method === 'CREDIT_CARD' ? 'CARD_REVIEW' : 'PIX'
+}
+
 const REJECTION_MESSAGES: Record<string, string> = {
   cc_rejected_bad_filled_card_number: 'Confira o número do cartão.',
   cc_rejected_bad_filled_date: 'Confira a data de validade.',
@@ -59,7 +76,7 @@ export async function createCardPayment(
 
   const { data: participation } = await admin
     .from('participations')
-    .select('status, discount_cents, coupon_id, event_id, events(id, title, price, starts_at, city, mp_access_token)')
+    .select('status, discount_cents, events(id, title, price, starts_at, city, mp_access_token)')
     .eq('id', participationId)
     .eq('user_id', user.id)
     .single()
@@ -80,7 +97,7 @@ export async function createCardPayment(
     .limit(1)
 
   if (openPayments && openPayments.length > 0) {
-    return { error: 'Esta inscrição já tem um pagamento em andamento.', httpStatus: 400 }
+    return { error: OPEN_PAYMENT_ERROR, httpStatus: 400 }
   }
 
   const effectivePrice = Math.max(0, event.price - (participation.discount_cents ?? 0))
@@ -152,15 +169,8 @@ export async function createCardPayment(
   }
 
   if (status === 'REJECTED') {
-    // Como no webhook: pagamento recusado cancela a inscrição e devolve o cupom;
-    // para tentar de novo a pessoa se inscreve outra vez
-    await admin
-      .from('participations')
-      .update({ status: 'CANCELLED', discount_cents: 0, coupon_id: null })
-      .eq('id', participationId)
-      .eq('status', 'PENDING')
-    await releaseCouponUse(admin, { couponId: participation.coupon_id, userId: user.id, eventId: participation.event_id })
-
+    // A inscrição segue pendente: a pessoa tenta outro cartão ou escolhe outro
+    // meio de pagamento (join-event.ts aceita refazer o checkout)
     const reason = REJECTION_MESSAGES[charge.status_detail ?? ''] ?? 'Use outro cartão ou outro meio de pagamento.'
     return { error: `Pagamento recusado. ${reason}`, httpStatus: 402 }
   }

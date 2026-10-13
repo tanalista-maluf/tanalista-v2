@@ -222,7 +222,11 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
     }
   }
 
-  if (newStatus === 'REJECTED' || newStatus === 'CANCELLED') {
+  // Cartão recusado não cancela a inscrição: ela segue pendente para a pessoa
+  // tentar outro cartão ou outro meio de pagamento (como em card-payment.ts)
+  const cardRejected = newStatus === 'REJECTED' && mpPayment.payment_method_id !== 'pix'
+
+  if ((newStatus === 'REJECTED' || newStatus === 'CANCELLED') && !cardRejected) {
     // A inscrição cancelada devolve o cupom, como no cancelamento pelo app;
     // senão o uso fica preso e a pessoa não consegue aplicá-lo ao tentar de novo
     const { data: pending } = await admin

@@ -32,13 +32,14 @@ export function apiGet<T>(path: string) {
 }
 
 export type JoinEventResponse =
-  | { error: string; code?: 'FULL' | 'INSUFFICIENT_BALANCE' }
+  | { error: string; code?: 'FULL' | 'INSUFFICIENT_BALANCE' | 'PAYMENT_OPEN' }
   | { status: 'CONFIRMED' }
   | { status: 'PENDING'; participationId: string }
 
 export type JoinMethod = 'PIX' | 'WALLET' | 'CREDIT_CARD'
 
-// Sem options, vale para evento gratuito; em evento pago vai o meio de pagamento e o cupom
+// Sem options, vale para evento gratuito; em evento pago vai o meio de pagamento e o cupom.
+// Também refaz o checkout de uma inscrição pendente que não tem cobrança em aberto.
 export function joinEvent(eventId: string, options: { method?: JoinMethod; couponCode?: string } = {}) {
   return apiPost<JoinEventResponse>(`/api/v1/events/${eventId}/join`, options)
 }
@@ -80,6 +81,13 @@ export function createCardPayment(participationId: string, card: CardToken) {
   return apiPost<{ status: 'approved' | 'in_process' } | { error: string }>(
     `/api/v1/participations/${participationId}/card`,
     card
+  )
+}
+
+// Cobrança em aberto de uma inscrição pendente: PIX gerado, cartão em análise ou nenhuma
+export function fetchOpenPayment(participationId: string) {
+  return apiGet<{ open: 'PIX' | 'CARD_REVIEW' | null } | { error: string }>(
+    `/api/v1/participations/${participationId}/payment`
   )
 }
 

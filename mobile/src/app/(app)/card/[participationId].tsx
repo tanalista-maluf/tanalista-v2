@@ -10,19 +10,19 @@ import { formatPrice } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts } from '@/lib/theme'
 
-type Summary = { title: string; amount: number }
+type Summary = { eventId: string; title: string; amount: number }
 
 // O valor cobrado é o preço do evento menos o desconto de cupom da inscrição
 async function fetchSummary(participationId: string): Promise<Summary | null> {
   const { data } = await supabase
     .from('participations')
-    .select('discount_cents, events(title, price)')
+    .select('discount_cents, events(id, title, price)')
     .eq('id', participationId)
     .maybeSingle()
 
-  const event = data?.events as unknown as { title: string; price: number } | null
+  const event = data?.events as unknown as { id: string; title: string; price: number } | null
   if (!data || !event) return null
-  return { title: event.title, amount: Math.max(0, event.price - (data.discount_cents ?? 0)) }
+  return { eventId: event.id, title: event.title, amount: Math.max(0, event.price - (data.discount_cents ?? 0)) }
 }
 
 type State =
@@ -58,7 +58,7 @@ export default function CardScreen() {
       setState({ kind: result.status })
       return
     }
-    // Cartão recusado cancela a inscrição; em outros erros ela segue pendente
+    // Com cartão recusado a inscrição segue pendente: dá para tentar de novo ou trocar o meio
     const { data } = await supabase.from('participations').select('status').eq('id', participationId).maybeSingle()
     setState({ kind: 'error', message: result.error, retry: data?.status === 'PENDING' })
   }
@@ -113,20 +113,30 @@ export default function CardScreen() {
                 : state.message}
           </Text>
           {state.kind === 'error' && state.retry ? (
+            <>
+              <Button
+                testID="card-retry"
+                label="Tentar outro cartão"
+                onPress={() => {
+                  setAttempt((n) => n + 1)
+                  setState({ kind: 'form' })
+                }}
+              />
+              <Button
+                testID="card-other-method"
+                label="Outra forma de pagamento"
+                onPress={() =>
+                  router.replace({ pathname: '/checkout/[eventId]', params: { eventId: summary.eventId } })
+                }
+              />
+            </>
+          ) : (
             <Button
-              testID="card-retry"
-              label="Tentar de novo"
-              onPress={() => {
-                setAttempt((n) => n + 1)
-                setState({ kind: 'form' })
-              }}
+              testID="card-done"
+              label={state.kind === 'approved' ? 'Concluir' : 'Voltar ao evento'}
+              onPress={() => router.back()}
             />
-          ) : null}
-          <Button
-            testID="card-done"
-            label={state.kind === 'approved' ? 'Concluir' : 'Voltar ao evento'}
-            onPress={() => router.back()}
-          />
+          )}
         </View>
       </Screen>
     )
