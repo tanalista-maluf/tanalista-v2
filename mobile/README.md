@@ -11,7 +11,7 @@ Os tipos do banco são os do site: `../src/types/database.ts`.
 
 ## O que existe hoje
 
-Login por e-mail e senha, lista de próximos eventos, página do evento e inscrição em evento gratuito. Evento pago, privado ou lotado aparece com o motivo de não dar para se inscrever pelo app.
+Login por e-mail e senha, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago por PIX (copia e cola) e cancelamento de inscrição. Evento privado ou lotado aparece com o motivo de não dar para se inscrever pelo app. Cupom, carteira e cartão ainda são só pelo site.
 
 ## Rodar localmente
 
@@ -28,5 +28,9 @@ Sem `.env.local`, o app usa o `.env` versionado, que aponta para **produção**.
 ```sh
 npx tsc --noEmit
 npx expo lint
-maestro test -e APP_ID=host.exp.Exponent e2e/main-flow.yaml   # iOS; no Android, APP_ID=host.exp.exponent
+# precisa do build próprio (o app usa expo-clipboard); ver o cabeçalho de e2e/main-flow.yaml
+eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
+maestro test -e APP_ID=app.tanalista \
+  -e APP_URL='exp+tanalista://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \
+  -e SUPABASE_URL=$API_URL -e SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY e2e/main-flow.yaml
 ```

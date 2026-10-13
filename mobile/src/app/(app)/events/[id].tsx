@@ -1,6 +1,6 @@
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { Calendar, CheckCircle2, Clock, Lock, MapPin, Users, X } from 'lucide-react-native'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, OccupancyBar, Screen } from '@/components/ui'
@@ -67,17 +67,24 @@ export default function EventScreen() {
   const [cancelling, setCancelling] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    let active = true
-    fetchEvent(id, userId).then((result) => {
-      if (!active) return
-      setEvent(result.event)
-      setParticipation(result.participation)
-    })
-    return () => {
-      active = false
-    }
-  }, [id, userId])
+  // Recarrega também ao voltar da tela de pagamento: a inscrição pode ter sido confirmada
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      fetchEvent(id, userId).then((result) => {
+        if (!active) return
+        setEvent(result.event)
+        setParticipation(result.participation)
+      })
+      return () => {
+        active = false
+      }
+    }, [id, userId])
+  )
+
+  function openPayment(participationId: string) {
+    router.push({ pathname: '/payment/[participationId]', params: { participationId } })
+  }
 
   async function handleJoin() {
     setJoining(true)
@@ -90,6 +97,9 @@ export default function EventScreen() {
     setEvent(result.event)
     setParticipation(result.participation)
     setJoining(false)
+
+    // Evento pago: a inscrição fica pendente até o PIX ser pago
+    if ('status' in joined && joined.status === 'PENDING') openPayment(joined.participationId)
   }
 
   function confirmCancel() {
@@ -224,6 +234,11 @@ export default function EventScreen() {
             {cancellation.reason}
           </Text>
         )}
+        {action.kind === 'pay' && (
+          <Text testID="notice" style={styles.notice}>
+            Sua inscrição aguarda o pagamento por PIX.
+          </Text>
+        )}
         {message && <Text style={styles.error}>{message}</Text>}
       </ScrollView>
 
@@ -234,6 +249,9 @@ export default function EventScreen() {
         </View>
         {action.kind === 'join' && (
           <Button testID="join" label="Inscrever-se" onPress={handleJoin} loading={joining} style={styles.barButton} />
+        )}
+        {action.kind === 'pay' && participation && (
+          <Button testID="pay" label="Pagar" onPress={() => openPayment(participation.id)} style={styles.barButton} />
         )}
         {action.kind === 'confirmed' && (
           <View testID="status-confirmed" style={styles.confirmed} accessible accessibilityLabel="Você está inscrito">
@@ -253,15 +271,14 @@ export default function EventScreen() {
 
 type Action =
   | { kind: 'join' }
+  | { kind: 'pay' }
   | { kind: 'confirmed' }
   // label vai no botão desativado da barra; text explica o motivo acima dela
   | { kind: 'notice'; label: string; text: string }
 
 function resolveAction(event: EventDetail, participationStatus: string | null, isOrganizer: boolean): Action {
   if (participationStatus === 'CONFIRMED') return { kind: 'confirmed' }
-  if (participationStatus === 'PENDING') {
-    return { kind: 'notice', label: 'Pendente', text: 'Sua inscrição aguarda pagamento. Conclua pelo site.' }
-  }
+  if (participationStatus === 'PENDING') return { kind: 'pay' }
   if (event.status !== 'OPEN' || new Date(event.registration_deadline) < new Date()) {
     return { kind: 'notice', label: 'Encerrado', text: 'Inscrições encerradas.' }
   }
@@ -270,10 +287,6 @@ function resolveAction(event: EventDetail, participationStatus: string | null, i
   }
   if (event.visibility === 'PRIVATE' && !isOrganizer) {
     return { kind: 'notice', label: 'Privado', text: 'Evento privado. Peça a entrada ao organizador pelo site.' }
-  }
-  // Pagamento ainda não existe no app: só eventos gratuitos são inscritos por aqui
-  if (event.price > 0) {
-    return { kind: 'notice', label: 'Pelo site', text: 'Inscrição paga: por enquanto, conclua pelo site.' }
   }
   return { kind: 'join' }
 }

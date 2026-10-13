@@ -14,6 +14,8 @@ NEXT_PUBLIC_SUPABASE_URL=$API_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+# cobrança PIX de mentira: sem credenciais do Mercado Pago no ambiente local
+MERCADOPAGO_STUB=1
 ENV
 
 cat > mobile/.env.local <<ENV

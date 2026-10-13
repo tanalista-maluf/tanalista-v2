@@ -63,7 +63,7 @@ events = call(
     "/rest/v1/events",
     [
         event(group["id"], ana, "Futebol de quinta", "futebol-de-quinta", 2, 0, 14, cancel_before_hours=0),
-        event(group["id"], ana, "Torneio pago de sábado", "torneio-pago", 4, 3000, 20),
+        event(group["id"], ana, "Torneio pago de sábado", "torneio-pago", 4, 3000, 20, cancel_before_hours=0),
         event(group["id"], ana, "Treino fechado", "treino-fechado", 6, 0, 10, "PRIVATE"),
         event(group["id"], ana, "Racha lotado", "racha-lotado", 8, 0, 2),
     ],
