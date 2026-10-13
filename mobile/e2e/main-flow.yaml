@@ -1,21 +1,33 @@
 # Fluxo principal de ponta a ponta, no simulador de iOS com Expo Go.
 # Pré-requisitos: ./e2e/setup-local.sh rodado, `npm run dev` na raiz do repo
-# e `npx expo start --ios` (ou --android) em mobile/.
-#   iOS:     maestro test -e APP_ID=host.exp.Exponent e2e/main-flow.yaml
-#   Android: maestro test -e APP_ID=host.exp.exponent e2e/main-flow.yaml
+# e `npx expo start` em mobile/.
+# Com o build próprio (npx expo run:ios | run:android), nos dois sistemas:
+#   maestro test -e APP_ID=app.tanalista \
+#     -e APP_URL='exp+tanalista://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \
+#     e2e/main-flow.yaml
+# Com o Expo Go: APP_URL=exp://localhost:8081 e APP_ID=host.exp.Exponent (iOS)
+# ou host.exp.exponent (Android).
 # No Android, antes: adb reverse tcp:54321 tcp:54321 && adb reverse tcp:3000 tcp:3000
 appId: ${APP_ID}
 ---
 # Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
 - launchApp
 - waitForAnimationToEnd
-- openLink: exp://localhost:8081
+- openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
     when:
       visible: "Enter URL"
     commands:
-      - openLink: exp://localhost:8081
+      - openLink: ${APP_URL}
+# No build próprio, o menu de desenvolvedor abre sozinho na primeira execução
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
 - extendedWaitUntil:
     visible: "Próximos eventos|Entrar na sua conta"
     timeout: 30000
@@ -63,13 +75,21 @@ appId: ${APP_ID}
 # Reabre o app para os campos voltarem vazios, em vez de apagar o texto
 - launchApp
 - waitForAnimationToEnd
-- openLink: exp://localhost:8081
+- openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
     when:
       visible: "Enter URL"
     commands:
-      - openLink: exp://localhost:8081
+      - openLink: ${APP_URL}
+# No build próprio, o menu de desenvolvedor abre sozinho na primeira execução
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
 - extendedWaitUntil:
     visible: "Próximos eventos|Entrar na sua conta"
     timeout: 30000
