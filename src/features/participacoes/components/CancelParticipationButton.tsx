@@ -30,7 +30,7 @@ export function CancelParticipationButton({
     const result = await cancelParticipationAction(participationId)
     setLoading(false)
 
-    if (result?.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       toast.success('Inscrição cancelada.')

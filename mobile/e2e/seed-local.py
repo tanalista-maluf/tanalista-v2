@@ -31,7 +31,7 @@ def user(name, email):
     return created["id"]
 
 
-def event(group_id, organizer_id, title, slug, days, price, capacity, visibility="PUBLIC"):
+def event(group_id, organizer_id, title, slug, days, price, capacity, visibility="PUBLIC", cancel_before_hours=None):
     start = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
     return {
         "group_id": group_id,
@@ -49,6 +49,8 @@ def event(group_id, organizer_id, title, slug, days, price, capacity, visibility
         "min_check_at": (start - datetime.timedelta(hours=12)).isoformat(),
         "status": "OPEN",
         "visibility": visibility,
+        # None = o participante não pode cancelar; 0 = pode a qualquer momento
+        "cancel_before_hours": cancel_before_hours,
     }
 
 
@@ -60,7 +62,7 @@ group = call("/rest/v1/groups", {"owner_id": ana, "name": "Pelada de Quinta", "s
 events = call(
     "/rest/v1/events",
     [
-        event(group["id"], ana, "Futebol de quinta", "futebol-de-quinta", 2, 0, 14),
+        event(group["id"], ana, "Futebol de quinta", "futebol-de-quinta", 2, 0, 14, cancel_before_hours=0),
         event(group["id"], ana, "Torneio pago de sábado", "torneio-pago", 4, 3000, 20),
         event(group["id"], ana, "Treino fechado", "treino-fechado", 6, 0, 10, "PRIVATE"),
         event(group["id"], ana, "Racha lotado", "racha-lotado", 8, 0, 2),
