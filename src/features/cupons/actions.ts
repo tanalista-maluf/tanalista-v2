@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { releaseStaleCouponUses } from '@/lib/refunds'
+import { validateCouponForEvent } from './validate-coupon'
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean)
 
@@ -126,55 +126,11 @@ export async function toggleCouponAction(id: string, active: boolean) {
 
 // ── Validar cupom para inscrição (sem consumir) ──────────────────────────────
 export async function validateCouponForEventAction(code: string, eventPrice: number, eventId?: string) {
-  if (!code?.trim()) return { error: 'Informe o código.' }
-
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-  const normalizedCode = code.trim().toUpperCase()
-
-  let groupId: string | null = null
-  if (eventId) {
-    const { data: ev } = await admin.from('events').select('group_id').eq('id', eventId).maybeSingle()
-    groupId = ev?.group_id ?? null
-  }
-
-  let query = admin
-    .from('coupons')
-    .select('id, amount_cents, percent_off, expires_at, max_uses, uses_count, event_id, group_id')
-    .eq('code', normalizedCode)
-    .eq('active', true)
-
-  if (eventId && groupId) {
-    query = query.or(`event_id.eq.${eventId},group_id.eq.${groupId},and(event_id.is.null,group_id.is.null)`)
-  } else if (eventId) {
-    query = query.or(`event_id.eq.${eventId},and(event_id.is.null,group_id.is.null)`)
-  } else {
-    query = query.is('event_id', null).is('group_id', null)
-  }
-
-  const { data: coupon } = await query.maybeSingle()
-
-  if (!coupon) return { error: 'Cupom inválido ou expirado.' }
-  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) return { error: 'Cupom expirado.' }
-
-  const released = await releaseStaleCouponUses(admin, { couponId: coupon.id, userId: user.id })
-  if (coupon.max_uses !== null && coupon.uses_count - released >= coupon.max_uses) return { error: 'Cupom esgotado.' }
-
-  // Cupom de grupo vale 1 uso por evento; os demais, 1 uso por usuário
-  let usedQuery = admin.from('coupon_uses').select('id').eq('coupon_id', coupon.id).eq('user_id', user.id)
-  if (coupon.group_id && eventId) usedQuery = usedQuery.eq('event_id', eventId)
-  const { data: alreadyUsed } = await usedQuery.limit(1).maybeSingle()
-
-  if (alreadyUsed) return { error: 'Você já utilizou este cupom.' }
-
-  const discount = coupon.percent_off != null
-    ? Math.min(Math.round(eventPrice * (coupon.percent_off / 100)), eventPrice)
-    : Math.min(coupon.amount_cents, eventPrice)
-
-  return { success: true, discount_cents: discount, coupon_id: coupon.id }
+  return validateCouponForEvent(user.id, code, eventPrice, eventId)
 }
 
 // ── Cupons de evento (organizador) ───────────────────────────────────────────

@@ -33,3 +33,8 @@ export function countdownParts(iso: string, now: number) {
     minutes: pad(minutes % 60),
   }
 }
+
+// Valor em reais, também quando é zero (saldo da carteira, total a pagar)
+export function formatMoney(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}

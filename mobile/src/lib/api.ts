@@ -4,18 +4,18 @@ const apiUrl = process.env.EXPO_PUBLIC_API_URL!
 
 // Chama a API do site (/api/v1) autenticando com o token de acesso do Supabase.
 // Devolve o corpo da resposta mesmo em erro: as rotas respondem { error }.
-export async function apiPost<T>(path: string, body: unknown = {}): Promise<T | { error: string }> {
+async function apiRequest<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T | { error: string }> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return { error: 'Sessão expirada. Entre novamente.' }
 
   try {
     const response = await fetch(`${apiUrl}${path}`, {
-      method: 'POST',
+      method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify(body),
+      body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
     })
     return await response.json()
   } catch {
@@ -23,13 +23,33 @@ export async function apiPost<T>(path: string, body: unknown = {}): Promise<T | 
   }
 }
 
+export function apiPost<T>(path: string, body: unknown = {}) {
+  return apiRequest<T>('POST', path, body)
+}
+
+export function apiGet<T>(path: string) {
+  return apiRequest<T>('GET', path)
+}
+
 export type JoinEventResponse =
   | { error: string; code?: 'FULL' | 'INSUFFICIENT_BALANCE' }
   | { status: 'CONFIRMED' }
   | { status: 'PENDING'; participationId: string }
 
-export function joinEvent(eventId: string) {
-  return apiPost<JoinEventResponse>(`/api/v1/events/${eventId}/join`)
+export type JoinMethod = 'PIX' | 'WALLET'
+
+// Sem options, vale para evento gratuito; em evento pago vai o meio de pagamento e o cupom
+export function joinEvent(eventId: string, options: { method?: JoinMethod; couponCode?: string } = {}) {
+  return apiPost<JoinEventResponse>(`/api/v1/events/${eventId}/join`, options)
+}
+
+// Desconto que um cupom dá na inscrição do evento; o uso só é registrado ao se inscrever
+export function validateCoupon(eventId: string, code: string) {
+  return apiPost<{ discount_cents: number } | { error: string }>(`/api/v1/events/${eventId}/coupon`, { code })
+}
+
+export function fetchWalletBalance() {
+  return apiGet<{ balance: number } | { error: string }>('/api/v1/me/wallet')
 }
 
 export type CancelParticipationResponse =
