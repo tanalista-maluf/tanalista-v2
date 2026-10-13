@@ -11,7 +11,7 @@ Os tipos do banco são os do site: `../src/types/database.ts`.
 
 ## O que existe hoje
 
-Login por e-mail e senha, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago por PIX (copia e cola) e cancelamento de inscrição. Evento privado ou lotado aparece com o motivo de não dar para se inscrever pelo app. Cupom, carteira e cartão ainda são só pelo site.
+Login por e-mail e senha, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola ou saldo da carteira) e cancelamento de inscrição. Evento privado ou lotado aparece com o motivo de não dar para se inscrever pelo app. Cartão, escolha de time e fila de espera ainda são só pelo site.
 
 ## Rodar localmente
 

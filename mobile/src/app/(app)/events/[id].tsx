@@ -28,6 +28,7 @@ type EventDetail = {
   visibility: string
   organizer_id: string
   cancel_before_hours: number | null
+  organizer_exempt: boolean
   groups: { name: string } | null
   profiles: { full_name: string } | null
 }
@@ -37,7 +38,7 @@ async function fetchEvent(eventId: string, userId: string) {
     supabase
       .from('events')
       .select(
-        'id, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, groups(name), profiles!events_organizer_id_fkey(full_name)'
+        'id, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, organizer_exempt, groups(name), profiles!events_organizer_id_fkey(full_name)'
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -87,6 +88,13 @@ export default function EventScreen() {
   }
 
   async function handleJoin() {
+    // Evento pago (para quem não é o organizador isento): cupom e meio de pagamento
+    // são escolhidos no checkout. Gratuito confirma direto daqui.
+    if (event && event.price > 0 && !(event.organizer_id === userId && event.organizer_exempt)) {
+      router.push({ pathname: '/checkout/[eventId]', params: { eventId: id } })
+      return
+    }
+
     setJoining(true)
     setMessage(null)
     const joined = await joinEvent(id)
@@ -97,9 +105,6 @@ export default function EventScreen() {
     setEvent(result.event)
     setParticipation(result.participation)
     setJoining(false)
-
-    // Evento pago: a inscrição fica pendente até o PIX ser pago
-    if ('status' in joined && joined.status === 'PENDING') openPayment(joined.participationId)
   }
 
   function confirmCancel() {

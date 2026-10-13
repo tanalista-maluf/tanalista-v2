@@ -61,10 +61,10 @@ export function InscricaoForm({
     setCouponError('')
     const result = await validateCouponForEventAction(couponCode, eventPrice, eventId)
     setCouponLoading(false)
-    if (result.error) {
+    if ('error' in result) {
       setCouponError(result.error)
     } else {
-      setCouponDiscount(result.discount_cents ?? 0)
+      setCouponDiscount(result.discount_cents)
       setCouponApplied(true)
     }
   }

@@ -1,7 +1,7 @@
 """Cria os dados que e2e/main-flow.yaml espera, no Supabase LOCAL.
 
 Usuários (senha senha-teste-123): ana (organizadora), bruno (quem o teste usa)
-e carla. Eventos: um gratuito, um pago, um privado e um lotado.
+e carla. Eventos: um gratuito, um pago (com o cupom TESTE50), um privado e um lotado.
 """
 import datetime
 import json
@@ -78,5 +78,9 @@ call(
         {"event_id": full["id"], "user_id": carla, "status": "CONFIRMED"},
     ],
 )
+
+# Cupom de 50% para o evento pago (com percent_off, amount_cents não é usado)
+paid = next(e for e in events if e["slug"] == "torneio-pago")
+call("/rest/v1/coupons", {"code": "TESTE50", "percent_off": 50, "amount_cents": 1, "event_id": paid["id"], "active": True})
 
 print("Dados de teste criados:", ", ".join(e["title"] for e in events))

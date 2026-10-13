@@ -152,10 +152,26 @@ appId: ${APP_ID}
       - back
 - assertVisible: "Próximos eventos"
 - tapOn: "Torneio pago de sábado.*"
-# Evento pago: a inscrição fica pendente e abre o PIX; sair e voltar pelo botão Pagar
+# Evento pago: checkout com cupom de 50%, carteira sem saldo, pagamento por PIX
 - tapOn:
     id: "join"
+- assertVisible: ".*Saldo:.*0,00 — insuficiente.*"
+- tapOn:
+    id: "coupon-code"
+- inputText: "TESTE50"
+- tapOn:
+    id: "coupon-apply"
+- assertVisible:
+    id: "coupon-applied"
+- assertVisible:
+    id: "checkout-total"
+    text: ".*15,00"
+- takeScreenshot: 05b-checkout
+- tapOn:
+    id: "checkout-submit"
+# A inscrição fica pendente e abre o PIX; sair e voltar pelo botão Pagar
 - assertVisible: "Pagamento via PIX"
+- assertVisible: ".*15,00"
 - assertVisible:
     id: "copy-pix"
 - takeScreenshot: 06-pix
@@ -285,6 +301,25 @@ appId: ${APP_ID}
     env:
       SUPABASE_URL: ${SUPABASE_URL}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+# Reinscrição com o saldo devolvido: sem cupom não alcança; o cupom, liberado
+# pelo cancelamento, vale de novo
+- tapOn:
+    id: "join"
+- assertVisible: ".*Saldo:.*15,00 — insuficiente.*"
+- tapOn:
+    id: "method-wallet"
+- tapOn:
+    id: "coupon-code"
+- inputText: "TESTE50"
+- tapOn:
+    id: "coupon-apply"
+- assertVisible:
+    id: "coupon-applied"
+- takeScreenshot: 12-checkout-carteira
+- tapOn:
+    id: "checkout-submit"
+- assertVisible:
+    id: "status-confirmed"
 - runFlow:
     when:
       platform: iOS
@@ -297,7 +332,7 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Você ainda não está inscrito em nenhum evento."
+- assertVisible: "Torneio pago de sábado.*Inscrito.*1/20 inscritos"
 - tapOn:
     id: "tab-upcoming"
 - assertVisible: "Futebol de quinta.*0/14 inscritos"
