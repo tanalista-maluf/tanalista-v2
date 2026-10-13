@@ -66,9 +66,20 @@ export function PagamentoCartaoView({ participationId, eventId, amountCents, ema
             ? state.message
             : 'Seu pagamento está em análise. A inscrição é confirmada assim que o Mercado Pago aprovar.'}
         </p>
-        <Link href={`/eventos/${eventId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
-          Voltar ao evento
-        </Link>
+        {state.kind === 'error' ? (
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={() => setState({ kind: 'form' })} className={cn(buttonVariants())}>
+              Tentar outro cartão
+            </button>
+            <Link href={`/eventos/${eventId}/inscricao`} className={cn(buttonVariants({ variant: 'outline' }))}>
+              Escolher outra forma de pagamento
+            </Link>
+          </div>
+        ) : (
+          <Link href={`/eventos/${eventId}`} className={cn(buttonVariants({ variant: 'outline' }))}>
+            Voltar ao evento
+          </Link>
+        )}
       </div>
     )
   }

@@ -200,7 +200,7 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Sua inscrição aguarda o pagamento por PIX."
+- assertVisible: "Sua inscrição aguarda o pagamento."
 - tapOn:
     id: "pay"
 - assertVisible:
@@ -423,7 +423,7 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: "Próximos eventos"
     timeout: 15000
-# Cartão recusado: a inscrição é cancelada e dá para se inscrever de novo
+# Cartão recusado: a inscrição segue pendente e dá para tentar de novo ou trocar o meio
 - tapOn: "Torneio pago de sábado.*"
 - tapOn:
     id: "join"
@@ -443,17 +443,48 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: "Pagamento recusado. Cartão sem limite suficiente."
     timeout: 15000
+- takeScreenshot: 17b-cartao-recusado
+# Sai sem pagar: a inscrição aparece pendente e "Pagar" leva de volta ao checkout
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Sua inscrição aguarda o pagamento."
 - tapOn:
-    id: "card-done"
+    id: "pay"
+# Refaz o checkout da mesma inscrição, agora com cupom, e paga com outro cartão
+- tapOn:
+    id: "coupon-code"
+- inputText: "TESTE50"
+- tapOn:
+    id: "coupon-apply"
 - assertVisible:
-    id: "join"
-# Cartão aprovado confirma na hora
-- tapOn:
-    id: "join"
+    id: "coupon-applied"
 - tapOn:
     id: "method-card"
 - tapOn:
     id: "checkout-submit"
+- assertVisible:
+    id: "card-amount"
+    text: ".*15,00"
+- extendedWaitUntil:
+    visible: "Simular cartão recusado"
+    timeout: 30000
+- tapOn: "Simular cartão recusado"
+- extendedWaitUntil:
+    visible:
+      id: "card-retry"
+    timeout: 15000
+- tapOn:
+    id: "card-retry"
 - extendedWaitUntil:
     visible: "Pagar com cartão de teste"
     timeout: 30000

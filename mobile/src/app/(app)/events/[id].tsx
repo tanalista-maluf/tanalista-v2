@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, OccupancyBar, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { cancelParticipation, joinEvent } from '@/lib/api'
+import { cancelParticipation, fetchOpenPayment, joinEvent } from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
@@ -83,8 +83,23 @@ export default function EventScreen() {
     }, [id, userId])
   )
 
-  function openPayment(participationId: string) {
-    router.push({ pathname: '/payment/[participationId]', params: { participationId } })
+  // Inscrição pendente: volta ao PIX já gerado; sem cobrança em aberto (ex.:
+  // cartão recusado), ao checkout, para escolher como pagar
+  async function openPayment(participationId: string) {
+    setJoining(true)
+    setMessage(null)
+    const result = await fetchOpenPayment(participationId)
+    setJoining(false)
+
+    if ('error' in result) {
+      setMessage(result.error)
+    } else if (result.open === 'PIX') {
+      router.push({ pathname: '/payment/[participationId]', params: { participationId } })
+    } else if (result.open === 'CARD_REVIEW') {
+      setMessage('Seu pagamento com cartão está em análise. A inscrição é confirmada assim que for aprovado.')
+    } else {
+      router.push({ pathname: '/checkout/[eventId]', params: { eventId: id } })
+    }
   }
 
   async function handleJoin() {
@@ -241,7 +256,7 @@ export default function EventScreen() {
         )}
         {action.kind === 'pay' && (
           <Text testID="notice" style={styles.notice}>
-            Sua inscrição aguarda o pagamento por PIX.
+            Sua inscrição aguarda o pagamento.
           </Text>
         )}
         {message && <Text style={styles.error}>{message}</Text>}
@@ -256,7 +271,13 @@ export default function EventScreen() {
           <Button testID="join" label="Inscrever-se" onPress={handleJoin} loading={joining} style={styles.barButton} />
         )}
         {action.kind === 'pay' && participation && (
-          <Button testID="pay" label="Pagar" onPress={() => openPayment(participation.id)} style={styles.barButton} />
+          <Button
+            testID="pay"
+            label="Pagar"
+            onPress={() => openPayment(participation.id)}
+            loading={joining}
+            style={styles.barButton}
+          />
         )}
         {action.kind === 'confirmed' && (
           <View testID="status-confirmed" style={styles.confirmed} accessible accessibilityLabel="Você está inscrito">

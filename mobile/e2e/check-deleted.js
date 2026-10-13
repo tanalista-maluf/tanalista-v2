@@ -18,7 +18,7 @@ var payments = json(
   }).body
 )
 var summary = payments.map(function (p) { return p.method + ':' + p.status }).join(',')
-if (summary !== 'CREDIT_CARD:REJECTED,CREDIT_CARD:REFUNDED') {
+if (summary !== 'CREDIT_CARD:REJECTED,CREDIT_CARD:REJECTED,CREDIT_CARD:REFUNDED') {
   throw new Error('Histórico de pagamentos inesperado: ' + summary)
 }
 output.deleted = removed[0].id
