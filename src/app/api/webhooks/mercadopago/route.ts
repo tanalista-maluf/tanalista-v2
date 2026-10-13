@@ -82,8 +82,11 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
     .eq('gateway_transaction_id', mpPaymentId)
     .maybeSingle()
 
-  if (existingPayment?.status === 'APPROVED') {
-    console.log(`[WEBHOOK] Payment ${mpPaymentId} already approved — skipping`)
+  // REFUNDED também é final: o app já estornou para a carteira no cancelamento.
+  // Reprocessar voltaria o pagamento para APPROVED (o MP continua informando
+  // 'approved'), reabrindo o estorno em dobro e a confirmação sem pagamento.
+  if (existingPayment?.status === 'APPROVED' || existingPayment?.status === 'REFUNDED') {
+    console.log(`[WEBHOOK] Payment ${mpPaymentId} already ${existingPayment.status} — skipping`)
     return
   }
 

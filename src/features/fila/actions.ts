@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFees } from '@/lib/mercadopago'
+import { releaseCouponUse } from '@/lib/refunds'
 
 // Sair da fila de espera
 export async function leaveWaitlistAction(eventId: string) {
@@ -14,7 +15,7 @@ export async function leaveWaitlistAction(eventId: string) {
 
   const { data: entry } = await supabase
     .from('waitlist_entries')
-    .select('id, position')
+    .select('id, position, status')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .in('status', ['WAITING', 'NOTIFIED'])
@@ -31,6 +32,11 @@ export async function leaveWaitlistAction(eventId: string) {
     .eq('id', entry.id)
 
   if (error) return { error: 'Erro ao sair da fila.' }
+
+  // Quem sai já notificado estava segurando a vaga liberada: passa para o próximo
+  if (entry.status === 'NOTIFIED') {
+    await admin.rpc('promote_waitlist_next', { p_event_id: eventId })
+  }
 
   revalidatePath(`/eventos/${eventId}`)
   return { success: true }
@@ -65,7 +71,7 @@ export async function confirmWaitlistSpotAction(
   // Pode já existir uma participação CANCELLED de uma inscrição anterior
   const { data: existing } = await admin
     .from('participations')
-    .select('id')
+    .select('id, coupon_id')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -80,8 +86,12 @@ export async function confirmWaitlistSpotAction(
 
   const isExempt = event.organizer_id === user.id && event.organizer_exempt
 
-  // A linha de participations é reaproveitada; não herda cupom da inscrição anterior
+  // A linha de participations é reaproveitada; não herda cupom da inscrição
+  // anterior, e o uso que ela ainda segurar é devolvido
   const noCoupon = { discount_cents: 0, coupon_id: null }
+  if (existing?.coupon_id) {
+    await releaseCouponUse(admin, { couponId: existing.coupon_id, userId: user.id, eventId })
+  }
 
   if (isExempt || event.price === 0) {
     if (existing) {

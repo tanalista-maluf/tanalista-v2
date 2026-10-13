@@ -177,10 +177,9 @@ export async function createEventAction(data: EventSchema) {
     // Also mark the parent with recurrence_rule
     await admin.from('events').update({ recurrence_rule: rrule }).eq('id', event.id)
 
-    if (childrenError) {
-      console.error('[EVENT] recurrence insert error:', childrenError)
-      return { error: 'Evento criado, mas não foi possível criar as repetições.' }
-    }
+    // O evento principal já existe: segue o fluxo (notificações e redirect)
+    // em vez de devolver erro, o que levaria o organizador a criá-lo de novo
+    if (childrenError) console.error('[EVENT] recurrence insert error:', event.id, childrenError)
   }
 
   // Notificar membros do grupo sobre o novo evento (eventos avulsos não têm quem notificar)
@@ -457,7 +456,7 @@ export async function cancelEventAction(eventId: string, reason?: string) {
       userId: p.user_id,
       eventId,
       description: `Reembolso: ${event.title}`,
-    })
+    }) ?? 0
     await releaseCouponUse(admin, { couponId: p.coupon_id, userId: p.user_id, eventId })
 
     // Notificação in-app
@@ -655,14 +654,15 @@ export async function approveEventJoinRequest(requestId: string) {
 
   const { data: existing } = await admin
     .from('participations')
-    .select('status')
+    .select('status, coupon_id')
     .eq('event_id', req.event_id)
     .eq('user_id', req.user_id)
     .maybeSingle()
 
-  // Quem já está confirmado continua como está; os demais ocupam uma vaga nova
-  const alreadyConfirmed = existing?.status === 'CONFIRMED'
-  if (!alreadyConfirmed) {
+  // Quem já tem inscrição ativa (confirmada ou aguardando pagamento) continua
+  // como está, com o cupom que tiver; os demais ocupam uma vaga nova
+  const alreadyRegistered = existing?.status === 'CONFIRMED' || existing?.status === 'PENDING'
+  if (!alreadyRegistered) {
     const { count } = await admin
       .from('participations')
       .select('*', { count: 'exact', head: true })
@@ -678,7 +678,11 @@ export async function approveEventJoinRequest(requestId: string) {
     .eq('id', requestId)
 
   // Create participation (free events get CONFIRMED; paid events wait for payment as PENDING)
-  if (!alreadyConfirmed) {
+  if (!alreadyRegistered) {
+    // A linha cancelada é reaproveitada sem cupom; devolve o uso que ela ainda segurar
+    if (existing?.coupon_id) {
+      await releaseCouponUse(admin, { couponId: existing.coupon_id, userId: req.user_id, eventId: req.event_id })
+    }
     const participationStatus = event.price === 0 ? 'CONFIRMED' : 'PENDING'
     const { error: partError } = await admin
       .from('participations')

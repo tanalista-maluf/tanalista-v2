@@ -9,19 +9,27 @@ type AdminClient = ReturnType<typeof createAdminClient>
 // Os pagamentos passam a REFUNDED antes do crédito. Isso impede estornar o
 // mesmo pagamento duas vezes e o tira do repasse ao organizador caso a pessoa
 // se inscreva de novo (a linha de participations é reaproveitada).
+//
+// Devolve o valor creditado (0 se nada foi pago) ou null se o estorno falhou:
+// quem chama deve parar antes de qualquer passo irreversível.
 export async function refundParticipationPayments(
   admin: AdminClient,
   params: { participationId: string; userId: string; eventId: string; description: string }
-): Promise<number> {
-  const { data: refunded } = await admin
+): Promise<number | null> {
+  const { data: refunded, error: claimError } = await admin
     .from('payments')
     .update({ status: 'REFUNDED' })
     .eq('participation_id', params.participationId)
     .eq('status', 'APPROVED')
     .select('id, amount')
 
-  const amount = (refunded ?? []).reduce((sum, p) => sum + p.amount, 0)
-  if (!refunded || amount <= 0) return 0
+  if (claimError || !refunded) {
+    console.error('[REFUND] payments update error:', claimError)
+    return null
+  }
+
+  const amount = refunded.reduce((sum, p) => sum + p.amount, 0)
+  if (amount <= 0) return 0
 
   const { error } = await admin.rpc('wallet_credit', {
     p_user_id: params.userId,
@@ -34,7 +42,7 @@ export async function refundParticipationPayments(
   if (error) {
     console.error('[REFUND] wallet_credit error:', error)
     await admin.from('payments').update({ status: 'APPROVED' }).in('id', refunded.map((p) => p.id))
-    return 0
+    return null
   }
 
   return amount
