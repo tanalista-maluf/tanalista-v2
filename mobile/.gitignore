@@ -42,5 +42,6 @@ example
 /ios
 /android
 
-# exemplo de variáveis de ambiente (a raiz do repo ignora .env*)
+# a raiz do repo ignora .env*; estes dois são versionados (só valores públicos)
+!.env
 !.env.example

@@ -1,9 +1,21 @@
 # Fluxo principal de ponta a ponta, no simulador de iOS com Expo Go.
 # Pré-requisitos: ./e2e/setup-local.sh rodado, `npm run dev` na raiz do repo
-# e `npx expo start --ios` em mobile/. Rodar com: maestro test e2e/main-flow.yaml
-appId: host.exp.Exponent
+# e `npx expo start --ios` (ou --android) em mobile/.
+#   iOS:     maestro test -e APP_ID=host.exp.Exponent e2e/main-flow.yaml
+#   Android: maestro test -e APP_ID=host.exp.exponent e2e/main-flow.yaml
+# No Android, antes: adb reverse tcp:54321 tcp:54321 && adb reverse tcp:3000 tcp:3000
+appId: ${APP_ID}
 ---
-- openLink: exp://127.0.0.1:8081
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: exp://localhost:8081
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: exp://localhost:8081
 - extendedWaitUntil:
     visible: "Próximos eventos|Entrar na sua conta"
     timeout: 30000
@@ -13,10 +25,22 @@ appId: host.exp.Exponent
     commands:
       - tapOn: "Continue"
 # tira o botão flutuante do Expo Go de cima do cabeçalho
-- swipe:
-    start: "89%, 10%"
-    end: "50%, 85%"
-    duration: 800
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "50%, 85%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "50%, 85%"
+          duration: 800
 - runFlow:
     when:
       visible:
@@ -36,9 +60,24 @@ appId: host.exp.Exponent
     id: "submit"
 - assertVisible: "E-mail ou senha incorretos."
 - takeScreenshot: 02-login-erro
+# Reabre o app para os campos voltarem vazios, em vez de apagar o texto
+- launchApp
+- waitForAnimationToEnd
+- openLink: exp://localhost:8081
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: exp://localhost:8081
+- extendedWaitUntil:
+    visible: "Próximos eventos|Entrar na sua conta"
+    timeout: 30000
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
 - tapOn:
     id: "password"
-- eraseText: 20
 - inputText: "senha-teste-123"
 - tapOn:
     id: "submit"
@@ -55,28 +94,64 @@ appId: host.exp.Exponent
 - assertVisible:
     id: "status-confirmed"
 - takeScreenshot: 05-inscrito
-- swipe:
-    start: "1%, 50%"
-    end: "85%, 50%"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - assertVisible: "Próximos eventos"
 - tapOn: "Torneio pago de sábado.*"
 - assertVisible: "Inscrição paga: por enquanto, conclua pelo site."
 - takeScreenshot: 06-evento-pago
-- swipe:
-    start: "1%, 50%"
-    end: "85%, 50%"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - assertVisible: "Próximos eventos"
 - tapOn: ".*Treino fechado.*"
 - assertVisible: "Evento privado. Peça a entrada ao organizador pelo site."
-- swipe:
-    start: "1%, 50%"
-    end: "85%, 50%"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - assertVisible: "Próximos eventos"
 - tapOn: "Racha lotado.*"
 - assertVisible: "Evento lotado."
-- swipe:
-    start: "1%, 50%"
-    end: "85%, 50%"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
 - assertVisible: "Próximos eventos"
 - swipe:
     direction: DOWN

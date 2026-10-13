@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from 'lucide-react-native'
 import { useState } from 'react'
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Logo } from '@/components/logo'
 import { Button, Card, Field, Screen } from '@/components/ui'
@@ -34,7 +34,9 @@ export default function SignIn() {
   return (
     <Screen>
       <SafeAreaView style={styles.flex}>
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* 'padding' nos dois sistemas: com a tela de ponta a ponta, o Android não
+            redimensiona mais a janela sozinho e o teclado cobria o botão */}
+        <KeyboardAvoidingView style={styles.flex} behavior="padding">
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.brand}>
               <Logo size={26} />
