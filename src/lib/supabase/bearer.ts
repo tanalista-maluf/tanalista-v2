@@ -19,5 +19,10 @@ export async function getBearerSession(request: Request) {
   )
 
   const { data: { user } } = await supabase.auth.getUser(token)
+
+  // Sem sessão guardada, auth.getUser() sem argumento não sabe quem é o
+  // usuário; o código do site chama assim. Passa a usar o token da requisição.
+  const getUser = supabase.auth.getUser.bind(supabase.auth)
+  supabase.auth.getUser = (jwt?: string) => getUser(jwt ?? token)
   return user ? { supabase, user } : null
 }

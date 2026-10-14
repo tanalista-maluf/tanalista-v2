@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router'
-import { CalendarX2, Search } from 'lucide-react-native'
+import { CalendarX2, Plus, Search } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
@@ -179,6 +179,14 @@ export default function EventsScreen() {
                 </Pressable>
               ))}
             </View>
+            <Pressable
+              testID="event-new"
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: '/event-form', params: { mode: 'create' } })}
+              style={({ pressed }) => [styles.create, pressed && styles.dim]}>
+              <Plus size={18} color={colors.primary} />
+              <Text style={styles.createText}>Criar evento</Text>
+            </Pressable>
             {tab === 'upcoming' && (
               <>
                 <View style={styles.search}>
@@ -261,6 +269,19 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: 'rgba(74,222,128,0.12)' },
   tabText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.text50 },
   tabTextActive: { fontFamily: fonts.bodyBold, color: colors.primary },
+  create: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    minHeight: 46,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(74,222,128,0.3)',
+    backgroundColor: 'rgba(74,222,128,0.08)',
+  },
+  createText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
+  dim: { opacity: 0.6 },
   search: {
     flexDirection: 'row',
     alignItems: 'center',

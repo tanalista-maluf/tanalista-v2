@@ -1,7 +1,8 @@
 import * as ImagePicker from 'expo-image-picker'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import {
+  BarChart3,
   BellRing,
   Camera,
   ChevronRight,
@@ -10,15 +11,16 @@ import {
   History,
   KeyRound,
   LogOut,
+  Shield,
   ShieldCheck,
   UserRoundPen,
 } from 'lucide-react-native'
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from '@/components/avatar'
 import { Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { deleteAccount, uploadAvatar } from '@/lib/api'
+import { deleteAccount, runAction, uploadAvatar } from '@/lib/api'
 import { useTabHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -32,6 +34,20 @@ export default function ProfileScreen() {
   const [uploading, setUploading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [problem, setProblem] = useState<{ message: string; blockers: string[] } | null>(null)
+  // O painel de admin só aparece para quem está na lista do servidor
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      runAction<{ admin: boolean }>('amIAdmin').then((result) => {
+        if (active) setIsAdmin('ok' in result && result.ok.admin)
+      })
+      return () => {
+        active = false
+      }
+    }, [])
+  )
 
   async function handlePhoto() {
     setPhotoError(null)
@@ -165,6 +181,29 @@ export default function ProfileScreen() {
                 divider
               />
             ) : null}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Organizador</Text>
+          <Card>
+            <Row
+              testID="go-finance"
+              icon={<BarChart3 size={19} color={colors.primary} />}
+              title="Financeiro"
+              detail="Receitas dos eventos que você organiza"
+              onPress={() => router.push('/finance')}
+            />
+            {isAdmin && (
+              <Row
+                testID="go-admin"
+                icon={<Shield size={19} color={colors.warning} />}
+                title="Painel de admin"
+                detail="Métricas, saques, usuários, eventos, grupos e cupons"
+                onPress={() => router.push('/admin')}
+                divider
+              />
+            )}
           </Card>
         </View>
 

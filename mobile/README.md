@@ -18,8 +18,14 @@ Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha
 - **Carteira:** saldo, histórico, recarga por PIX, saque por PIX e cupom de crédito.
 - **Notificações:** central com não lidas (abre o evento ou o grupo de que a notificação fala), marcar todas como lidas e preferências (e-mail e aviso de novos eventos do grupo).
 - **Perfil:** foto, dados pessoais, senha e e-mail, atividade da conta, perfil público (o próprio e o de outras pessoas), termos, política de privacidade e exclusão de conta.
+- **Organizador:** criar evento (avulso ou num grupo, com times, repetição, visibilidade e política de cancelamento), editar, duplicar, cancelar, capa, regras, inscritos com check-in (botão ou leitor de QR code pela câmera), remover participante, exportar lista, fila de espera, pedidos de entrada, link de convite, cupons do evento e aviso aos confirmados.
+- **Financeiro:** receitas por evento, detalhe por forma de pagamento, resgate da receita para a carteira e exportação.
+- **Grupos (dono):** editar dados e foto, membros (remover, transferir o grupo), comunicado, trocar o link de convite e excluir; criar evento no grupo. Para membros: marketplace (anunciar, publicar rascunho, apagar), eventos passados e entrar por link de convite.
+- **Admin** (para quem está em `ADMIN_EMAILS` no servidor): painel, saques (marcar como pago ou cancelar), usuários, eventos, grupos e cupons de crédito.
 
-Só no site: criar e gerenciar eventos (organizador), editar e excluir grupo, marketplace, financeiro e o painel de admin. Notificações no celular (push) ainda não existem no app: dependem das credenciais da Apple (APNs) e do Firebase (FCM). O envio de fotos de evento depende das variáveis do Cloudinary no servidor (`NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` e `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`); sem elas o botão não aparece.
+Ainda não existe no app: notificações no celular (push), que dependem das credenciais da Apple (APNs) e do Firebase (FCM); pedido de entrada em grupo privado, porque quem não é membro não enxerga o grupo no app (o pedido continua pela página pública do site); e foto nos anúncios do marketplace e nas fotos de evento, que dependem das variáveis do Cloudinary no servidor.
+
+As ações de organizador, grupos, marketplace, financeiro e admin passam pela rota `/api/v1/actions/[name]`, que roda as mesmas server actions do site com a sessão do app (lista fechada de nomes em `src/app/api/v1/actions/[name]/route.ts`).
 
 ## Configuração fora do código
 
@@ -53,4 +59,7 @@ maestro test -e APP_ID=app.tanalista \
 # abas, grupos e compartilhar: e2e/groups-flow.yaml, também com o banco zerado
 # conta: e2e/account-flow.yaml; início e seções do evento: e2e/event-flow.yaml (banco zerado antes de cada um)
 # carteira e notificações: e2e/wallet-flow.yaml (banco zerado antes)
+# organizador, financeiro, grupos e admin: e2e/organizer-flow.yaml (ADMIN_EMAILS=ana@teste.local no .env.local)
+# no simulador, desligue o botão flutuante do Expo (menu de desenvolvimento > Tools button):
+# ele pode ficar por cima de botões e roubar o toque
 ```

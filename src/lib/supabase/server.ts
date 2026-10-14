@@ -1,8 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/database'
+import { getRequestSupabaseClient } from './request-context'
 
 export async function createClient() {
+  // Ação do site chamada pelo app (rota /api/v1/actions): usa a sessão do app
+  const fromApp = getRequestSupabaseClient()
+  if (fromApp) return fromApp
+
   const cookieStore = await cookies()
 
   const client = createServerClient<Database>(

@@ -352,3 +352,19 @@ export function updateNotificationPreferences(data: Partial<NotificationPreferen
 export function markNotificationsRead(id?: string) {
   return apiPost<{ success: true } | { error: string }>('/api/v1/notifications/read', { id })
 }
+
+export type ActionResult<T> = { ok: T } | { redirect: string } | { error: string }
+
+// Roda uma ação do site pela ponte /api/v1/actions (a mesma regra que o site
+// usa). Ações que no site terminam redirecionando devolvem { redirect }.
+export async function runAction<T = unknown>(name: string, ...args: unknown[]): Promise<ActionResult<T>> {
+  const response = await apiPost<{ result?: T; redirect?: string; error?: string }>(`/api/v1/actions/${name}`, { args })
+  if ('error' in response && typeof response.error === 'string') return { error: response.error }
+  if ('redirect' in response && typeof response.redirect === 'string') return { redirect: response.redirect }
+  const result = (response as { result?: T }).result as T
+  // As ações do site avisam falha com { error } no próprio resultado
+  if (result && typeof result === 'object' && typeof (result as { error?: unknown }).error === 'string') {
+    return { error: (result as unknown as { error: string }).error }
+  }
+  return { ok: result }
+}

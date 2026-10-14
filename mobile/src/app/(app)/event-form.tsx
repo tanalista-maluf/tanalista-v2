@@ -1,0 +1,596 @@
+import { router, Stack, useLocalSearchParams } from 'expo-router'
+import { Minus, Plus } from 'lucide-react-native'
+import { useEffect, useState, type ReactNode } from 'react'
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { DateTimeField } from '@/components/date-time-field'
+import { Button, Card, Field, Screen } from '@/components/ui'
+import { useSession } from '@/ctx'
+import { runAction } from '@/lib/api'
+import { useHeaderInset } from '@/lib/header'
+import { supabase } from '@/lib/supabase'
+import { colors, fonts, radius } from '@/lib/theme'
+
+// Mesmas opções do formulário do site (src/features/eventos/components/EventForm.tsx)
+const CATEGORIES = [
+  'Futebol',
+  'Basquete',
+  'Vôlei',
+  'Airsoft & Paintball',
+  'Corrida & Trilha',
+  'Gastronomia',
+  'Negócios',
+  'Ensino',
+  'Música',
+  'Social',
+  'Outros',
+]
+const SPORTS = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball'])
+const CANCEL_POLICIES: { value: number | null; label: string }[] = [
+  { value: null, label: 'Não permitido' },
+  { value: 0, label: 'Sempre' },
+  { value: 24, label: 'Até 24h antes' },
+  { value: 48, label: 'Até 48h antes' },
+  { value: 72, label: 'Até 72h antes' },
+  { value: 168, label: 'Até 7 dias antes' },
+]
+const RECURRENCES = [
+  { value: 'none', label: 'Não repete' },
+  { value: 'weekly', label: 'Toda semana' },
+  { value: 'biweekly', label: 'A cada 2 semanas' },
+  { value: 'monthly', label: 'Todo mês' },
+] as const
+
+type Team = { name: string; capacity: string }
+type Group = { id: string; name: string }
+
+function defaultStart() {
+  const date = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  date.setHours(19, 0, 0, 0)
+  return date
+}
+
+// Evento criado, editado ou duplicado: o site responde com o endereço da
+// página nova (/eventos/<slug>); o app abre o evento pelo id
+async function openEvent(path: string) {
+  const key = path.split('/').pop() ?? ''
+  const isId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
+  const { data } = await supabase.from('events').select('id').eq(isId ? 'id' : 'slug', key).maybeSingle()
+  if (data) router.replace({ pathname: '/events/[id]', params: { id: data.id } })
+  else router.back()
+}
+
+// mode: create (novo, opcionalmente num grupo), edit ou duplicate (a partir de eventId)
+export default function EventFormScreen() {
+  const params = useLocalSearchParams<{ mode?: string; eventId?: string; groupId?: string }>()
+  const mode = params.mode === 'edit' || params.mode === 'duplicate' ? params.mode : 'create'
+  const { session, profile } = useSession()
+  const insets = useSafeAreaInsets()
+  const headerInset = useHeaderInset()
+
+  const [loading, setLoading] = useState(mode !== 'create')
+  // Evento já publicado: como no site, só descrição, endereço e valor mudam
+  const [locked, setLocked] = useState(false)
+  const [groups, setGroups] = useState<Group[]>([])
+  const [groupId, setGroupId] = useState<string | null>(params.groupId ?? null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [address, setAddress] = useState('')
+  const [city, setCity] = useState(profile?.city ?? '')
+  const [category, setCategory] = useState('')
+  const [price, setPrice] = useState('0')
+  const [capacity, setCapacity] = useState('20')
+  const [minimum, setMinimum] = useState('2')
+  const [startsAt, setStartsAt] = useState<Date | null>(defaultStart)
+  const [endsAt, setEndsAt] = useState<Date | null>(null)
+  const [deadline, setDeadline] = useState<Date | null>(() => new Date(defaultStart().getTime() - 2 * 60 * 60 * 1000))
+  const [exempt, setExempt] = useState(true)
+  const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC')
+  const [cancelPolicy, setCancelPolicy] = useState<number | null>(24)
+  const [recurrence, setRecurrence] = useState<(typeof RECURRENCES)[number]['value']>('none')
+  const [recurrenceCount, setRecurrenceCount] = useState(4)
+  const [useTeams, setUseTeams] = useState(false)
+  const [teams, setTeams] = useState<Team[]>([
+    { name: 'Time A', capacity: '10' },
+    { name: 'Time B', capacity: '10' },
+  ])
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    // Grupos de que a pessoa participa: o evento pode ser de um deles ou avulso
+    supabase
+      .from('group_members')
+      .select('groups(id, name)')
+      .eq('user_id', session!.user.id)
+      .then(({ data }) => setGroups((data ?? []).flatMap((row) => (row.groups ? [row.groups] : []))))
+
+    if (mode === 'create' || !params.eventId) return
+    supabase
+      .from('events')
+      .select(
+        'title, description, address, city, category, price, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id'
+      )
+      .eq('id', params.eventId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          setTitle(data.title)
+          setDescription(data.description ?? '')
+          setAddress(data.address)
+          setCity(data.city)
+          setCategory(data.category ?? '')
+          setPrice((data.price / 100).toFixed(2).replace('.', ','))
+          setCapacity(String(data.capacity))
+          setMinimum(String(data.min_participants))
+          setExempt(data.organizer_exempt)
+          setVisibility(data.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC')
+          setCancelPolicy(data.cancel_before_hours)
+          setGroupId(data.group_id)
+          if (mode === 'edit') {
+            setStartsAt(new Date(data.starts_at))
+            setEndsAt(data.ends_at ? new Date(data.ends_at) : null)
+            setDeadline(new Date(data.registration_deadline))
+            setLocked(data.status !== 'DRAFT')
+          }
+        }
+        setLoading(false)
+      })
+  }, [mode, params.eventId, session])
+
+  // O prazo de inscrição acompanha o início (2h antes), como sugestão
+  function changeStart(value: Date | null) {
+    setStartsAt(value)
+    if (value) setDeadline(new Date(value.getTime() - 2 * 60 * 60 * 1000))
+  }
+
+  // Mesmas regras do site (src/features/eventos/schemas.ts); o servidor confere de novo
+  function validate(): string | null {
+    if (title.trim().length < 3 || title.trim().length > 40) return 'O título precisa ter de 3 a 40 caracteres.'
+    if (address.trim().length < 5) return 'Informe o endereço completo.'
+    if (city.trim().length < 2) return 'Informe a cidade.'
+    if (!/^\d+([.,]\d{1,2})?$/.test(price.trim())) return 'Valor inválido.'
+    const cap = Number(capacity)
+    const min = Number(minimum)
+    if (!Number.isInteger(cap) || cap < 2) return 'A capacidade mínima é de 2 pessoas.'
+    if (!Number.isInteger(min) || min < 1) return 'O mínimo de participantes é 1.'
+    if (min > cap) return 'O mínimo não pode ser maior que a capacidade.'
+    if (!startsAt || startsAt <= new Date()) return 'A data de início precisa ser no futuro.'
+    if (!deadline || deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
+    if (endsAt && endsAt <= startsAt) return 'O término precisa ser depois do início.'
+    if (useTeams) {
+      if (teams.length < 2) return 'Use ao menos 2 times.'
+      if (teams.some((team) => !team.name.trim() || !(Number(team.capacity) >= 1))) return 'Cada time precisa de nome e vagas.'
+    }
+    return null
+  }
+
+  async function handleSubmit() {
+    const invalid = validate()
+    if (invalid) {
+      setError(invalid)
+      return
+    }
+    setSaving(true)
+    setError(null)
+    const data = {
+      title: title.trim(),
+      description: description.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      category,
+      price: price.trim(),
+      capacity: Number(capacity),
+      min_participants: Number(minimum),
+      starts_at: startsAt!.toISOString(),
+      ends_at: endsAt ? endsAt.toISOString() : '',
+      registration_deadline: deadline!.toISOString(),
+      organizer_exempt: exempt,
+      ...(groupId ? { group_id: groupId } : {}),
+      recurrence: mode === 'edit' ? 'none' : recurrence,
+      recurrence_count: recurrenceCount,
+      use_teams: mode !== 'edit' && useTeams && SPORTS.has(category),
+      teams: teams.map((team) => ({ name: team.name.trim(), capacity: Number(team.capacity) })),
+      visibility,
+      cancel_before_hours: cancelPolicy,
+    }
+    const result = mode === 'edit' ? await runAction('updateEvent', params.eventId, data) : await runAction('createEvent', data)
+    if ('redirect' in result) {
+      // A edição volta para onde foi aberta (o painel do organizador); evento novo abre a página dele
+      if (mode === 'edit') router.back()
+      else await openEvent(result.redirect)
+      return
+    }
+    setSaving(false)
+    setError('error' in result ? result.error : 'Não foi possível salvar o evento.')
+  }
+
+  const titleText = mode === 'edit' ? 'Editar evento' : mode === 'duplicate' ? 'Duplicar evento' : 'Criar evento'
+
+  if (loading) {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: titleText }} />
+        <ActivityIndicator style={styles.flex} color={colors.primary} />
+      </Screen>
+    )
+  }
+
+  return (
+    <Screen>
+      <Stack.Screen options={{ title: titleText }} />
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}>
+          {locked && (
+            <Text style={styles.warning}>
+              Este evento já está publicado. Apenas a descrição, o endereço e o valor podem ser editados.
+            </Text>
+          )}
+
+          <Section title="Informações básicas">
+            <Field
+              testID="form-title"
+              label="Título"
+              placeholder="Ex.: Futebol de quinta"
+              value={title}
+              onChangeText={setTitle}
+              maxLength={40}
+              editable={!locked}
+            />
+            <Field
+              testID="form-description"
+              label="Descrição (opcional)"
+              placeholder="O que levar, como chegar, regras da casa"
+              value={description}
+              onChangeText={setDescription}
+              maxLength={2000}
+              multiline
+              style={styles.multiline}
+            />
+            <Text style={styles.label}>Categoria</Text>
+            <Chips
+              items={CATEGORIES.map((item) => ({ value: item, label: item }))}
+              selected={category}
+              onSelect={(value) => !locked && setCategory(value === category ? '' : value)}
+              testPrefix="form-category"
+            />
+          </Section>
+
+          <Section title="Local">
+            <Field
+              testID="form-address"
+              label="Endereço"
+              placeholder="Rua, número e bairro"
+              value={address}
+              onChangeText={setAddress}
+              maxLength={300}
+            />
+            <Field
+              testID="form-city"
+              label="Cidade"
+              autoCapitalize="words"
+              value={city}
+              onChangeText={setCity}
+              maxLength={100}
+              editable={!locked}
+            />
+          </Section>
+
+          <Section title="Data e prazo">
+            {locked ? (
+              <Text style={styles.detail}>As datas de um evento publicado não mudam.</Text>
+            ) : (
+              <>
+                <DateTimeField testID="form-starts" label="Início" value={startsAt} onChange={changeStart} />
+                <DateTimeField testID="form-ends" label="Término (opcional)" value={endsAt} onChange={setEndsAt} optional />
+                <DateTimeField testID="form-deadline" label="Inscrições até" value={deadline} onChange={setDeadline} />
+              </>
+            )}
+            {mode !== 'edit' && (
+              <>
+                <Text style={styles.label}>Repetição</Text>
+                <Chips
+                  items={RECURRENCES.map((item) => ({ value: item.value, label: item.label }))}
+                  selected={recurrence}
+                  onSelect={(value) => setRecurrence(value as typeof recurrence)}
+                  testPrefix="form-recurrence"
+                />
+                {recurrence !== 'none' && (
+                  <Stepper label="Quantos eventos criar" value={recurrenceCount} min={2} max={52} onChange={setRecurrenceCount} />
+                )}
+              </>
+            )}
+          </Section>
+
+          <Section title="Vagas e valor">
+            <Field
+              testID="form-price"
+              label="Valor por pessoa (R$, 0 = gratuito)"
+              keyboardType="decimal-pad"
+              value={price}
+              onChangeText={setPrice}
+            />
+            <View style={styles.pair}>
+              <View style={styles.flex}>
+                <Field
+                  testID="form-capacity"
+                  label="Capacidade"
+                  keyboardType="number-pad"
+                  value={capacity}
+                  onChangeText={setCapacity}
+                  editable={!locked}
+                />
+              </View>
+              <View style={styles.flex}>
+                <Field
+                  testID="form-minimum"
+                  label="Mínimo"
+                  keyboardType="number-pad"
+                  value={minimum}
+                  onChangeText={setMinimum}
+                  editable={!locked}
+                />
+              </View>
+            </View>
+            <ToggleRow
+              testID="form-exempt"
+              title="Organizador isento"
+              detail="Você participa sem pagar a inscrição"
+              value={exempt}
+              onChange={setExempt}
+              disabled={locked}
+            />
+          </Section>
+
+          {mode !== 'edit' && SPORTS.has(category) && (
+            <Section title="Times">
+              <ToggleRow
+                testID="form-teams"
+                title="Dividir em times"
+                detail="Cada pessoa escolhe o time ao se inscrever"
+                value={useTeams}
+                onChange={setUseTeams}
+              />
+              {useTeams &&
+                teams.map((team, index) => (
+                  <View key={index} style={styles.team}>
+                    <View style={styles.flex}>
+                      <Field
+                        label={`Time ${index + 1}`}
+                        value={team.name}
+                        onChangeText={(name) => setTeams(teams.map((item, i) => (i === index ? { ...item, name } : item)))}
+                        maxLength={50}
+                      />
+                    </View>
+                    <View style={styles.teamCapacity}>
+                      <Field
+                        label="Vagas"
+                        keyboardType="number-pad"
+                        value={team.capacity}
+                        onChangeText={(value) =>
+                          setTeams(teams.map((item, i) => (i === index ? { ...item, capacity: value } : item)))
+                        }
+                      />
+                    </View>
+                    {teams.length > 2 && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remover ${team.name}`}
+                        onPress={() => setTeams(teams.filter((_, i) => i !== index))}
+                        hitSlop={8}
+                        style={styles.teamRemove}>
+                        <Minus size={18} color={colors.destructive} />
+                      </Pressable>
+                    )}
+                  </View>
+                ))}
+              {useTeams && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setTeams([...teams, { name: `Time ${String.fromCharCode(65 + teams.length)}`, capacity: '10' }])}
+                  style={styles.addTeam}>
+                  <Plus size={16} color={colors.primary} />
+                  <Text style={styles.link}>Adicionar time</Text>
+                </Pressable>
+              )}
+            </Section>
+          )}
+
+          <Section title="Quem participa">
+            {groups.length > 0 && (
+              <>
+                <Text style={styles.label}>Grupo</Text>
+                <Chips
+                  items={[{ value: '', label: 'Evento avulso' }, ...groups.map((group) => ({ value: group.id, label: group.name }))]}
+                  selected={groupId ?? ''}
+                  onSelect={(value) => mode !== 'edit' && setGroupId(value || null)}
+                  testPrefix="form-group"
+                />
+              </>
+            )}
+            <Text style={styles.label}>Visibilidade</Text>
+            <Chips
+              items={[
+                { value: 'PUBLIC', label: 'Público' },
+                { value: 'PRIVATE', label: 'Privado (com aprovação)' },
+              ]}
+              selected={visibility}
+              onSelect={(value) => setVisibility(value as 'PUBLIC' | 'PRIVATE')}
+              testPrefix="form-visibility"
+            />
+            <Text style={styles.label}>Cancelamento pelo participante</Text>
+            <Chips
+              items={CANCEL_POLICIES.map((item) => ({ value: String(item.value), label: item.label }))}
+              selected={String(cancelPolicy)}
+              onSelect={(value) => setCancelPolicy(value === 'null' ? null : Number(value))}
+              testPrefix="form-cancel"
+            />
+          </Section>
+
+          {error && (
+            <Text testID="form-error" style={styles.error}>
+              {error}
+            </Text>
+          )}
+        </ScrollView>
+        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <Button
+            testID="form-submit"
+            label={mode === 'edit' ? 'Salvar alterações' : 'Publicar evento'}
+            onPress={handleSubmit}
+            loading={saving}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Screen>
+  )
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Card style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </Card>
+  )
+}
+
+function Chips(props: {
+  items: { value: string; label: string }[]
+  selected: string
+  onSelect: (value: string) => void
+  testPrefix: string
+}) {
+  return (
+    <View style={styles.chips}>
+      {props.items.map((item, index) => {
+        const selected = item.value === props.selected
+        return (
+          <Pressable
+            key={item.value || 'none'}
+            testID={`${props.testPrefix}-${index}`}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            onPress={() => props.onSelect(item.value)}
+            style={[styles.chip, selected && styles.chipSelected]}>
+            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item.label}</Text>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
+function ToggleRow(props: {
+  testID: string
+  title: string
+  detail: string
+  value: boolean
+  onChange: (value: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <View style={styles.toggle}>
+      <View style={styles.flex}>
+        <Text style={styles.toggleTitle}>{props.title}</Text>
+        <Text style={styles.detail}>{props.detail}</Text>
+      </View>
+      <Switch
+        testID={props.testID}
+        value={props.value}
+        onValueChange={props.onChange}
+        disabled={props.disabled}
+        trackColor={{ true: colors.primary, false: 'rgba(255,255,255,0.15)' }}
+        thumbColor="#FFFFFF"
+        accessibilityLabel={props.title}
+      />
+    </View>
+  )
+}
+
+function Stepper(props: { label: string; value: number; min: number; max: number; onChange: (value: number) => void }) {
+  return (
+    <View style={styles.toggle}>
+      <Text style={[styles.toggleTitle, styles.flex]}>{props.label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Menos"
+        onPress={() => props.onChange(Math.max(props.min, props.value - 1))}
+        style={styles.stepButton}>
+        <Minus size={16} color={colors.foreground} />
+      </Pressable>
+      <Text style={styles.stepValue}>{props.value}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Mais"
+        onPress={() => props.onChange(Math.min(props.max, props.value + 1))}
+        style={styles.stepButton}>
+        <Plus size={16} color={colors.foreground} />
+      </Pressable>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  content: { padding: 16, gap: 14, paddingBottom: 24 },
+  warning: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.warning,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.25)',
+    backgroundColor: 'rgba(250,204,21,0.05)',
+  },
+  section: { padding: 16, gap: 14 },
+  sectionTitle: { fontFamily: fonts.heading, fontSize: 16, color: colors.text },
+  label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: 'rgba(74,222,128,0.7)' },
+  detail: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.text50 },
+  multiline: { height: 100, paddingTop: 14, textAlignVertical: 'top', borderRadius: radius.card },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    minHeight: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+  },
+  chipSelected: { borderColor: 'rgba(74,222,128,0.45)', backgroundColor: 'rgba(74,222,128,0.1)' },
+  chipText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.text70 },
+  chipTextSelected: { color: colors.primary },
+  pair: { flexDirection: 'row', gap: 12 },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  toggleTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
+  stepButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.input,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  stepValue: { minWidth: 28, textAlign: 'center', fontFamily: fonts.bodyBold, fontSize: 16, color: colors.text },
+  team: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  teamCapacity: { width: 90 },
+  teamRemove: { height: 50, justifyContent: 'center' },
+  addTeam: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  link: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
+  error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
+  bar: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+})

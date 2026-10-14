@@ -18,6 +18,8 @@ SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 # cobranças (PIX e cartão) de mentira: sem credenciais do Mercado Pago no ambiente local
 MERCADOPAGO_STUB=1
+# a organizadora de teste (seed-local.py) vê o painel de admin
+ADMIN_EMAILS=ana@teste.local
 ENV
 
 cat > mobile/.env.local <<ENV

@@ -189,6 +189,7 @@ appId: ${APP_ID}
 # ── Evento com times ─────────────────────────────────────────────────────────
 - scrollUntilVisible:
     element: "Vôlei com times.*"
+    centerElement: true
 - tapOn: "Vôlei com times.*"
 # Sem escolher o time, a inscrição não sai
 - tapOn:
@@ -248,6 +249,7 @@ appId: ${APP_ID}
 - scrollUntilVisible:
     element: "Racha lotado.*"
     direction: UP
+    centerElement: true
 - tapOn: "Racha lotado.*"
 - assertVisible:
     id: "join-waitlist"
@@ -292,6 +294,9 @@ appId: ${APP_ID}
     commands:
       - back
 - assertVisible: "Próximos eventos"
+- scrollUntilVisible:
+    element: "Racha lotado.*"
+    centerElement: true
 - tapOn: "Racha lotado.*"
 - assertVisible:
     id: "confirm-spot"

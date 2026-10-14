@@ -143,6 +143,9 @@ appId: ${APP_ID}
 - assertVisible: "Racha lotado.*"
 
 # ── Página do evento ─────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    centerElement: true
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
     id: "event-cover"
@@ -240,6 +243,9 @@ appId: ${APP_ID}
       - back
 - assertVisible: "Próximos eventos"
 # Regras, com as do organizador, e denúncia
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    centerElement: true
 - tapOn: "Futebol de quinta.*"
 - scrollUntilVisible:
     element:
@@ -299,6 +305,9 @@ appId: ${APP_ID}
 - tapOn:
     id: "tab-mine"
 - assertVisible: "Pelada concluída.*Concluído.*"
+- scrollUntilVisible:
+    element: "Pelada concluída.*"
+    centerElement: true
 - tapOn: "Pelada concluída.*"
 - scrollUntilVisible:
     element:

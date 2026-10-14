@@ -1,10 +1,11 @@
 import { router, useFocusEffect } from 'expo-router'
-import { Plus, Search, UsersRound } from 'lucide-react-native'
+import { Link2, Plus, Search, UsersRound } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native'
 import { GroupCard, type GroupCardData } from '@/components/group-card'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
+import { runAction } from '@/lib/api'
 import { useTabHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
@@ -31,8 +32,11 @@ async function fetchMyGroups(userId: string): Promise<ListedGroup[]> {
   return (data ?? []).map((row) => ({ ...row.groups, role: row.role })).sort((a, b) => a.name.localeCompare(b.name))
 }
 
+// Mesma lista do site (src/features/grupos/constants.ts)
+const CATEGORIES = ['Esportes', 'Gastronomia', 'Viagens', 'Música', 'Cinema', 'Teatro', 'Arte', 'Tecnologia', 'Negócios', 'Saúde', 'Educação', 'Outros']
+
 // Grupos públicos, dos maiores para os menores; a RLS já esconde os privados de quem não é membro
-async function fetchPublicGroups(search: string): Promise<ListedGroup[]> {
+async function fetchPublicGroups(search: string, category: string | null): Promise<ListedGroup[]> {
   let query = supabase
     .from('groups')
     .select(GROUP_COLUMNS)
@@ -44,6 +48,7 @@ async function fetchPublicGroups(search: string): Promise<ListedGroup[]> {
   // % e _ são curingas do ilike, e vírgula e parênteses separam filtros
   const term = search.trim().replace(/[%_,()]/g, ' ')
   if (term) query = query.ilike('name', `%${term}%`)
+  if (category) query = query.eq('category', category)
 
   const { data, error } = await query
   if (error) throw error
@@ -57,13 +62,18 @@ export default function GroupsScreen() {
   const [tab, setTab] = useState<Tab>('mine')
   const [groups, setGroups] = useState<Partial<Record<Tab, ListedGroup[]>>>({})
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<string | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [invite, setInvite] = useState('')
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [joining, setJoining] = useState(false)
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(
-    async (which: Tab, term: string) => {
+    async (which: Tab, term: string, chosen: string | null) => {
       try {
-        const data = which === 'mine' ? await fetchMyGroups(userId) : await fetchPublicGroups(term)
+        const data = which === 'mine' ? await fetchMyGroups(userId) : await fetchPublicGroups(term, chosen)
         setGroups((current) => ({ ...current, [which]: data }))
         setError(false)
       } catch {
@@ -77,15 +87,32 @@ export default function GroupsScreen() {
   // A busca só vale ao enviar o campo, não a cada letra.
   useFocusEffect(
     useCallback(() => {
-      load(tab, search)
+      load(tab, search, category)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [load, tab])
+    }, [load, tab, category])
   )
 
   async function handleRefresh() {
     setRefreshing(true)
-    await load(tab, search)
+    await load(tab, search, category)
     setRefreshing(false)
+  }
+
+  // Link de convite do site (.../grupos/entrar/<código>) ou só o código
+  async function joinByInvite() {
+    const token = invite.trim().split('/').filter(Boolean).pop() ?? ''
+    if (!token) return
+    setJoining(true)
+    setInviteError(null)
+    const result = await runAction<{ groupId?: string }>('joinGroupByInvite', token)
+    setJoining(false)
+    if ('ok' in result && result.ok.groupId) {
+      setInvite('')
+      setInviteOpen(false)
+      router.push({ pathname: '/groups/[id]', params: { id: result.ok.groupId } })
+    } else {
+      setInviteError('error' in result ? result.error : 'Convite inválido ou expirado.')
+    }
   }
 
   const current = TABS.find((t) => t.key === tab)!
@@ -130,7 +157,7 @@ export default function GroupsScreen() {
                   testID="groups-search"
                   value={search}
                   onChangeText={setSearch}
-                  onSubmitEditing={() => load('discover', search)}
+                  onSubmitEditing={() => load('discover', search, category)}
                   placeholder="Buscar grupo pelo nome"
                   placeholderTextColor={colors.text35}
                   selectionColor={colors.primary}
@@ -140,14 +167,68 @@ export default function GroupsScreen() {
                 />
               </View>
             ) : (
-              <Pressable
-                testID="group-new"
-                accessibilityRole="button"
-                onPress={() => router.push('/groups/new')}
-                style={({ pressed }) => [styles.create, pressed && styles.dim]}>
-                <Plus size={18} color={colors.primary} />
-                <Text style={styles.createText}>Criar grupo</Text>
-              </Pressable>
+              <>
+                <Pressable
+                  testID="group-new"
+                  accessibilityRole="button"
+                  onPress={() => router.push('/groups/new')}
+                  style={({ pressed }) => [styles.create, pressed && styles.dim]}>
+                  <Plus size={18} color={colors.primary} />
+                  <Text style={styles.createText}>Criar grupo</Text>
+                </Pressable>
+                {inviteOpen ? (
+                  <View style={styles.inviteRow}>
+                    <TextInput
+                      testID="group-invite-code"
+                      value={invite}
+                      onChangeText={setInvite}
+                      placeholder="Cole o link ou o código do convite"
+                      placeholderTextColor={colors.text35}
+                      selectionColor={colors.primary}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      onSubmitEditing={joinByInvite}
+                      style={styles.inviteInput}
+                    />
+                    <Pressable
+                      testID="group-invite-join"
+                      accessibilityRole="button"
+                      onPress={joinByInvite}
+                      disabled={joining}
+                      style={styles.inviteButton}>
+                      {joining ? <ActivityIndicator color={colors.primary} /> : <Text style={styles.createText}>Entrar</Text>}
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    testID="group-invite"
+                    accessibilityRole="button"
+                    onPress={() => setInviteOpen(true)}
+                    style={styles.inviteLink}>
+                    <Link2 size={16} color={colors.primary} />
+                    <Text style={styles.inviteLinkText}>Tenho um convite</Text>
+                  </Pressable>
+                )}
+                {inviteError && <Text style={styles.inviteError}>{inviteError}</Text>}
+              </>
+            )}
+            {tab === 'discover' && (
+              <View style={styles.categories}>
+                {CATEGORIES.map((item, index) => {
+                  const selected = item === category
+                  return (
+                    <Pressable
+                      key={item}
+                      testID={`group-category-${index}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => setCategory(selected ? null : item)}
+                      style={[styles.chip, selected && styles.chipSelected]}>
+                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
             )}
           </View>
         }
@@ -215,6 +296,44 @@ const styles = StyleSheet.create({
   },
   createText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
   dim: { opacity: 0.6 },
+  inviteRow: { flexDirection: 'row', gap: 8 },
+  inviteInput: {
+    flex: 1,
+    height: 46,
+    paddingHorizontal: 16,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    color: colors.foreground,
+    backgroundColor: colors.input,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+  },
+  inviteButton: {
+    minWidth: 84,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(74,222,128,0.3)',
+  },
+  inviteLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 36 },
+  inviteLinkText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
+  inviteError: { fontFamily: fonts.body, fontSize: 13, color: colors.destructive, textAlign: 'center' },
+  categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 13,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+  },
+  chipSelected: { borderColor: 'rgba(74,222,128,0.45)', backgroundColor: 'rgba(74,222,128,0.1)' },
+  chipText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.text70 },
+  chipTextSelected: { color: colors.primary },
   loading: { marginTop: 64 },
   empty: { alignItems: 'center', gap: 12, marginTop: 64, paddingHorizontal: 24 },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, textAlign: 'center' },

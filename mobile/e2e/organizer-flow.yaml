@@ -1,0 +1,462 @@
+# Organizador, financeiro, grupos (configurações e marketplace) e admin, com a
+# Ana (dona do grupo e de todos os eventos de seed-local.py, admin no ambiente
+# local). Mesmos pré-requisitos e variáveis de main-flow.yaml, banco recém-criado.
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "ana@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+# O iOS pode perguntar se quer guardar a senha
+- extendedWaitUntil:
+    visible: "Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+
+# ── Criar evento ─────────────────────────────────────────────────────────────
+- tapOn:
+    id: "tab-events"
+- tapOn:
+    id: "event-new"
+- assertVisible: "Criar evento"
+- tapOn:
+    id: "form-submit"
+# O erro aparece no fim do formulário
+- scrollUntilVisible:
+    element: "O título precisa ter de 3 a 40 caracteres."
+- scrollUntilVisible:
+    element:
+      id: "form-title"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "form-title"
+- inputText: "Pelada nova"
+- scrollUntilVisible:
+    element:
+      id: "form-address"
+    centerElement: true
+- tapOn:
+    id: "form-address"
+- inputText: "Rua do Campo 200"
+- takeScreenshot: 70-criar-evento
+- tapOn:
+    id: "form-submit"
+- extendedWaitUntil:
+    visible:
+      id: "manage"
+    timeout: 15000
+- assertVisible: "Pelada nova"
+
+# ── Gerenciar: editar e cancelar ─────────────────────────────────────────────
+- tapOn:
+    id: "manage"
+- assertVisible:
+    id: "manage-title"
+- takeScreenshot: 71-gerenciar
+- tapOn:
+    id: "manage-edit"
+- assertVisible: "Editar evento"
+- tapOn:
+    id: "form-description"
+- inputText: "Traga chuteira"
+- tapOn:
+    id: "form-submit"
+    retryTapIfNoChange: false
+# Salvar volta para o painel do organizador
+- extendedWaitUntil:
+    visible:
+      id: "manage-title"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "manage-cancel"
+    centerElement: true
+- tapOn:
+    id: "manage-cancel"
+- tapOn: "Sim, cancelar"
+- scrollUntilVisible:
+    element: "Evento cancelado."
+    direction: UP
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Check-in, aviso e regras no evento lotado ────────────────────────────────
+- tapOn:
+    id: "tab-events"
+- scrollUntilVisible:
+    element: "Racha lotado.*"
+    centerElement: true
+- tapOn: "Racha lotado.*"
+- tapOn:
+    id: "manage"
+- scrollUntilVisible:
+    element:
+      id: "checkin-0"
+    centerElement: true
+- tapOn:
+    id: "checkin-0"
+- scrollUntilVisible:
+    element: "1/2"
+    direction: UP
+- scrollUntilVisible:
+    element:
+      id: "manage-rules"
+    centerElement: true
+- tapOn:
+    id: "manage-rules"
+- inputText: "Chegar cedo"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "manage-rules-save"
+    centerElement: true
+- tapOn:
+    id: "manage-rules-save"
+- scrollUntilVisible:
+    element: "Regras salvas."
+    direction: UP
+- scrollUntilVisible:
+    element:
+      id: "manage-broadcast"
+    centerElement: true
+- tapOn:
+    id: "manage-broadcast"
+- inputText: "Tragam agua"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "manage-broadcast-send"
+    centerElement: true
+- tapOn:
+    id: "manage-broadcast-send"
+- scrollUntilVisible:
+    element: "Aviso enviado."
+    direction: UP
+- takeScreenshot: 72-checkin-aviso
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Cupom no evento pago ─────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    direction: UP
+    centerElement: true
+- tapOn: "Torneio pago de sábado.*"
+- tapOn:
+    id: "manage"
+- scrollUntilVisible:
+    element:
+      id: "coupon-new-code"
+    centerElement: true
+- tapOn:
+    id: "coupon-new-code"
+- inputText: "AMIGO10"
+- tapOn:
+    id: "coupon-new-percent"
+- inputText: "10"
+- tapOn:
+    id: "coupon-new-uses"
+- inputText: "5"
+# O teclado numérico do iOS não tem tecla de fechar: um toque fora fecha
+- tapOn: "Cupons de desconto"
+- scrollUntilVisible:
+    element:
+      id: "coupon-new-submit"
+    centerElement: true
+- tapOn:
+    id: "coupon-new-submit"
+# O cupom novo entra no topo da lista, acima do formulário
+- scrollUntilVisible:
+    element: "AMIGO10"
+    direction: UP
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Financeiro e admin ───────────────────────────────────────────────────────
+- tapOn:
+    id: "profile"
+- scrollUntilVisible:
+    element:
+      id: "go-finance"
+    centerElement: true
+- tapOn:
+    id: "go-finance"
+- assertVisible:
+    id: "finance-net"
+- takeScreenshot: 73-financeiro
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- scrollUntilVisible:
+    element:
+      id: "go-admin"
+    centerElement: true
+- tapOn:
+    id: "go-admin"
+- assertVisible:
+    id: "admin-users-count"
+- takeScreenshot: 74-admin
+- tapOn:
+    id: "admin-coupons"
+- tapOn:
+    id: "admin-coupon-code"
+- inputText: "PRESENTE"
+- tapOn:
+    id: "admin-coupon-value"
+- inputText: "15"
+- tapOn: "Novo cupom de crédito"
+- tapOn:
+    id: "admin-coupon-create"
+- assertVisible: "Cupom criado."
+- assertVisible: ".*PRESENTE.*"
+- tapOn:
+    id: "admin-withdrawals"
+- assertVisible: ".*Nenhum saque.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Grupo: configurações e marketplace ───────────────────────────────────────
+- tapOn:
+    id: "tab-groups"
+- tapOn: "Pelada de Quinta.*"
+- tapOn:
+    id: "group-settings"
+# O grupo de teste não tem cidade, que é obrigatória
+- tapOn:
+    id: "settings-city"
+- inputText: "São Paulo"
+- tapOn:
+    id: "settings-description"
+- inputText: "Toda quinta"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "settings-save"
+    centerElement: true
+- tapOn:
+    id: "settings-save"
+- scrollUntilVisible:
+    element: "Grupo atualizado."
+    direction: UP
+- takeScreenshot: 75-config-grupo
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- scrollUntilVisible:
+    element:
+      id: "group-market"
+    centerElement: true
+- tapOn:
+    id: "group-market"
+- assertVisible:
+    id: "market-empty"
+- tapOn:
+    id: "market-new"
+- tapOn:
+    id: "listing-title"
+- inputText: "Bola oficial"
+- tapOn:
+    id: "listing-description"
+- inputText: "Bola de futsal pouco usada"
+# O botão fica na barra acima do teclado
+- tapOn:
+    id: "listing-submit"
+- assertVisible:
+    id: "listing-0"
+- assertVisible: "Rascunho"
+- takeScreenshot: 76-marketplace

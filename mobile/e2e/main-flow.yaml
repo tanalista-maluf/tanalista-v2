@@ -149,6 +149,9 @@ appId: ${APP_ID}
 - assertVisible: "Racha lotado.*Esgotado"
 - takeScreenshot: 03-lista
 - waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    centerElement: true
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
     id: "join"
@@ -171,6 +174,9 @@ appId: ${APP_ID}
     commands:
       - back
 - assertVisible: "Próximos eventos"
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    centerElement: true
 - tapOn: "Torneio pago de sábado.*"
 # Evento pago: checkout com cupom de 50%, carteira sem saldo, pagamento por PIX
 - tapOn:
@@ -245,6 +251,9 @@ appId: ${APP_ID}
     commands:
       - back
 - assertVisible: "Próximos eventos"
+- scrollUntilVisible:
+    element: ".*Treino fechado.*"
+    centerElement: true
 - tapOn: ".*Treino fechado.*"
 # Evento privado: a pessoa pede a entrada e fica aguardando o organizador
 # Os avisos ficam abaixo das informações do evento
@@ -270,6 +279,9 @@ appId: ${APP_ID}
     commands:
       - back
 - assertVisible: "Próximos eventos"
+- scrollUntilVisible:
+    element: "Racha lotado.*"
+    centerElement: true
 - tapOn: "Racha lotado.*"
 # Os avisos ficam abaixo das informações do evento
 - scrollUntilVisible:
@@ -298,6 +310,9 @@ appId: ${APP_ID}
 - assertVisible: "Torneio pago de sábado.*Inscrito.*1/20 inscritos"
 - assertNotVisible: "Racha lotado.*"
 - takeScreenshot: 09-meus-eventos
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    centerElement: true
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
     id: "status-confirmed"
@@ -327,6 +342,9 @@ appId: ${APP_ID}
       - back
 - assertNotVisible: "Futebol de quinta.*"
 # Cancelar a inscrição paga devolve o valor para a carteira
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    centerElement: true
 - tapOn: "Torneio pago de sábado.*"
 - scrollUntilVisible:
     element:
@@ -460,6 +478,9 @@ appId: ${APP_ID}
     id: "tab-events"
 - assertVisible: "Próximos eventos"
 # Cartão recusado: a inscrição segue pendente e dá para tentar de novo ou trocar o meio
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    centerElement: true
 - tapOn: "Torneio pago de sábado.*"
 - tapOn:
     id: "join"
