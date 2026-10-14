@@ -1,9 +1,11 @@
 import type { Session } from '@supabase/supabase-js'
+import * as AppleAuthentication from 'expo-apple-authentication'
+import * as Crypto from 'expo-crypto'
 import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
 import { createContext, use, useCallback, useEffect, useState, type PropsWithChildren } from 'react'
 import { unregisterPush } from '@/lib/push'
-import { apiUrl } from '@/lib/api'
+import { apiPost, apiUrl } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
 export type Profile = {
@@ -23,6 +25,7 @@ type SessionValue = {
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (fullName: string, email: string, password: string) => Promise<{ error: string } | { confirmEmail: boolean }>
   signInWithGoogle: () => Promise<string | null>
+  signInWithApple: () => Promise<string | null>
   // Sempre "enviado" para e-mail bem formado: não revela se a conta existe
   requestPasswordReset: (email: string) => Promise<string | null>
   // A pessoa voltou pelo link de recuperação e ainda precisa definir a senha nova
@@ -178,6 +181,59 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
           const { ok } = await exchangeAuthCode(code)
           return ok ? null : 'Não foi possível entrar com o Google. Tente novamente.'
+        },
+        // iPhone: botão nativo (Face ID) e o token vai direto ao Supabase.
+        // Android: página da Apple no navegador, como no Google.
+        signInWithApple: async () => {
+          if (process.env.EXPO_OS !== 'ios') {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+              provider: 'apple',
+              options: { redirectTo: OAUTH_REDIRECT, skipBrowserRedirect: true, scopes: 'name email' },
+            })
+            if (error || !data.url) return 'Não foi possível conectar à Apple. Tente novamente.'
+            const result = await WebBrowser.openAuthSessionAsync(data.url, OAUTH_REDIRECT)
+            if (result.type !== 'success') return null
+            const code = Linking.parse(result.url).queryParams?.code
+            if (typeof code !== 'string') return 'A Apple não confirmou o acesso. Tente novamente.'
+            const { ok } = await exchangeAuthCode(code)
+            return ok ? null : 'Não foi possível entrar com a Apple. Tente novamente.'
+          }
+
+          // O nonce liga o token desta tentativa ao pedido: a Apple recebe o
+          // hash e o Supabase confere com o original
+          const rawNonce = Crypto.randomUUID()
+          const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce)
+          let credential: AppleAuthentication.AppleAuthenticationCredential
+          try {
+            credential = await AppleAuthentication.signInAsync({
+              requestedScopes: [
+                AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                AppleAuthentication.AppleAuthenticationScope.EMAIL,
+              ],
+              nonce: hashedNonce,
+            })
+          } catch (err) {
+            // A pessoa fechou a janela da Apple
+            if ((err as { code?: string }).code === 'ERR_REQUEST_CANCELED') return null
+            return 'Não foi possível entrar com a Apple. Tente novamente.'
+          }
+          if (!credential.identityToken) return 'A Apple não confirmou o acesso. Tente novamente.'
+
+          const { error } = await supabase.auth.signInWithIdToken({
+            provider: 'apple',
+            token: credential.identityToken,
+            nonce: rawNonce,
+          })
+          if (error) return 'Não foi possível entrar com a Apple. Tente novamente.'
+
+          // A Apple só manda o nome na primeira vez, e fora do token
+          const name = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ')
+          if (name) {
+            await supabase.auth.updateUser({ data: { full_name: name } })
+            await apiPost('/api/v1/me/name', { full_name: name })
+            await refreshProfile()
+          }
+          return null
         },
         requestPasswordReset: async (email) => {
           const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: OAUTH_REDIRECT })

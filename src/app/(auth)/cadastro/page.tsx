@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert } from '@/components/ui/alert'
 import { CheckCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { GoogleAuthButton } from '@/features/auth/components/GoogleAuthButton'
+import { AppleAuthButton } from '@/features/auth/components/AppleAuthButton'
 
 export default function CadastroPage() {
   return (
@@ -164,6 +165,10 @@ function CadastroForm() {
           </div>
 
           <GoogleAuthButton label="Criar conta com Google" redirectTo={redirectParam ?? undefined} />
+          {/* Liga quando a Apple estiver configurada no Supabase */}
+          {process.env.NEXT_PUBLIC_APPLE_SIGN_IN === '1' && (
+            <AppleAuthButton label="Criar conta com Apple" redirectTo={redirectParam ?? undefined} />
+          )}
 
           <p className="text-xs text-center text-muted-foreground">
             Ao criar uma conta você concorda com os{' '}

@@ -98,6 +98,27 @@ export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login', re
   redirect(data.url)
 }
 
+// Entrar com Apple pelo site: a página da Apple volta para o Supabase, que
+// volta para /api/auth/callback, como no Google. Na primeira vez a Apple manda
+// o nome, que o Supabase grava nos dados do usuário.
+export async function appleOAuthAction(redirectTo?: string) {
+  const supabase = await createClient()
+
+  const next = safeRedirect(redirectTo)
+  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: { redirectTo: callbackUrl, scopes: 'name email' },
+  })
+
+  if (error || !data.url) {
+    return { error: 'Não foi possível conectar à Apple. Tente novamente.' }
+  }
+
+  redirect(data.url)
+}
+
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
