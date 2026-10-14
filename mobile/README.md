@@ -11,7 +11,7 @@ Os tipos do banco são os do site: `../src/types/database.ts`.
 
 ## O que existe hoje
 
-Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola, cartão de crédito ou saldo da carteira), escolha e troca de time, fila de espera (entrar, sair e confirmar a vaga reservada), cancelamento de inscrição, recuperação de senha e perfil com exclusão de conta. Evento privado aparece com o motivo de não dar para se inscrever pelo app.
+Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola, cartão de crédito ou saldo da carteira), escolha e troca de time, fila de espera (entrar, sair e confirmar a vaga reservada), cancelamento de inscrição, recuperação de senha e perfil com exclusão de conta. Evento privado aparece com o motivo de não dar para se inscrever pelo app. Barra de abas inferior (Eventos, Grupos, Perfil), botão de compartilhar em evento e grupo, e grupos: meus grupos, busca de grupos públicos, página do grupo (eventos e membros), entrar e sair, criar grupo, enviar convite de grupo privado e aprovar pedidos de entrada. Editar ou excluir grupo, comunicados, marketplace e criação de eventos continuam só no site.
 
 ## Configuração fora do código
 
@@ -42,4 +42,5 @@ maestro test -e APP_ID=app.tanalista \
   -e SUPABASE_URL=$API_URL -e SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY e2e/main-flow.yaml
 # recuperação de senha, times e fila de espera: mesmo comando com
 #   -e MAILPIT_URL=http://127.0.0.1:54324 e2e/extras-flow.yaml (banco zerado antes: supabase db reset + seed)
+# abas, grupos e compartilhar: e2e/groups-flow.yaml, também com o banco zerado
 ```

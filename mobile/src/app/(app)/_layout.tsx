@@ -15,8 +15,10 @@ export default function AppLayout() {
         headerShadowVisible: false,
         headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: colors.background },
-      }}
-    />
+      }}>
+      {/* As abas têm o próprio cabeçalho */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: '' }} />
+    </Stack>
   )
 }
 

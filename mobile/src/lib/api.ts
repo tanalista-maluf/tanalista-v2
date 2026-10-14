@@ -142,3 +142,29 @@ export function confirmWaitlistSpot(eventId: string, method?: JoinMethod) {
 export function changeWaitlistTeam(entryId: string, teamId: string) {
   return apiPost<{ success: true } | { error: string }>(`/api/v1/waitlist-entries/${entryId}/team`, { teamId })
 }
+
+export type GroupInput = {
+  name: string
+  description: string
+  visibility: 'PUBLIC' | 'PRIVATE'
+  category: string
+  city: string
+}
+
+export function createGroup(data: GroupInput) {
+  return apiPost<{ groupId: string; slug: string } | { error: string; field?: keyof GroupInput }>('/api/v1/groups', data)
+}
+
+// Só grupo público; em grupo privado a entrada é por convite ou pedido aprovado pelo dono
+export function joinGroup(groupId: string) {
+  return apiPost<{ success: true } | { error: string }>(`/api/v1/groups/${groupId}/membership`)
+}
+
+export function leaveGroup(groupId: string) {
+  return apiRequest<{ success: true } | { error: string }>('DELETE', `/api/v1/groups/${groupId}/membership`)
+}
+
+// O dono aprova ou recusa um pedido de entrada no grupo
+export function decideGroupRequest(requestId: string, decision: 'APPROVED' | 'REJECTED') {
+  return apiPost<{ success: true } | { error: string }>(`/api/v1/group-requests/${requestId}`, { decision })
+}

@@ -1,13 +1,12 @@
-import { router, Stack, useFocusEffect } from 'expo-router'
-import { CalendarX2, CircleUserRound } from 'lucide-react-native'
+import { router, useFocusEffect } from 'expo-router'
+import { CalendarX2 } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { EventCard, type EventCardBadge, type EventCardData } from '@/components/event-card'
-import { Logo } from '@/components/logo'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { supabase } from '@/lib/supabase'
-import { useHeaderInset } from '@/lib/header'
+import { useTabHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
 type Tab = 'upcoming' | 'mine'
@@ -63,7 +62,7 @@ export default function EventsScreen() {
   const [events, setEvents] = useState<Partial<Record<Tab, ListedEvent[]>>>({})
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const headerInset = useHeaderInset()
+  const headerInset = useTabHeaderInset()
 
   const load = useCallback(
     async (which: Tab) => {
@@ -96,27 +95,10 @@ export default function EventsScreen() {
 
   return (
     <Screen>
-      <Stack.Screen
-        options={{
-          title: '',
-          headerLeft: () => <Logo size={19} />,
-          headerRight: () => (
-            <Pressable
-              testID="profile"
-              onPress={() => router.push('/profile')}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Perfil">
-              <CircleUserRound size={24} color={colors.text70} />
-            </Pressable>
-          ),
-        }}
-      />
-
       <FlatList
         data={listed ?? []}
         keyExtractor={(event) => event.id}
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[styles.list, { paddingTop: 16 + headerInset }]}
         refreshControl={
           <RefreshControl

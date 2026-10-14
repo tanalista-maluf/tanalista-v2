@@ -2,7 +2,8 @@
 
 Usuários (senha senha-teste-123): ana (organizadora), bruno (quem o teste usa)
 e carla. Eventos: um gratuito, um pago (com o cupom TESTE50), um privado e um lotado.
-Para e2e/extras-flow.yaml: um evento com dois times.
+Para e2e/extras-flow.yaml: um evento com dois times. Para e2e/groups-flow.yaml:
+um grupo privado do Bruno com um pedido de entrada da Carla.
 """
 import datetime
 import json
@@ -64,10 +65,18 @@ def event(group_id, organizer_id, title, slug, days, price, capacity, visibility
 
 
 ana = user("Ana Organizadora", "ana@teste.local")
-user("Bruno Participante", "bruno@teste.local")
+bruno = user("Bruno Participante", "bruno@teste.local")
 carla = user("Carla", "carla@teste.local")
 
 group = call("/rest/v1/groups", {"owner_id": ana, "name": "Pelada de Quinta", "slug": "pelada-de-quinta", "visibility": "PUBLIC"})[0]
+# O dono entra como membro, como faz o servidor ao criar um grupo
+call("/rest/v1/group_members", {"group_id": group["id"], "user_id": ana, "role": "OWNER"})
+
+# Para e2e/groups-flow.yaml: grupo privado do Bruno, com um pedido de entrada da Carla
+private = call("/rest/v1/groups", {"owner_id": bruno, "name": "Clube fechado", "slug": "clube-fechado", "visibility": "PRIVATE", "city": "São Paulo"})[0]
+call("/rest/v1/group_members", {"group_id": private["id"], "user_id": bruno, "role": "OWNER"})
+call("/rest/v1/group_join_requests", {"group_id": private["id"], "user_id": carla, "status": "PENDING"})
+
 events = call(
     "/rest/v1/events",
     [

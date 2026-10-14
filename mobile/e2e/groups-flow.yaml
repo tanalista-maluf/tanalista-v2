@@ -1,0 +1,264 @@
+# Barra de abas, grupos e botão de compartilhar, de ponta a ponta.
+# Mesmos pré-requisitos e variáveis de main-flow.yaml. Usa os dados de
+# seed-local.py (Bruno, "Pelada de Quinta", "Clube fechado") com o banco
+# recém-criado: não rode depois de extras-flow.yaml, que troca a senha do Bruno.
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+- assertVisible: "Próximos eventos"
+
+# ── Barra de abas ────────────────────────────────────────────────────────────
+- tapOn:
+    id: "profile"
+- assertVisible: "Bruno Participante"
+- tapOn:
+    id: "tab-groups"
+- assertVisible: "Clube fechado.*"
+- takeScreenshot: 30-meus-grupos
+- tapOn:
+    id: "tab-events"
+- assertVisible: "Próximos eventos"
+# O evento tem botão de compartilhar
+- tapOn: "Futebol de quinta.*"
+- assertVisible:
+    id: "share"
+- takeScreenshot: 31-evento-compartilhar
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Próximos eventos"
+
+# ── Grupo público: buscar, entrar e sair ─────────────────────────────────────
+- tapOn:
+    id: "tab-groups"
+- tapOn:
+    id: "groups-discover"
+- assertVisible: "Pelada de Quinta.*1 membro.*"
+- tapOn:
+    id: "groups-search"
+- inputText: "nada disso"
+- pressKey: Enter
+- assertVisible:
+    id: "groups-empty"
+- tapOn:
+    id: "groups-search"
+- eraseText: 12
+- inputText: "pelada"
+- pressKey: Enter
+- tapOn: "Pelada de Quinta.*"
+- assertVisible:
+    id: "group-join"
+- assertVisible:
+    id: "share"
+- tapOn:
+    id: "group-join"
+- assertVisible:
+    id: "group-leave"
+- assertVisible: "2 membros"
+- scrollUntilVisible:
+    element: "Bruno Participante"
+- takeScreenshot: 32-grupo-publico
+- scrollUntilVisible:
+    element:
+      id: "group-leave"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "group-leave"
+- assertVisible: "Sair do grupo\\?"
+- tapOn: "Sim, sair"
+- assertVisible:
+    id: "groups-discover"
+
+# ── Grupo privado do Bruno: aprovar o pedido da Carla ────────────────────────
+- tapOn:
+    id: "groups-mine"
+- assertNotVisible: "Pelada de Quinta.*"
+- tapOn: "Clube fechado.*"
+- assertVisible:
+    id: "group-owner"
+- assertVisible:
+    id: "group-invite"
+- scrollUntilVisible:
+    element:
+      id: "request-approve-0"
+    centerElement: true
+- assertVisible: "Carla"
+- takeScreenshot: 33-pedido-de-entrada
+- tapOn:
+    id: "request-approve-0"
+- scrollUntilVisible:
+    element: "2 membros"
+    direction: UP
+- assertNotVisible: "Pedidos de entrada"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Criar grupo ──────────────────────────────────────────────────────────────
+- tapOn:
+    id: "group-new"
+- assertVisible: "Criar grupo"
+- tapOn:
+    id: "group-submit"
+- scrollUntilVisible:
+    element: "O nome precisa de ao menos 3 caracteres."
+- scrollUntilVisible:
+    element:
+      id: "group-name-input"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "group-name-input"
+- inputText: "Corrida de domingo"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "group-private"
+    centerElement: true
+- tapOn:
+    id: "group-private"
+- takeScreenshot: 34-criar-grupo
+- tapOn:
+    id: "group-submit"
+- assertVisible:
+    id: "group-owner"
+- assertVisible: "Corrida de domingo"
+- assertVisible: "1 membro"
+- assertVisible:
+    id: "group-invite"
+- takeScreenshot: 35-grupo-criado
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Corrida de domingo.*"
