@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { Calendar, CheckCircle2, Clock, Lock, MapPin, Users, X } from 'lucide-react-native'
+import { Calendar, CheckCircle2, Clock, Lock, MapPin, Share2, Users, X } from 'lucide-react-native'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -20,11 +20,13 @@ import {
 } from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
+import { shareLink } from '@/lib/share'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
 
 type EventDetail = {
   id: string
+  slug: string | null
   title: string
   description: string | null
   category: string | null
@@ -61,7 +63,7 @@ async function fetchEvent(eventId: string, userId: string) {
     supabase
       .from('events')
       .select(
-        'id, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, organizer_exempt, groups(name), profiles!events_organizer_id_fkey(full_name)'
+        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, organizer_exempt, groups(name), profiles!events_organizer_id_fkey(full_name)'
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -298,7 +300,21 @@ export default function EventScreen() {
 
   return (
     <Screen>
-      {header}
+      <Stack.Screen
+        options={{
+          title: '',
+          headerRight: () => (
+            <Pressable
+              testID="share"
+              accessibilityRole="button"
+              accessibilityLabel="Compartilhar evento"
+              onPress={() => shareLink(event.title, `/e/${event.slug ?? event.id}`)}
+              hitSlop={12}>
+              <Share2 size={22} color={colors.text70} />
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[styles.content, { paddingTop: 16 + headerInset }]}>

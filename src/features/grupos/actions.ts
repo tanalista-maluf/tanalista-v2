@@ -4,60 +4,15 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { slugify } from '@/lib/utils'
+import { createGroup, decideJoinRequest, generateUniqueSlug, joinGroup, leaveGroup } from './membership'
 import type { GroupSchema } from './schemas'
-
-async function generateUniqueSlug(supabase: Awaited<ReturnType<typeof createClient>>, name: string, excludeId?: string): Promise<string> {
-  const base = slugify(name) || 'grupo'
-  let candidate = base
-  let suffix = 2
-  while (true) {
-    let q = supabase.from('groups').select('id').eq('slug', candidate)
-    if (excludeId) q = q.neq('id', excludeId)
-    const { data } = await q.maybeSingle()
-    if (!data) return candidate
-    candidate = `${base}${suffix++}`
-  }
-}
 
 export async function createGroupAction(data: GroupSchema): Promise<{ error?: string; groupId?: string; slug?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const slug = await generateUniqueSlug(supabase, data.name)
-
-  // Cria o grupo
-  const { data: group, error: groupError } = await supabase
-    .from('groups')
-    .insert({
-      owner_id: user.id,
-      name: data.name,
-      slug,
-      description: data.description || null,
-      visibility: data.visibility,
-      category: data.category || null,
-      city: data.city,
-    })
-    .select('id, slug')
-    .single()
-
-  if (groupError || !group) {
-    return { error: 'Erro ao criar grupo. Tente novamente.' }
-  }
-
-  // Adiciona o criador como OWNER. Toda escrita em group_members passa pelo
-  // service_role: authenticated não tem INSERT/DELETE na tabela, senão qualquer
-  // usuário entraria em qualquer grupo, com o papel que quisesse.
-  const admin = createAdminClient()
-  await admin.from('group_members').insert({
-    group_id: group.id,
-    user_id: user.id,
-    role: 'OWNER',
-  })
-
-  revalidatePath('/grupos')
-  return { groupId: group.id, slug: group.slug ?? group.id }
+  return createGroup(supabase, user.id, data)
 }
 
 export async function updateGroupAction(groupId: string, data: GroupSchema) {
@@ -154,30 +109,7 @@ export async function joinGroupAction(groupId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verifica se o grupo é público
-  const { data: group } = await supabase
-    .from('groups')
-    .select('visibility')
-    .eq('id', groupId)
-    .single()
-
-  if (!group) return { error: 'Grupo não encontrado.' }
-  if (group.visibility === 'PRIVATE') return { error: 'Grupo privado. Solicite convite ao administrador.' }
-
-  const admin = createAdminClient()
-  const { error } = await admin.from('group_members').insert({
-    group_id: groupId,
-    user_id: user.id,
-    role: 'MEMBER',
-  })
-
-  if (error) {
-    if (error.code === '23505') return { error: 'Você já é membro deste grupo.' }
-    return { error: 'Erro ao entrar no grupo.' }
-  }
-
-  revalidatePath(`/grupos/${groupId}`)
-  return { success: true }
+  return joinGroup(supabase, user.id, groupId)
 }
 
 export async function leaveGroupAction(groupId: string) {
@@ -185,27 +117,8 @@ export async function leaveGroupAction(groupId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Dono não pode sair (precisa transferir ou excluir)
-  const { data: membership } = await supabase
-    .from('group_members')
-    .select('role')
-    .eq('group_id', groupId)
-    .eq('user_id', user.id)
-    .single()
-
-  if (membership?.role === 'OWNER') {
-    return { error: 'O dono do grupo não pode sair. Transfira a propriedade primeiro.' }
-  }
-
-  const admin = createAdminClient()
-  await admin
-    .from('group_members')
-    .delete()
-    .eq('group_id', groupId)
-    .eq('user_id', user.id)
-
-  revalidatePath(`/grupos/${groupId}`)
-  revalidatePath('/grupos')
+  const result = await leaveGroup(supabase, user.id, groupId)
+  if ('error' in result) return result
   redirect('/grupos')
 }
 
@@ -335,50 +248,7 @@ export async function approveGroupJoinRequest(requestId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-  const { data: req } = await admin
-    .from('group_join_requests')
-    .select('group_id, user_id, status')
-    .eq('id', requestId)
-    .maybeSingle()
-
-  if (!req) return { error: 'Solicitação não encontrada.' }
-
-  const { data: membership } = await supabase
-    .from('group_members')
-    .select('role')
-    .eq('group_id', req.group_id)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
-    return { error: 'Sem permissão.' }
-  }
-
-  await admin
-    .from('group_join_requests')
-    .update({ status: 'APPROVED', updated_at: new Date().toISOString() })
-    .eq('id', requestId)
-
-  const { error: memberError } = await admin
-    .from('group_members')
-    .upsert({ group_id: req.group_id, user_id: req.user_id, role: 'MEMBER' }, { onConflict: 'group_id,user_id' })
-
-  if (memberError) return { error: 'Erro ao adicionar membro.' }
-
-  const { data: group } = await admin.from('groups').select('name, slug').eq('id', req.group_id).maybeSingle()
-  await admin.from('notifications').insert({
-    user_id: req.user_id,
-    type: 'GROUP_JOIN_APPROVED',
-    title: 'Solicitação aprovada!',
-    body: `Sua solicitação para entrar em "${group?.name}" foi aprovada.`,
-    data: { group_id: req.group_id, group_slug: group?.slug },
-    read: false,
-  })
-
-  revalidatePath(`/grupos/${req.group_id}`)
-  revalidatePath(`/grupos/${group?.slug ?? req.group_id}/configuracoes`)
-  return { success: true }
+  return decideJoinRequest(supabase, user.id, requestId, 'APPROVED')
 }
 
 export async function rejectGroupJoinRequest(requestId: string) {
@@ -386,43 +256,7 @@ export async function rejectGroupJoinRequest(requestId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-  const { data: req } = await admin
-    .from('group_join_requests')
-    .select('group_id, user_id')
-    .eq('id', requestId)
-    .maybeSingle()
-
-  if (!req) return { error: 'Solicitação não encontrada.' }
-
-  const { data: membership } = await supabase
-    .from('group_members')
-    .select('role')
-    .eq('group_id', req.group_id)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!membership || !['OWNER', 'ADMIN'].includes(membership.role)) {
-    return { error: 'Sem permissão.' }
-  }
-
-  await admin
-    .from('group_join_requests')
-    .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
-    .eq('id', requestId)
-
-  const { data: group } = await admin.from('groups').select('name').eq('id', req.group_id).maybeSingle()
-  await admin.from('notifications').insert({
-    user_id: req.user_id,
-    type: 'GROUP_JOIN_REJECTED',
-    title: 'Solicitação recusada',
-    body: `Sua solicitação para entrar em "${group?.name}" foi recusada.`,
-    data: { group_id: req.group_id },
-    read: false,
-  })
-
-  revalidatePath(`/grupos/${req.group_id}`)
-  return { success: true }
+  return decideJoinRequest(supabase, user.id, requestId, 'REJECTED')
 }
 
 export async function transferGroupOwnershipAction(groupId: string, newOwnerUserId: string): Promise<{ error?: string }> {

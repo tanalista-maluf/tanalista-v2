@@ -51,14 +51,14 @@ appId: ${APP_ID}
       visible: "Continue"
     commands:
       - tapOn: "Continue"
-# tira o botão flutuante do Expo Go de cima do cabeçalho
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
 - runFlow:
     when:
       platform: iOS
     commands:
       - swipe:
           start: "89%, 10%"
-          end: "50%, 85%"
+          end: "92%, 62%"
           duration: 800
 - runFlow:
     when:
@@ -66,7 +66,7 @@ appId: ${APP_ID}
     commands:
       - swipe:
           start: "90%, 7%"
-          end: "50%, 85%"
+          end: "92%, 62%"
           duration: 800
 # Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
 - runFlow:

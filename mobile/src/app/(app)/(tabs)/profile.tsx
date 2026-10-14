@@ -1,15 +1,14 @@
-import { Stack } from 'expo-router'
 import { useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { deleteAccount } from '@/lib/api'
-import { useHeaderInset } from '@/lib/header'
+import { useTabHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
 export default function ProfileScreen() {
   const { session, profile, signOut, forgetSession } = useSession()
-  const headerInset = useHeaderInset()
+  const headerInset = useTabHeaderInset()
   const [deleting, setDeleting] = useState(false)
   const [problem, setProblem] = useState<{ message: string; blockers: string[] } | null>(null)
 
@@ -39,9 +38,8 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: 'Perfil' }} />
       <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}>
         <Card style={styles.card}>
           <Text testID="profile-name" style={styles.name}>
