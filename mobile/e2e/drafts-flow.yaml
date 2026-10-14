@@ -1,0 +1,228 @@
+# Rascunho com times: cria um evento de Futebol com 3 times, salva como
+# rascunho, publica pela lista de Rascunhos e confere os inscritos separados
+# por time na página do evento e no painel do organizador. Ana, banco
+# recém-criado, mesmas variáveis de main-flow.yaml.
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "ana@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+# O iOS pode perguntar se quer guardar a senha
+- extendedWaitUntil:
+    visible: "Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+
+# ── Criar rascunho com times ─────────────────────────────────────────────────
+- tapOn:
+    id: "tab-events"
+- tapOn:
+    id: "event-new"
+- assertVisible: "Criar evento"
+- tapOn:
+    id: "form-title"
+- inputText: "Torneio rascunho"
+- tapOn: "Informações básicas"
+- tapOn:
+    id: "form-category"
+- tapOn:
+    id: "form-category-option-1"
+- assertVisible: ".*Futebol.*"
+- scrollUntilVisible:
+    element: "Local"
+    centerElement: true
+- tapOn:
+    id: "form-address"
+- inputText: "Rua do Torneio 50"
+- tapOn: "Local"
+- scrollUntilVisible:
+    element:
+      id: "form-team-count"
+    centerElement: true
+- tapOn:
+    id: "form-team-count"
+- tapOn:
+    id: "form-team-count-option-2"
+- scrollUntilVisible:
+    element:
+      id: "form-team-name-2"
+    centerElement: true
+- assertVisible: ".*Time C.*"
+- takeScreenshot: 80-times
+- tapOn:
+    id: "form-save-draft"
+
+# ── Rascunhos ────────────────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible: "Rascunhos"
+    timeout: 15000
+- assertVisible: ".*Torneio rascunho.*"
+- takeScreenshot: 81-rascunhos
+# Continuar editando: os times voltam como foram salvos
+- tapOn:
+    id: "draft-0"
+- assertVisible: "Editar rascunho"
+- scrollUntilVisible:
+    element:
+      id: "form-team-name-2"
+    centerElement: true
+- assertVisible: ".*3 times.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- tapOn:
+    id: "draft-0-publish"
+- extendedWaitUntil:
+    visible:
+      id: "manage"
+    timeout: 15000
+
+# ── Inscritos por time ───────────────────────────────────────────────────────
+- runScript:
+    file: join-team.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- tapOn:
+    id: "manage"
+- scrollUntilVisible:
+    element: "Carla"
+    centerElement: true
+- assertVisible: "Time A"
+- assertVisible: "Time B"
+- assertVisible: "Ninguém neste time ainda."
+- takeScreenshot: 82-gerenciar-times
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# A página do evento recarrega ao voltar
+- scrollUntilVisible:
+    element:
+      id: "section-participants"
+    centerElement: true
+- tapOn:
+    id: "section-participants"
+- scrollUntilVisible:
+    element:
+      id: "participants-team-0"
+- assertVisible: ".*Carla.*"
+- takeScreenshot: 83-participantes-times

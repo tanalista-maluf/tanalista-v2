@@ -244,6 +244,15 @@ appId: ${APP_ID}
     id: "group-name-input"
 - inputText: "Corrida de domingo"
 - hideKeyboard
+# Categoria é obrigatória
+- scrollUntilVisible:
+    element:
+      id: "group-category"
+    centerElement: true
+- tapOn:
+    id: "group-category"
+- tapOn:
+    id: "group-category-option-0"
 - scrollUntilVisible:
     element:
       id: "group-private"

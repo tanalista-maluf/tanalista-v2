@@ -11,7 +11,7 @@ import { colors, fonts, radius } from '@/lib/theme'
 // Mesmas regras do site (src/features/perfil/profile.ts); o servidor confere de novo
 function validate(fullName: string, phone: string, city: string): string | null {
   if (fullName.length < 2) return 'Nome muito curto.'
-  if (!/^\d{10,11}$/.test(phone)) return 'WhatsApp inválido: DDD + número, só os dígitos.'
+  if (!/^\d{10,11}$/.test(phone)) return 'Telefone inválido: DDD + número, só os dígitos.'
   if (city.length < 2) return 'Informe a cidade.'
   return null
 }
@@ -105,7 +105,7 @@ export default function EditProfileScreen() {
           />
           <Field
             testID="edit-phone"
-            label="WhatsApp"
+            label="Telefone"
             placeholder="DDD + número"
             keyboardType="number-pad"
             value={phone}

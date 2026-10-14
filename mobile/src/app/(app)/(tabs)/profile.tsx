@@ -144,7 +144,7 @@ export default function ProfileScreen() {
               testID="go-edit-profile"
               icon={<UserRoundPen size={19} color={colors.primary} />}
               title="Dados pessoais"
-              detail="Nome, WhatsApp, cidade e bio"
+              detail="Nome, telefone, cidade e bio"
               onPress={() => router.push('/account/edit')}
             />
             <Row

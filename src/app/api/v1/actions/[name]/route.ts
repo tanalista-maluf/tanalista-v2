@@ -9,6 +9,7 @@ import {
   cancelEventAction,
   createEventAction,
   publishEventAction,
+  deleteDraftEventAction,
   regenerateEventInviteAction,
   rejectEventJoinRequest,
   sendEventBroadcastAction,
@@ -17,6 +18,7 @@ import {
   uploadEventCoverAction,
 } from '@/features/eventos/actions'
 import { checkInAction } from '@/features/eventos/actions-checkin'
+import { purgeCancelledEvents } from '@/features/admin/cleanup'
 import { getOrganizerEventData } from '@/features/eventos/organizer'
 import { removeParticipantAction } from '@/features/participacoes/actions'
 import {
@@ -84,6 +86,7 @@ const HANDLERS: Record<string, Handler> = {
   createEvent: ([data]) => createEventAction(data as never),
   updateEvent: ([eventId, data]) => updateEventAction(text(eventId), data as never),
   publishEvent: ([eventId]) => publishEventAction(text(eventId)),
+  deleteDraftEvent: ([eventId]) => deleteDraftEventAction(text(eventId)),
   cancelEvent: ([eventId, reason]) => cancelEventAction(text(eventId), optionalText(reason)),
   updateEventRules: ([eventId, rules]) => updateEventRulesAction(text(eventId), text(rules)),
   uploadEventCover: ([eventId, file]) => uploadEventCoverAction(formWithFile({ eventId: text(eventId) }, 'cover', file)),
@@ -130,6 +133,7 @@ const HANDLERS: Record<string, Handler> = {
   adminWithdrawals: adminOnly(() => listAdminWithdrawals()),
   adminUsers: adminOnly(([q]) => listAdminUsers(optionalText(q))),
   adminEvents: adminOnly(([q, status]) => listAdminEvents(optionalText(q), optionalText(status))),
+  adminPurgeCancelledEvents: adminOnly(() => purgeCancelledEvents()),
   adminGroups: adminOnly(() => listAdminGroups()),
   adminCoupons: adminOnly(() => listAdminCoupons()),
   adminCreateCoupon: adminOnly(([input]) => createCouponAction(input)),

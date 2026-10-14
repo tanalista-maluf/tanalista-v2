@@ -2,6 +2,7 @@ import { router, useFocusEffect } from 'expo-router'
 import { Link2, Plus, Search, UsersRound } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Dropdown } from '@/components/dropdown'
 import { GroupCard, type GroupCardData } from '@/components/group-card'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
@@ -36,7 +37,9 @@ async function fetchMyGroups(userId: string): Promise<ListedGroup[]> {
 const CATEGORIES = ['Esportes', 'Gastronomia', 'Viagens', 'Música', 'Cinema', 'Teatro', 'Arte', 'Tecnologia', 'Negócios', 'Saúde', 'Educação', 'Outros']
 
 // Grupos públicos, dos maiores para os menores; a RLS já esconde os privados de quem não é membro
-async function fetchPublicGroups(search: string, category: string | null): Promise<ListedGroup[]> {
+type Filter = { search: string; category: string | null; city: string | null }
+
+async function fetchPublicGroups({ search, category, city }: Filter): Promise<ListedGroup[]> {
   let query = supabase
     .from('groups')
     .select(GROUP_COLUMNS)
@@ -49,10 +52,18 @@ async function fetchPublicGroups(search: string, category: string | null): Promi
   const term = search.trim().replace(/[%_,()]/g, ' ')
   if (term) query = query.ilike('name', `%${term}%`)
   if (category) query = query.eq('category', category)
+  if (city) query = query.eq('city', city)
 
   const { data, error } = await query
   if (error) throw error
   return data ?? []
+}
+
+// Cidades com algum grupo público, para o filtro
+async function fetchGroupCities(): Promise<string[]> {
+  const { data } = await supabase.from('groups').select('city').eq('visibility', 'PUBLIC').limit(1000)
+  const cities = new Set((data ?? []).map((row) => row.city?.trim()).filter((city): city is string => !!city))
+  return [...cities].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }
 
 export default function GroupsScreen() {
@@ -63,6 +74,8 @@ export default function GroupsScreen() {
   const [groups, setGroups] = useState<Partial<Record<Tab, ListedGroup[]>>>({})
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
+  const [city, setCity] = useState<string | null>(null)
+  const [cities, setCities] = useState<string[]>([])
   const [inviteOpen, setInviteOpen] = useState(false)
   const [invite, setInvite] = useState('')
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -71,9 +84,9 @@ export default function GroupsScreen() {
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(
-    async (which: Tab, term: string, chosen: string | null) => {
+    async (which: Tab, filter: Filter) => {
       try {
-        const data = which === 'mine' ? await fetchMyGroups(userId) : await fetchPublicGroups(term, chosen)
+        const data = which === 'mine' ? await fetchMyGroups(userId) : await fetchPublicGroups(filter)
         setGroups((current) => ({ ...current, [which]: data }))
         setError(false)
       } catch {
@@ -84,17 +97,23 @@ export default function GroupsScreen() {
   )
 
   // Recarrega também ao voltar da página de um grupo: a pessoa pode ter entrado ou saído.
-  // A busca só vale ao enviar o campo, não a cada letra.
+  // Os filtros valem ao escolher; a busca, só ao enviar o campo, não a cada letra.
   useFocusEffect(
     useCallback(() => {
-      load(tab, search, category)
+      load(tab, { search, category, city })
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [load, tab, category])
+    }, [load, tab, category, city])
+  )
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchGroupCities().then(setCities)
+    }, [])
   )
 
   async function handleRefresh() {
     setRefreshing(true)
-    await load(tab, search, category)
+    await Promise.all([load(tab, { search, category, city }), fetchGroupCities().then(setCities)])
     setRefreshing(false)
   }
 
@@ -157,7 +176,7 @@ export default function GroupsScreen() {
                   testID="groups-search"
                   value={search}
                   onChangeText={setSearch}
-                  onSubmitEditing={() => load('discover', search, category)}
+                  onSubmitEditing={() => load('discover', { search, category, city })}
                   placeholder="Buscar grupo pelo nome"
                   placeholderTextColor={colors.text35}
                   selectionColor={colors.primary}
@@ -213,21 +232,25 @@ export default function GroupsScreen() {
               </>
             )}
             {tab === 'discover' && (
-              <View style={styles.categories}>
-                {CATEGORIES.map((item, index) => {
-                  const selected = item === category
-                  return (
-                    <Pressable
-                      key={item}
-                      testID={`group-category-${index}`}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      onPress={() => setCategory(selected ? null : item)}
-                      style={[styles.chip, selected && styles.chipSelected]}>
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item}</Text>
-                    </Pressable>
-                  )
-                })}
+              <View style={styles.filters}>
+                <Dropdown
+                  testID="group-filter-category"
+                  placeholder="Categoria"
+                  allLabel="Todas as categorias"
+                  options={CATEGORIES.map((item) => ({ key: item, label: item }))}
+                  selected={category}
+                  onSelect={setCategory}
+                  style={styles.flex}
+                />
+                <Dropdown
+                  testID="group-filter-city"
+                  placeholder="Cidade"
+                  allLabel="Todas as cidades"
+                  options={cities.map((item) => ({ key: item, label: item }))}
+                  selected={city}
+                  onSelect={setCity}
+                  style={styles.flex}
+                />
               </View>
             )}
           </View>
@@ -321,19 +344,8 @@ const styles = StyleSheet.create({
   inviteLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 36 },
   inviteLinkText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
   inviteError: { fontFamily: fonts.body, fontSize: 13, color: colors.destructive, textAlign: 'center' },
-  categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    minHeight: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 13,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
-  },
-  chipSelected: { borderColor: 'rgba(74,222,128,0.45)', backgroundColor: 'rgba(74,222,128,0.1)' },
-  chipText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.text70 },
-  chipTextSelected: { color: colors.primary },
+  filters: { flexDirection: 'row', gap: 8 },
+  flex: { flex: 1 },
   loading: { marginTop: 64 },
   empty: { alignItems: 'center', gap: 12, marginTop: 64, paddingHorizontal: 24 },
   emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, textAlign: 'center' },

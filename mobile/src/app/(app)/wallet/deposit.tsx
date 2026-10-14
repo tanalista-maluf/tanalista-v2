@@ -1,13 +1,13 @@
 import * as Clipboard from 'expo-clipboard'
 import { router, Stack } from 'expo-router'
-import { CheckCheck, Copy } from 'lucide-react-native'
+import { CheckCheck, Copy, CreditCard, QrCode, TriangleAlert } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Button, Card, Field, Screen } from '@/components/ui'
 import { createDeposit, fetchWalletBalance, type PixPayment } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
-import { parseMoney } from '@/lib/money'
+import { cardDepositCredit, parseMoney } from '@/lib/money'
 import { colors, fonts, radius } from '@/lib/theme'
 
 const POLL_INTERVAL = 3000
@@ -16,10 +16,13 @@ const QUICK_AMOUNTS = [2000, 5000, 10000]
 const MIN_CENTS = 1000
 const MAX_CENTS = 500000
 
-// Recarga da carteira por PIX: o saldo entra quando o Mercado Pago confirma o pagamento
+// Recarga da carteira por PIX ou cartão. No PIX o saldo entra quando o Mercado
+// Pago confirma o pagamento; no cartão, a taxa (3% à vista, 5% parcelado) sai
+// do valor creditado e o pagamento segue em /wallet/card.
 export default function DepositScreen() {
   const headerInset = useHeaderInset()
   const [amountText, setAmountText] = useState('')
+  const [method, setMethod] = useState<'PIX' | 'CARD'>('PIX')
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [pix, setPix] = useState<{ payment: PixPayment; amount: number; startBalance: number } | null>(null)
@@ -34,6 +37,11 @@ export default function DepositScreen() {
     }
     if (amount > MAX_CENTS) {
       setError(`Valor máximo por recarga: ${formatMoney(MAX_CENTS)}.`)
+      return
+    }
+    if (method === 'CARD') {
+      setError(null)
+      router.push({ pathname: '/wallet/card', params: { amount: String(amount) } })
       return
     }
     setCreating(true)
@@ -147,12 +155,37 @@ export default function DepositScreen() {
               <Text style={styles.hint}>
                 Mínimo de {formatMoney(MIN_CENTS)} e máximo de {formatMoney(MAX_CENTS)} por recarga.
               </Text>
+              <Text style={styles.label}>Forma de pagamento</Text>
+              <View style={styles.methods}>
+                <MethodOption
+                  testID="deposit-method-pix"
+                  selected={method === 'PIX'}
+                  onPress={() => setMethod('PIX')}
+                  icon={<QrCode size={20} color={method === 'PIX' ? colors.primary : colors.text50} />}
+                  title="PIX"
+                  detail="Sem taxa: o valor entra inteiro"
+                />
+                <MethodOption
+                  testID="deposit-method-card"
+                  selected={method === 'CARD'}
+                  onPress={() => setMethod('CARD')}
+                  icon={<CreditCard size={20} color={method === 'CARD' ? colors.primary : colors.text50} />}
+                  title="Cartão de crédito"
+                  detail="À vista ou parcelado"
+                />
+              </View>
+              {method === 'CARD' && <CardFeeNotice amount={parseMoney(amountText)} />}
               {error && (
                 <Text testID="deposit-error" style={styles.error}>
                   {error}
                 </Text>
               )}
-              <Button testID="deposit-submit" label="Gerar PIX" onPress={handleCreate} loading={creating} />
+              <Button
+                testID="deposit-submit"
+                label={method === 'CARD' ? 'Continuar para o cartão' : 'Gerar PIX'}
+                onPress={handleCreate}
+                loading={creating}
+              />
             </>
           )}
         </ScrollView>
@@ -161,7 +194,75 @@ export default function DepositScreen() {
   )
 }
 
+function MethodOption(props: {
+  testID: string
+  selected: boolean
+  onPress: () => void
+  icon: React.ReactNode
+  title: string
+  detail: string
+}) {
+  return (
+    <Pressable
+      testID={props.testID}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: props.selected }}
+      onPress={props.onPress}
+      style={[styles.method, props.selected && styles.methodSelected]}>
+      {props.icon}
+      <View style={styles.flex}>
+        <Text style={styles.methodTitle}>{props.title}</Text>
+        <Text style={styles.methodDetail}>{props.detail}</Text>
+      </View>
+    </Pressable>
+  )
+}
+
+// Aviso da taxa do cartão, com quanto entra na carteira em cada caso
+function CardFeeNotice({ amount }: { amount: number | null }) {
+  const valid = !!amount && amount >= MIN_CENTS && amount <= MAX_CENTS
+  return (
+    <View testID="deposit-card-fee" style={styles.notice}>
+      <TriangleAlert size={18} color={colors.warning} />
+      <View style={styles.flex}>
+        <Text style={styles.noticeTitle}>Taxa do cartão: 3% à vista e 5% parcelado</Text>
+        <Text style={styles.noticeText}>
+          A taxa é descontada do valor creditado.
+          {valid
+            ? ` Recarregando ${formatMoney(amount)}, entram ${formatMoney(cardDepositCredit(amount, 1))} à vista ou ${formatMoney(cardDepositCredit(amount, 2))} parcelado.`
+            : ''}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
+  methods: { gap: 8 },
+  method: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+  },
+  methodSelected: { borderColor: 'rgba(74,222,128,0.45)', backgroundColor: 'rgba(74,222,128,0.08)' },
+  methodTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
+  methodDetail: { fontFamily: fonts.body, fontSize: 12, color: colors.text50 },
+  notice: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.25)',
+    backgroundColor: 'rgba(250,204,21,0.06)',
+  },
+  noticeTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.warning },
+  noticeText: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.text70, marginTop: 2 },
   flex: { flex: 1 },
   content: { padding: 16, gap: 16, paddingBottom: 32 },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },

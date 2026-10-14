@@ -4,7 +4,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from '@/components/avatar'
 import { EventCard, type EventCardBadge, type EventCardData } from '@/components/event-card'
-import { Card, Screen } from '@/components/ui'
+import { Button, Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { fetchHome, fetchWalletBalance, type GroupActivity } from '@/lib/api'
 import { formatMoney, formatRelative } from '@/lib/format'
@@ -117,6 +117,14 @@ export default function HomeScreen() {
               {formatMoney(data.balance)}
             </Text>
             <Text style={styles.balanceHint}>Vale como pagamento nas inscrições.</Text>
+            {data.balance === 0 && (
+              <Button
+                testID="home-deposit"
+                label="Adicionar fundos"
+                onPress={() => router.push('/wallet/deposit')}
+                style={styles.deposit}
+              />
+            )}
           </Card>
         )}
 
@@ -191,7 +199,7 @@ function ActivityRow({ item, divider }: { item: GroupActivity; divider: boolean 
       <View style={styles.activityBody}>
         <Text style={styles.activityText}>
           <Text style={styles.activityStrong}>{item.userName}</Text> se inscreveu em{' '}
-          <Text style={styles.activityStrong}>{item.eventTitle}</Text>
+          <Text style={styles.activityEvent}>{item.eventTitle}</Text>
         </Text>
         <Text style={styles.activityMeta}>
           {item.groupName ? `${item.groupName} · ` : ''}
@@ -234,6 +242,7 @@ const styles = StyleSheet.create({
   balance: { padding: 18, gap: 4 },
   balanceValue: { fontFamily: fonts.headingBlack, fontSize: 28, color: colors.primary },
   balanceHint: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
+  deposit: { marginTop: 12 },
   section: { gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
@@ -246,6 +255,8 @@ const styles = StyleSheet.create({
   activityBody: { flex: 1, gap: 2 },
   activityText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19, color: colors.text70 },
   activityStrong: { fontFamily: fonts.bodySemi, color: colors.text },
+  // Mesmo tom do valor do saldo
+  activityEvent: { fontFamily: fonts.bodySemi, color: colors.primary },
   activityMeta: { fontFamily: fonts.body, fontSize: 12, color: colors.text50 },
   shortcut: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
   shortcutTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },

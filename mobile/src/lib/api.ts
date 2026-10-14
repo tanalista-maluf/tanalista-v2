@@ -76,6 +76,7 @@ export type CardToken = {
   payment_method_id: string
   issuer_id?: string | number
   identification?: { type?: string; number?: string }
+  installments?: number
 }
 
 // Cobra a inscrição pendente no cartão. O token vem do formulário do Mercado
@@ -188,6 +189,38 @@ export function updateProfile(data: { full_name: string; phone: string; city: st
 }
 
 // Envia a foto de perfil escolhida no aparelho (JPG, PNG ou WebP de até 2MB), em base64
+// Foto de anúncio (até 4MB): o servidor autoriza e devolve um link de envio
+// assinado; a foto vai direto para o Storage, sem passar pela Vercel (que
+// limita o corpo a 4,5MB). Devolve o endereço, enviado depois com o anúncio.
+export async function uploadListingPhoto(image: { base64: string; mimeType: string }) {
+  const binary = atob(image.base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+
+  // O tipo vem dos primeiros bytes: o seletor às vezes informa image/jpg ou HEIC
+  // para uma foto que já foi convertida em JPEG
+  const mimeType =
+    bytes[0] === 0xff && bytes[1] === 0xd8
+      ? 'image/jpeg'
+      : bytes[0] === 0x89 && bytes[1] === 0x50
+        ? 'image/png'
+        : binary.slice(8, 12) === 'WEBP'
+          ? 'image/webp'
+          : image.mimeType
+
+  const slot = await apiPost<{ path: string; token: string; url: string } | { error: string }>('/api/v1/listing-photos', {
+    mimeType,
+    size: bytes.length,
+  })
+  if ('error' in slot) return slot
+
+  const { error } = await supabase.storage
+    .from('listing-photos')
+    .uploadToSignedUrl(slot.path, slot.token, bytes, { contentType: mimeType })
+  if (error) return { error: 'Não foi possível enviar a foto. Tente de novo.' }
+  return { url: slot.url }
+}
+
 export function uploadAvatar(image: { base64: string; mimeType: string }) {
   return apiPost<{ avatarUrl: string } | { error: string }>('/api/v1/me/avatar', {
     image: image.base64,
@@ -328,6 +361,14 @@ export function requestWithdrawal(data: {
 // Gera o PIX de recarga; o saldo entra quando o pagamento é confirmado
 export function createDeposit(amountCents: number) {
   return apiPost<PixPayment | { error: string }>('/api/v1/me/wallet/deposit', { amount_cents: amountCents })
+}
+
+// Recarga com cartão: o crédito é o valor menos a taxa (3% à vista, 5% parcelado)
+export function createCardDeposit(amountCents: number, card: CardToken) {
+  return apiPost<{ status: 'approved' | 'in_process'; credited: number } | { error: string }>(
+    '/api/v1/me/wallet/deposit/card',
+    { amount_cents: amountCents, card }
+  )
 }
 
 // Cupom de crédito da plataforma: o valor vira saldo na carteira

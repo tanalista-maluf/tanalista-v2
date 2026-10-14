@@ -2,6 +2,7 @@ import { router, Stack } from 'expo-router'
 import { Globe, Lock } from 'lucide-react-native'
 import { useState, type ReactNode } from 'react'
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Dropdown } from '@/components/dropdown'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Field, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
@@ -31,6 +32,7 @@ function validate(data: GroupInput): string | null {
   if (data.name.length > 80) return 'O nome pode ter no máximo 80 caracteres.'
   if (data.description.length > 500) return 'A descrição pode ter no máximo 500 caracteres.'
   if (data.city.length < 2) return 'Informe a cidade.'
+  if (!data.category) return 'Escolha a categoria.'
   return null
 }
 
@@ -102,22 +104,16 @@ export default function NewGroupScreen() {
           />
 
           <View style={styles.block}>
-            <Text style={styles.label}>Categoria (opcional)</Text>
-            <View style={styles.chips}>
-              {CATEGORIES.map((item) => {
-                const selected = item === category
-                return (
-                  <Pressable
-                    key={item}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => setCategory(selected ? '' : item)}
-                    style={[styles.chip, selected && styles.chipSelected]}>
-                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item}</Text>
-                  </Pressable>
-                )
-              })}
-            </View>
+            <Text style={styles.label}>Categoria</Text>
+            <Dropdown
+              testID="group-category"
+              placeholder="Escolha a categoria"
+              allLabel="Escolha a categoria"
+              hideAll
+              options={CATEGORIES.map((item) => ({ key: item, label: item }))}
+              selected={category || null}
+              onSelect={(value) => setCategory(value ?? '')}
+            />
           </View>
 
           <View style={styles.block}>

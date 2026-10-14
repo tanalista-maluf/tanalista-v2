@@ -1,5 +1,5 @@
 import { router, Stack } from 'expo-router'
-import { Search } from 'lucide-react-native'
+import { Search, Trash2 } from 'lucide-react-native'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { Badge, Button, Card, Screen } from '@/components/ui'
@@ -83,6 +83,35 @@ export default function AdminScreen() {
           style: confirm ? 'default' : 'destructive',
           onPress: () =>
             act(confirm ? 'adminConfirmWithdrawal' : 'adminCancelWithdrawal', [id], confirm ? 'Saque marcado como pago.' : 'Saque cancelado.'),
+        },
+      ]
+    )
+  }
+
+  function purgeCancelled() {
+    Alert.alert(
+      'Limpar eventos cancelados?',
+      'Apaga de vez os cancelados que nunca tiveram inscrição. Os que tiveram ficam, porque guardam pagamentos e estornos.',
+      [
+        { text: 'Voltar', style: 'cancel' },
+        {
+          text: 'Limpar',
+          style: 'destructive',
+          onPress: async () => {
+            setMessage(null)
+            const result = await runAction<{ removed: number; kept: number }>('adminPurgeCancelledEvents')
+            if ('error' in result) setMessage({ ok: false, text: result.error })
+            else if ('ok' in result) {
+              const { removed, kept } = result.ok
+              setMessage({
+                ok: true,
+                text:
+                  `${removed} ${removed === 1 ? 'evento removido' : 'eventos removidos'}.` +
+                  (kept > 0 ? ` ${kept} ${kept === 1 ? 'ficou' : 'ficaram'} por ter inscrições.` : ''),
+              })
+            }
+            await load(section, query)
+          },
         },
       ]
     )
@@ -234,6 +263,14 @@ export default function AdminScreen() {
           </Block>
         ) : section === 'events' ? (
           <Block title={`Eventos (${data.total})`}>
+            <Pressable
+              testID="admin-purge-cancelled"
+              accessibilityRole="button"
+              onPress={purgeCancelled}
+              style={({ pressed }) => [styles.purge, pressed && styles.dim]}>
+              <Trash2 size={16} color={colors.destructive} />
+              <Text style={styles.purgeText}>Limpar eventos cancelados</Text>
+            </Pressable>
             {data.events.map((event: Data) => (
               <Row
                 key={event.id}
@@ -347,6 +384,9 @@ function Row(props: { title: string; detail?: string; onPress?: () => void; chil
 }
 
 const styles = StyleSheet.create({
+  purge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  dim: { opacity: 0.6 },
+  purgeText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.destructive },
   flex: { flex: 1 },
   content: { padding: 16, gap: 14, paddingBottom: 32 },
   loading: { marginTop: 48 },

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendWithdrawalRequestAdmin } from '@/lib/emails'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
+import { isCardPaymentEnabled, REJECTION_MESSAGES, type CardPaymentInput } from '@/features/participacoes/card-payment'
 import type { Json } from '@/types/database'
 
 // Regras da carteira, sem nada de transporte: usadas pelas server actions e
@@ -192,6 +193,163 @@ export async function createDeposit(user: WalletUser, amountCents: unknown): Pro
     console.error('[DEPOSITO] Error:', error)
     return { error: error.message ?? 'Erro ao criar PIX de recarga', httpStatus: 500 }
   }
+}
+
+// ── Recarga por cartão ───────────────────────────────────────────────────────
+// A taxa do cartão sai do valor creditado: quem recarrega R$ 100,00 à vista
+// recebe R$ 97,00 de saldo; parcelado, R$ 95,00
+
+export const CARD_DEPOSIT_FEE = { single: 0.03, installments: 0.05 }
+
+export function cardDepositFee(amountCents: number, installments: number) {
+  return Math.round(amountCents * (installments > 1 ? CARD_DEPOSIT_FEE.installments : CARD_DEPOSIT_FEE.single))
+}
+
+export type CardDepositResult =
+  | { error: string; httpStatus: 400 | 402 | 500 }
+  | { status: 'approved' | 'in_process'; credited: number }
+
+export async function createCardDeposit(
+  user: WalletUser,
+  amountCents: unknown,
+  card: CardPaymentInput
+): Promise<CardDepositResult> {
+  if (!isCardPaymentEnabled()) return { error: 'Pagamento com cartão indisponível.', httpStatus: 400 }
+  if (typeof amountCents !== 'number' || !Number.isInteger(amountCents)) {
+    return { error: 'Informe o valor da recarga.', httpStatus: 400 }
+  }
+  if (amountCents < MIN_DEPOSIT_CENTS || amountCents > MAX_DEPOSIT_CENTS) {
+    return { error: 'Valor fora dos limites de recarga.', httpStatus: 400 }
+  }
+
+  const installments = card.installments ?? 1
+  const fee = cardDepositFee(amountCents, installments)
+  const admin = createAdminClient()
+
+  // Mesma marcação da recarga por PIX: o valor cobrado fica na transação
+  // pendente, e o crédito (valor menos a taxa) sai em confirmWalletDeposit
+  const { data: pendingTx } = await admin
+    .from('wallet_transactions')
+    .insert({
+      user_id: user.id,
+      type: 'DEPOSIT',
+      amount: amountCents,
+      balance_after: 0,
+      description: 'Recarga de carteira — aguardando pagamento com cartão',
+    })
+    .select('id')
+    .single()
+  if (!pendingTx) return { error: 'Erro ao iniciar a recarga.', httpStatus: 500 }
+
+  let charge: { id?: number | string; status?: string; status_detail?: string }
+  try {
+    if (useStub) {
+      const id = `stub-card-deposit-${pendingTx.id}`
+      charge =
+        card.token === 'stub-rejected'
+          ? { id, status: 'rejected', status_detail: 'cc_rejected_insufficient_amount' }
+          : { id, status: 'approved', status_detail: 'accredited' }
+    } else {
+      charge = await new Payment(getPlatformMPClient()).create({
+        body: {
+          transaction_amount: amountCents / 100,
+          description: 'Recarga da carteira TáNaLista',
+          token: card.token,
+          installments,
+          payment_method_id: card.payment_method_id,
+          ...(card.issuer_id && { issuer_id: Number(card.issuer_id) }),
+          payer: {
+            email: user.email!,
+            ...(card.identification?.number && {
+              identification: { type: card.identification.type ?? 'CPF', number: card.identification.number },
+            }),
+          },
+          external_reference: `deposit:${user.id}:${pendingTx.id}`,
+          notification_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/mercadopago`,
+        },
+        requestOptions: { idempotencyKey: `card-deposit-${pendingTx.id}` },
+      })
+    }
+  } catch (err) {
+    console.error('[DEPOSITO] card error:', err)
+    await admin.from('wallet_transactions').delete().eq('id', pendingTx.id)
+    return { error: 'Não foi possível processar o cartão. Tente novamente.', httpStatus: 500 }
+  }
+
+  const status = charge.status === 'approved' ? 'APPROVED' : charge.status === 'rejected' ? 'REJECTED' : 'PENDING'
+
+  // platform_fee guarda a taxa: é o que confirmWalletDeposit desconta do crédito
+  await admin.from('payments').insert({
+    wallet_transaction_id: pendingTx.id,
+    payer_id: user.id,
+    amount: amountCents,
+    platform_fee: fee,
+    gateway_fee: 0,
+    method: 'CREDIT_CARD',
+    status,
+    gateway_transaction_id: String(charge.id),
+    gateway_response: charge as unknown as Json,
+  })
+
+  if (status === 'REJECTED') {
+    await admin.from('wallet_transactions').delete().eq('id', pendingTx.id)
+    const reason = REJECTION_MESSAGES[charge.status_detail ?? ''] ?? 'Use outro cartão ou recarregue por PIX.'
+    return { error: `Pagamento recusado. ${reason}`, httpStatus: 402 }
+  }
+
+  // Em análise: o webhook credita quando o Mercado Pago aprovar
+  if (status === 'PENDING') return { status: 'in_process', credited: amountCents - fee }
+
+  await confirmWalletDeposit(user.id, pendingTx.id, amountCents)
+  return { status: 'approved', credited: amountCents - fee }
+}
+
+// Credita uma recarga aprovada (PIX ou cartão), a partir da transação
+// pendente: o valor pago menos a taxa registrada no pagamento (zero no PIX).
+// Chamada pelo webhook e pela recarga com cartão aprovada na hora; a transação
+// pendente some, então uma segunda chamada não credita de novo.
+export async function confirmWalletDeposit(userId: string, txId: string, paidCents: number) {
+  const admin = createAdminClient()
+
+  const { data: pendingTx } = await admin
+    .from('wallet_transactions')
+    .select('amount')
+    .eq('id', txId)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!pendingTx) {
+    console.warn(`[DEPOSITO] tx ${txId} not found or already processed`)
+    return false
+  }
+
+  // Valida contra o valor registrado (evita creditar valor manipulado)
+  if (Math.abs(paidCents - pendingTx.amount) > 1) {
+    console.error(`[DEPOSITO] amount mismatch: paid=${paidCents} DB=${pendingTx.amount} — aborting`)
+    return false
+  }
+
+  const { data: payment } = await admin
+    .from('payments')
+    .select('method, platform_fee')
+    .eq('wallet_transaction_id', txId)
+    .maybeSingle()
+  const fee = payment?.platform_fee ?? 0
+  const byCard = payment?.method === 'CREDIT_CARD'
+
+  // Some antes de creditar: duas confirmações simultâneas não creditam duas vezes
+  const { data: removed } = await admin.from('wallet_transactions').delete().eq('id', txId).select('id')
+  if (!removed?.length) return false
+
+  await admin.rpc('wallet_credit', {
+    p_user_id: userId,
+    p_amount: pendingTx.amount - fee,
+    p_type: 'DEPOSIT',
+    p_description: byCard
+      ? `Recarga de carteira via cartão (taxa de R$ ${(fee / 100).toFixed(2).replace('.', ',')})`
+      : 'Recarga de carteira via PIX',
+  })
+  return true
 }
 
 // ── Cupom de crédito ─────────────────────────────────────────────────────────

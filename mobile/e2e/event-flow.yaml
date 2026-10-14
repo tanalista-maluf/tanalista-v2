@@ -134,12 +134,28 @@ appId: ${APP_ID}
 - pressKey: Enter
 - assertVisible: "Futebol de quinta.*"
 - tapOn:
-    id: "category-0"
+    id: "filter-category"
+- tapOn:
+    id: "filter-category-option-1"
 - assertVisible: "Futebol de quinta.*"
 - assertNotVisible: "Racha lotado.*"
 - takeScreenshot: 51-filtro-categoria
 - tapOn:
-    id: "category-0"
+    id: "filter-category"
+- tapOn:
+    id: "filter-category-option-0"
+- assertVisible: "Racha lotado.*"
+# Próximos 7 dias: o futebol (daqui a 2 dias) fica, o racha (8 dias) sai
+- tapOn:
+    id: "filter-date"
+- tapOn:
+    id: "filter-date-option-4"
+- assertVisible: "Futebol de quinta.*"
+- assertNotVisible: "Racha lotado.*"
+- tapOn:
+    id: "filter-date"
+- tapOn:
+    id: "filter-date-option-0"
 - assertVisible: "Racha lotado.*"
 
 # ── Página do evento ─────────────────────────────────────────────────────────

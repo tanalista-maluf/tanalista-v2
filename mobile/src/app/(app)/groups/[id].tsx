@@ -2,6 +2,7 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { CalendarPlus, Flag, Link2, Lock, LogOut, MapPin, Settings2, Share2, ShoppingBag, Users } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { headerActions } from '@/components/header-actions'
 import { EventCard, type EventCardData } from '@/components/event-card'
 import { GroupAvatar, memberLabel } from '@/components/group-card'
 import { Badge, Button, Card, Screen } from '@/components/ui'
@@ -192,28 +193,24 @@ export default function GroupScreen() {
       <Stack.Screen
         options={{
           title: '',
-          headerRight: () => (
-            <View style={styles.headerActions}>
-              {role === 'OWNER' && (
-                <Pressable
-                  testID="group-settings"
-                  accessibilityRole="button"
-                  accessibilityLabel="Configurações do grupo"
-                  onPress={() => router.push({ pathname: '/groups/settings/[id]', params: { id } })}
-                  hitSlop={12}>
-                  <Settings2 size={22} color={colors.text70} />
-                </Pressable>
-              )}
-              <Pressable
-                testID="share"
-                accessibilityRole="button"
-                accessibilityLabel="Compartilhar grupo"
-                onPress={() => shareLink(group.name, `/g/${group.slug ?? group.id}`)}
-                hitSlop={12}>
-                <Share2 size={22} color={colors.text70} />
-              </Pressable>
-            </View>
-          ),
+          ...headerActions([
+            ...(isOwner
+              ? [
+                  {
+                    testID: 'group-settings',
+                    label: 'Configurações do grupo',
+                    icon: <Settings2 size={20} color={colors.text70} />,
+                    onPress: () => router.push({ pathname: '/groups/settings/[id]', params: { id } }),
+                  },
+                ]
+              : []),
+            {
+              testID: 'share',
+              label: 'Compartilhar grupo',
+              icon: <Share2 size={20} color={colors.text70} />,
+              onPress: () => shareLink(group.name, `/g/${group.slug ?? group.id}`),
+            },
+          ]),
         }}
       />
       <ScrollView
@@ -457,7 +454,6 @@ const styles = StyleSheet.create({
   inviteText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
   dim: { opacity: 0.6 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   market: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -16,6 +16,8 @@ export const cardPaymentSchema = z.object({
   issuer_id: z.union([z.string().max(20), z.number()]).optional(),
   // CPF do titular, quando o formulário coleta
   identification: z.object({ type: z.string().max(10).optional(), number: z.string().max(20).optional() }).optional(),
+  // Parcelas escolhidas no formulário (inscrição é sempre à vista; recarga aceita parcelar)
+  installments: z.number().int().min(1).max(12).optional(),
 })
 
 export type CardPaymentInput = z.infer<typeof cardPaymentSchema>
@@ -35,6 +37,8 @@ const useStub = process.env.NODE_ENV !== 'production' && process.env.MERCADOPAGO
 export function isCardPaymentEnabled() {
   return useStub || !!getCardPublicKey()
 }
+
+export { REJECTION_MESSAGES }
 
 export const OPEN_PAYMENT_ERROR = 'Esta inscrição já tem um pagamento em andamento.'
 
