@@ -12,6 +12,7 @@ export type CardFormData = {
   payment_method_id: string
   issuer_id?: string | number
   identification?: { type?: string; number?: string }
+  installments?: number
 }
 
 interface CardPaymentFormProps {
@@ -20,6 +21,8 @@ interface CardPaymentFormProps {
   stub: boolean
   amountCents: number
   email?: string
+  // Até quantas parcelas o formulário oferece (inscrição: só à vista)
+  maxInstallments?: number
   onSubmit: (data: CardFormData) => Promise<void> | void
 }
 
@@ -27,6 +30,7 @@ type BrickFormData = {
   token: string
   payment_method_id: string
   issuer_id?: string | number
+  installments?: number
   payer?: { identification?: { type?: string; number?: string } }
 }
 
@@ -75,7 +79,7 @@ function loadSdk(): Promise<void> {
   })
 }
 
-export function CardPaymentForm({ publicKey, stub, amountCents, email, onSubmit }: CardPaymentFormProps) {
+export function CardPaymentForm({ publicKey, stub, amountCents, email, maxInstallments = 1, onSubmit }: CardPaymentFormProps) {
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   // O Brick guarda o callback do momento em que foi criado
@@ -96,7 +100,7 @@ export function CardPaymentForm({ publicKey, stub, amountCents, email, onSubmit 
         return mp.bricks().create('cardPayment', CONTAINER_ID, {
           initialization: { amount: amountCents / 100, ...(email && { payer: { email } }) },
           customization: {
-            paymentMethods: { minInstallments: 1, maxInstallments: 1, types: { included: ['credit_card'] } },
+            paymentMethods: { minInstallments: 1, maxInstallments, types: { included: ['credit_card'] } },
             visual: { style: { theme: 'dark', customVariables: BRICK_COLORS }, hideFormTitle: true },
           },
           callbacks: {
@@ -108,6 +112,7 @@ export function CardPaymentForm({ publicKey, stub, amountCents, email, onSubmit 
                 payment_method_id: data.payment_method_id,
                 issuer_id: data.issuer_id,
                 identification: data.payer?.identification,
+                installments: data.installments,
               })
             },
           },
@@ -124,7 +129,7 @@ export function CardPaymentForm({ publicKey, stub, amountCents, email, onSubmit 
       cancelled = true
       controller?.unmount()
     }
-  }, [publicKey, amountCents, email])
+  }, [publicKey, amountCents, email, maxInstallments])
 
   if (!publicKey) {
     if (!stub) {
@@ -139,6 +144,14 @@ export function CardPaymentForm({ publicKey, stub, amountCents, email, onSubmit 
           className="w-full py-3 rounded-xl bg-primary text-background font-semibold text-sm">
           Pagar com cartão de teste
         </button>
+        {maxInstallments > 1 && (
+          <button
+            type="button"
+            onClick={() => onSubmit({ token: 'stub-approved', payment_method_id: 'visa', installments: 3 })}
+            className="w-full py-3 rounded-xl border border-primary/30 text-primary font-semibold text-sm">
+            Pagar em 3x com cartão de teste
+          </button>
+        )}
         <button
           type="button"
           onClick={() => onSubmit({ token: 'stub-rejected', payment_method_id: 'visa' })}

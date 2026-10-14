@@ -76,6 +76,7 @@ export type CardToken = {
   payment_method_id: string
   issuer_id?: string | number
   identification?: { type?: string; number?: string }
+  installments?: number
 }
 
 // Cobra a inscrição pendente no cartão. O token vem do formulário do Mercado
@@ -328,6 +329,14 @@ export function requestWithdrawal(data: {
 // Gera o PIX de recarga; o saldo entra quando o pagamento é confirmado
 export function createDeposit(amountCents: number) {
   return apiPost<PixPayment | { error: string }>('/api/v1/me/wallet/deposit', { amount_cents: amountCents })
+}
+
+// Recarga com cartão: o crédito é o valor menos a taxa (3% à vista, 5% parcelado)
+export function createCardDeposit(amountCents: number, card: CardToken) {
+  return apiPost<{ status: 'approved' | 'in_process'; credited: number } | { error: string }>(
+    '/api/v1/me/wallet/deposit/card',
+    { amount_cents: amountCents, card }
+  )
 }
 
 // Cupom de crédito da plataforma: o valor vira saldo na carteira

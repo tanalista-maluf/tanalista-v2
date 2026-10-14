@@ -13,6 +13,7 @@ interface EmbeddedCardFormProps {
   stub: boolean
   amountCents: number
   email?: string
+  maxInstallments?: number
 }
 
 export function EmbeddedCardForm(props: EmbeddedCardFormProps) {

@@ -1,16 +1,17 @@
 import { Tabs } from 'expo-router/js-tabs'
-import { CalendarDays, CircleUserRound, House, UsersRound, Wallet } from 'lucide-react-native'
 import { StyleSheet, View } from 'react-native'
+import { setActiveTab } from '@/components/app-tab-bar'
 import { Logo } from '@/components/logo'
 import { NotificationBell } from '@/components/notification-bell'
 import { colors, fonts } from '@/lib/theme'
 
-// Barra inferior da área logada, como a do site no celular. As telas abertas a
-// partir daqui (evento, checkout, grupo) ficam no Stack de (app)/_layout.tsx e
-// cobrem a barra.
+// Abas da área logada. A barra inferior não é a das abas: é a AppTabBar de
+// (app)/_layout.tsx, que fica visível também nas telas abertas a partir daqui.
 export default function TabsLayout() {
   return (
     <Tabs
+      tabBar={() => null}
+      screenListeners={({ route }) => ({ focus: () => setActiveTab(route.name) })}
       screenOptions={{
         // Mesmo cabeçalho do Stack: escuro, translúcido, o conteúdo passa por baixo
         headerTransparent: true,
@@ -21,59 +22,22 @@ export default function TabsLayout() {
         headerTitleAlign: 'center',
         headerRight: () => <NotificationBell />,
         sceneStyle: { backgroundColor: colors.background },
-        tabBarStyle: styles.bar,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.text50,
-        tabBarLabelStyle: { fontFamily: fonts.bodyMedium, fontSize: 11 },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: '',
-          tabBarLabel: 'Início',
-          tabBarAccessibilityLabel: 'Início',
-          tabBarButtonTestID: 'tab-home',
           headerLeft: () => (
             <View style={styles.logo}>
               <Logo size={19} />
             </View>
           ),
-          tabBarIcon: ({ color, size }) => <House size={size} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="events"
-        options={{
-          title: 'Eventos',
-          tabBarButtonTestID: 'tab-events',
-          tabBarIcon: ({ color, size }) => <CalendarDays size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="groups"
-        options={{
-          title: 'Grupos',
-          tabBarButtonTestID: 'tab-groups',
-          tabBarIcon: ({ color, size }) => <UsersRound size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="wallet"
-        options={{
-          title: 'Carteira',
-          tabBarButtonTestID: 'tab-wallet',
-          tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          // 'profile' é o nome que os testes de ponta a ponta já usam
-          tabBarButtonTestID: 'profile',
-          tabBarIcon: ({ color, size }) => <CircleUserRound size={size} color={color} />,
-        }}
-      />
+      <Tabs.Screen name="events" options={{ title: 'Eventos' }} />
+      <Tabs.Screen name="groups" options={{ title: 'Grupos' }} />
+      <Tabs.Screen name="wallet" options={{ title: 'Carteira' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Perfil' }} />
     </Tabs>
   )
 }
@@ -86,9 +50,4 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   logo: { marginLeft: 16 },
-  bar: {
-    backgroundColor: colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.1)',
-  },
 })
