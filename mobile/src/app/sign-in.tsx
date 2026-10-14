@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
 import { AuthShell, authStyles } from '@/components/auth-shell'
+import { Captcha, CAPTCHA_ENABLED } from '@/components/captcha'
 import { Button, Field } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { colors, fonts, radius } from '@/lib/theme'
@@ -25,6 +26,9 @@ export default function SignIn() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Token do captcha: vale para uma tentativa só, então troca a cada envio com erro
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReset, setCaptchaReset] = useState(0)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -33,12 +37,19 @@ export default function SignIn() {
       setError('Informe e-mail e senha.')
       return
     }
+    if (CAPTCHA_ENABLED && captchaToken === null) {
+      setError('Aguarde a verificação de segurança terminar.')
+      return
+    }
     setLoading(true)
     setError(null)
     // Ao entrar, o guard do layout raiz troca esta tela pela área logada
-    const message = await signIn(email.trim(), password)
+    const message = await signIn(email.trim(), password, captchaToken ?? undefined)
     setLoading(false)
-    if (message) setError(message)
+    if (message) {
+      setError(message)
+      setCaptchaReset((n) => n + 1)
+    }
   }
 
   async function handleApple() {
@@ -104,6 +115,7 @@ export default function SignIn() {
         }
       />
 
+      <Captcha onToken={setCaptchaToken} resetKey={captchaReset} />
       <Button testID="submit" label="Entrar" onPress={handleSubmit} loading={loading} />
 
       <View style={styles.divider}>

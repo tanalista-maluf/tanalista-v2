@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation'
 import { loginSchema, type LoginSchema } from '@/features/auth/schemas'
 import { loginAction } from '@/features/auth/actions'
 import { Button } from '@/components/ui/button'
+import { Turnstile, TURNSTILE_SITE_KEY } from '@/features/auth/components/Turnstile'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,6 +32,9 @@ function LoginForm() {
   const redirectParam = searchParams.get('redirect')
 
   const [showPassword, setShowPassword] = useState(false)
+  // Token do captcha: vale para uma tentativa só, então troca a cada envio com erro
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReset, setCaptchaReset] = useState(0)
   const [serverError, setServerError] = useState<string | null>(
     errorParam === 'link_invalido' ? 'Link inválido ou expirado.' : null
   )
@@ -43,8 +47,11 @@ function LoginForm() {
 
   async function onSubmit(data: LoginSchema) {
     setServerError(null)
-    const result = await loginAction(data, redirectParam ?? undefined)
-    if (result?.error) setServerError(result.error)
+    const result = await loginAction(data, redirectParam ?? undefined, captchaToken ?? undefined)
+    if (result?.error) {
+      setServerError(result.error)
+      setCaptchaReset((n) => n + 1)
+    }
   }
 
   return (
@@ -108,7 +115,9 @@ function LoginForm() {
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Turnstile onToken={setCaptchaToken} resetKey={captchaReset} className="flex justify-center empty:hidden" />
+
+          <Button type="submit" className="w-full" disabled={isSubmitting || (!!TURNSTILE_SITE_KEY && !captchaToken)}>
             {isSubmitting && <Loader2 className="size-4 animate-spin" />}
             Entrar
           </Button>

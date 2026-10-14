@@ -6,6 +6,12 @@ import { StatusBar } from 'expo-status-bar'
 import { SessionProvider, useSession } from '@/ctx'
 import { colors } from '@/lib/theme'
 import { SplashScreenController } from '@/splash'
+import { LogBox } from 'react-native'
+
+// O build de simulador sem assinatura não tem acesso ao Keychain, e o
+// expo-notifications reclama disso a cada abertura (inofensivo, só em
+// desenvolvimento). A tela vermelha atrapalhava os testes automatizados.
+LogBox.ignoreLogs(['[expo-notifications] Error reading persisted server registration info'])
 
 export default function Root() {
   const [fontsLoaded, fontsError] = useFonts({
