@@ -3,6 +3,7 @@ import { Eye, EyeOff, MailCheck } from 'lucide-react-native'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { AuthShell, authStyles } from '@/components/auth-shell'
+import { Captcha, CAPTCHA_ENABLED } from '@/components/captcha'
 import { Button, Field } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { colors, fonts } from '@/lib/theme'
@@ -30,6 +31,9 @@ export default function SignUp() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Token do captcha: vale para uma tentativa só, então troca a cada envio com erro
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReset, setCaptchaReset] = useState(0)
   const [loading, setLoading] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
 
@@ -41,12 +45,19 @@ export default function SignUp() {
       setError(invalid)
       return
     }
+    if (CAPTCHA_ENABLED && captchaToken === null) {
+      setError('Aguarde a verificação de segurança terminar.')
+      return
+    }
     setLoading(true)
     setError(null)
     // Se o cadastro já vier com sessão, o guard do layout raiz segue para o onboarding
-    const result = await signUp(name, address, password)
+    const result = await signUp(name, address, password, captchaToken ?? undefined)
     setLoading(false)
-    if ('error' in result) setError(result.error)
+    if ('error' in result) {
+      setError(result.error)
+      setCaptchaReset((n) => n + 1)
+    }
     else if (result.confirmEmail) setSentTo(address)
   }
 
@@ -116,6 +127,7 @@ export default function SignUp() {
       />
       <Text style={authStyles.hint}>Ao menos 8 caracteres, com uma letra maiúscula e um número.</Text>
 
+      <Captcha onToken={setCaptchaToken} resetKey={captchaReset} />
       <Button testID="submit" label="Criar conta" onPress={handleSubmit} loading={loading} />
     </AuthShell>
   )

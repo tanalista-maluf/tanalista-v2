@@ -14,22 +14,32 @@ function safeRedirect(path?: string | null): string | undefined {
   return path
 }
 
-export async function loginAction(data: LoginSchema, redirectTo?: string) {
+// captchaToken: token do Turnstile, conferido pelo próprio Supabase Auth quando
+// a proteção por captcha está ligada (ver components/Turnstile.tsx)
+const CAPTCHA_ERROR = 'Não conseguimos confirmar que você não é um robô. Recarregue a página e tente de novo.'
+
+function isCaptchaError(error: { code?: string; message: string }) {
+  return error.code === 'captcha_failed' || /captcha/i.test(error.message)
+}
+
+export async function loginAction(data: LoginSchema, redirectTo?: string, captchaToken?: string) {
   const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
     email: data.email,
     password: data.password,
+    options: { captchaToken },
   })
 
   if (error) {
+    if (isCaptchaError(error)) return { error: CAPTCHA_ERROR }
     return { error: 'E-mail ou senha incorretos.' }
   }
 
   redirect(safeRedirect(redirectTo) ?? '/home')
 }
 
-export async function registerAction(data: RegisterSchema, redirectTo?: string) {
+export async function registerAction(data: RegisterSchema, redirectTo?: string, captchaToken?: string) {
   const supabase = await createClient()
 
   const next = safeRedirect(redirectTo)
@@ -41,10 +51,12 @@ export async function registerAction(data: RegisterSchema, redirectTo?: string) 
     options: {
       data: { full_name: data.full_name },
       emailRedirectTo: callbackUrl,
+      captchaToken,
     },
   })
 
   if (error) {
+    if (isCaptchaError(error)) return { error: CAPTCHA_ERROR }
     if (error.message.includes('already registered')) {
       return { error: 'Este e-mail já está cadastrado.' }
     }
@@ -60,14 +72,16 @@ export async function registerAction(data: RegisterSchema, redirectTo?: string) 
   return { success: true }
 }
 
-export async function recoverAction(data: RecoverSchema) {
+export async function recoverAction(data: RecoverSchema, captchaToken?: string) {
   const supabase = await createClient()
 
   const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?type=recovery`,
+    captchaToken,
   })
 
   if (error) {
+    if (isCaptchaError(error)) return { error: CAPTCHA_ERROR }
     return { error: 'Erro ao enviar e-mail. Tente novamente.' }
   }
 

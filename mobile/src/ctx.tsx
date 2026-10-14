@@ -22,12 +22,13 @@ type SessionValue = {
   // null também quando o perfil não pôde ser lido (sem rede)
   profile: Profile | null
   isLoading: boolean
-  signIn: (email: string, password: string) => Promise<string | null>
-  signUp: (fullName: string, email: string, password: string) => Promise<{ error: string } | { confirmEmail: boolean }>
+  // captchaToken: token do Turnstile (components/captcha.tsx), conferido pelo Supabase Auth
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<string | null>
+  signUp: (fullName: string, email: string, password: string, captchaToken?: string) => Promise<{ error: string } | { confirmEmail: boolean }>
   signInWithGoogle: () => Promise<string | null>
   signInWithApple: () => Promise<string | null>
   // Sempre "enviado" para e-mail bem formado: não revela se a conta existe
-  requestPasswordReset: (email: string) => Promise<string | null>
+  requestPasswordReset: (email: string, captchaToken?: string) => Promise<string | null>
   // A pessoa voltou pelo link de recuperação e ainda precisa definir a senha nova
   recovering: boolean
   updatePassword: (password: string) => Promise<string | null>
@@ -36,6 +37,8 @@ type SessionValue = {
   forgetSession: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
+
+const CAPTCHA_ERROR = 'Não conseguimos confirmar que você não é um robô. Tente de novo.'
 
 // Precisa estar na lista de Redirect URLs do Supabase Auth. É para onde voltam
 // o login com Google e o link do e-mail de recuperação de senha.
@@ -125,9 +128,14 @@ export function SessionProvider({ children }: PropsWithChildren) {
         isLoading: sessionLoading || !profileReady,
         refreshProfile,
         // Devolve a mensagem de erro, ou null se entrou
-        signIn: async (email, password) => {
-          const { error } = await supabase.auth.signInWithPassword({ email, password })
+        signIn: async (email, password, captchaToken) => {
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+            options: { captchaToken: captchaToken || undefined },
+          })
           if (!error) return null
+          if (error.code === 'captcha_failed') return CAPTCHA_ERROR
           if (error.code === 'email_not_confirmed') {
             return 'Confirme seu e-mail pelo link que enviamos antes de entrar.'
           }
@@ -136,7 +144,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
             ? 'E-mail ou senha incorretos.'
             : 'Não foi possível entrar. Verifique sua conexão e tente de novo.'
         },
-        signUp: async (fullName, email, password) => {
+        signUp: async (fullName, email, password, captchaToken) => {
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -144,8 +152,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
               data: { full_name: fullName },
               // O link do e-mail abre uma página do site que manda voltar ao app
               emailRedirectTo: `${apiUrl}/app/email-confirmado`,
+              captchaToken: captchaToken || undefined,
             },
           })
+          if (error?.code === 'captcha_failed') return { error: CAPTCHA_ERROR }
           // Com confirmação de e-mail ligada, o Supabase não diz que o e-mail já
           // existe: devolve um usuário sem identidades
           if (error?.code === 'user_already_exists' || data.user?.identities?.length === 0) {
@@ -235,9 +245,13 @@ export function SessionProvider({ children }: PropsWithChildren) {
           }
           return null
         },
-        requestPasswordReset: async (email) => {
-          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: OAUTH_REDIRECT })
+        requestPasswordReset: async (email, captchaToken) => {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: OAUTH_REDIRECT,
+            captchaToken: captchaToken || undefined,
+          })
           if (!error) return null
+          if (error.code === 'captcha_failed') return CAPTCHA_ERROR
           if (error.status === 429) return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
           return error.status
             ? 'Erro ao enviar e-mail. Tente novamente.'
