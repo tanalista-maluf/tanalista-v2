@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { deleteAccount } from './delete-account'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { onboardingStep2Schema } from './schemas'
@@ -97,9 +98,45 @@ export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login', re
   redirect(data.url)
 }
 
+// Entrar com Apple pelo site: a página da Apple volta para o Supabase, que
+// volta para /api/auth/callback, como no Google. Na primeira vez a Apple manda
+// o nome, que o Supabase grava nos dados do usuário.
+export async function appleOAuthAction(redirectTo?: string) {
+  const supabase = await createClient()
+
+  const next = safeRedirect(redirectTo)
+  const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: { redirectTo: callbackUrl, scopes: 'name email' },
+  })
+
+  if (error || !data.url) {
+    return { error: 'Não foi possível conectar à Apple. Tente novamente.' }
+  }
+
+  redirect(data.url)
+}
+
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
+  redirect('/login')
+}
+
+// Exclusão da própria conta pelo site (mesma regra do app, em delete-account.ts).
+// Com pendências, devolve o que falta resolver; senão encerra a sessão.
+export async function deleteAccountAction() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Sessão expirada. Faça login novamente.' }
+
+  const result = await deleteAccount(user.id)
+  if ('error' in result) return result
+
+  // O login já foi encerrado no servidor; aqui sai do cookie deste navegador
+  await supabase.auth.signOut({ scope: 'local' })
   redirect('/login')
 }
 

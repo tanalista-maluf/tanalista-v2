@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert } from '@/components/ui/alert'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { GoogleAuthButton } from '@/features/auth/components/GoogleAuthButton'
+import { AppleAuthButton } from '@/features/auth/components/AppleAuthButton'
 
 export default function LoginPage() {
   return (
@@ -119,6 +120,10 @@ function LoginForm() {
           </div>
 
           <GoogleAuthButton label="Entrar com Google" redirectTo={redirectParam ?? undefined} />
+          {/* Liga quando a Apple estiver configurada no Supabase */}
+          {process.env.NEXT_PUBLIC_APPLE_SIGN_IN === '1' && (
+            <AppleAuthButton label="Entrar com Apple" redirectTo={redirectParam ?? undefined} />
+          )}
         </form>
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">

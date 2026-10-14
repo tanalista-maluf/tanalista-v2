@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPushToUser } from '@/lib/push'
 
 // Vercel Cron: a cada 15 min
 // 1. Expira entradas NOTIFIED cujo expires_at já passou
@@ -76,13 +75,6 @@ export async function GET(request: NextRequest) {
       body: `Uma vaga abriu em "${event.title}". Você tem 24h para confirmar.`,
       data: { event_id: eventId },
     })
-
-    // Push notification
-    sendPushToUser(next.user_id, {
-      title: 'Vaga disponível! 🎉',
-      body: `Uma vaga abriu em "${event.title}". Confirme em 24h.`,
-      url: `/eventos/${eventId}`,
-    }).catch(() => {})
 
     promoted++
   }

@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native'
 import { Avatar } from '@/components/avatar'
+import { OrganizerChecklist } from '@/components/organizer-checklist'
 import { Badge, Button, Card, Screen } from '@/components/ui'
 import { runAction, type Person } from '@/lib/api'
 import { formatPrice } from '@/lib/format'
@@ -64,6 +65,9 @@ type ManagedEvent = {
   visibility: string
   group_id: string | null
   starts_at: string
+  description: string | null
+  ends_at: string | null
+  cancel_before_hours: number | null
 }
 
 const METHODS: Record<string, string> = { PIX: 'PIX', CREDIT_CARD: 'Cartão', WALLET: 'Carteira' }
@@ -76,7 +80,7 @@ async function fetchAll(eventId: string) {
   const [{ data: event }, organizer, coupons] = await Promise.all([
     supabase
       .from('events')
-      .select('id, slug, title, status, price, capacity, confirmed_count, custom_rules, cover_url, visibility, group_id, starts_at')
+      .select('id, slug, title, status, price, capacity, confirmed_count, custom_rules, cover_url, visibility, group_id, starts_at, description, ends_at, cancel_before_hours')
       .eq('id', eventId)
       .maybeSingle(),
     runAction<OrganizerData>('organizerEvent', eventId),
@@ -286,6 +290,8 @@ export default function ManageEventScreen() {
             </View>
             {!active && <Badge label={event.status === 'CANCELLED' ? 'Cancelado' : 'Concluído'} tone="muted" />}
           </Card>
+
+          <OrganizerChecklist {...event} />
 
           {message && (
             <Text testID="manage-message" style={[styles.notice, !message.ok && styles.error]}>
