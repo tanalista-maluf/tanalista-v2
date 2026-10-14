@@ -45,6 +45,26 @@ declare global {
 const SDK_URL = 'https://sdk.mercadopago.com/js/v2'
 const CONTAINER_ID = 'card-payment-brick'
 
+// Paleta do TáNaLista (globals.css) aplicada ao tema escuro do Brick, que
+// não enxerga as variáveis CSS da página
+const BRICK_COLORS = {
+  formBackgroundColor: '#0D1A14',
+  inputBackgroundColor: '#162A20',
+  textPrimaryColor: '#F0FFF4',
+  textSecondaryColor: '#9DB5A6',
+  baseColor: '#4ADE80',
+  baseColorFirstVariant: '#22C55E',
+  baseColorSecondVariant: '#16A34A',
+  buttonTextColor: '#0D1A14',
+  outlinePrimaryColor: '#2A4638',
+  outlineSecondaryColor: '#1A3028',
+  errorColor: '#F87171',
+  successColor: '#4ADE80',
+  borderRadiusMedium: '12px',
+  borderRadiusLarge: '14px',
+  formPadding: '0px',
+}
+
 function loadSdk(): Promise<void> {
   if (window.MercadoPago) return Promise.resolve()
   return new Promise((resolve, reject) => {
@@ -78,7 +98,7 @@ export function CardPaymentForm({ publicKey, stub, amountCents, email, onSubmit 
           initialization: { amount: amountCents / 100, ...(email && { payer: { email } }) },
           customization: {
             paymentMethods: { minInstallments: 1, maxInstallments: 1, types: { included: ['credit_card'] } },
-            visual: { style: { theme: 'dark' }, hideFormTitle: true },
+            visual: { style: { theme: 'dark', customVariables: BRICK_COLORS }, hideFormTitle: true },
           },
           callbacks: {
             onReady: () => setReady(true),
