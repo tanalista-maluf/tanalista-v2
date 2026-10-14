@@ -129,6 +129,9 @@ appId: ${APP_ID}
     id: "tab-events"
 - assertVisible: "Próximos eventos"
 # O evento tem botão de compartilhar
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    centerElement: true
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
     id: "share"
@@ -204,6 +207,7 @@ appId: ${APP_ID}
     centerElement: true
 - assertVisible: "Carla"
 - takeScreenshot: 33-pedido-de-entrada
+- waitForAnimationToEnd
 - tapOn:
     id: "request-approve-0"
 - scrollUntilVisible:

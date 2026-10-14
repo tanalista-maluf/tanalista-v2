@@ -9,6 +9,7 @@ import {
   Flag,
   Lock,
   MapPin,
+  Settings2,
   Share2,
   Users,
   X,
@@ -382,14 +383,26 @@ export default function EventScreen() {
         options={{
           title: '',
           headerRight: () => (
-            <Pressable
-              testID="share"
-              accessibilityRole="button"
-              accessibilityLabel="Compartilhar evento"
-              onPress={() => shareLink(event.title, `/e/${event.slug ?? event.id}`)}
-              hitSlop={12}>
-              <Share2 size={22} color={colors.text70} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              {isOrganizer && (
+                <Pressable
+                  testID="manage"
+                  accessibilityRole="button"
+                  accessibilityLabel="Gerenciar evento"
+                  onPress={() => router.push({ pathname: '/manage/[eventId]', params: { eventId: id } })}
+                  hitSlop={12}>
+                  <Settings2 size={22} color={colors.text70} />
+                </Pressable>
+              )}
+              <Pressable
+                testID="share"
+                accessibilityRole="button"
+                accessibilityLabel="Compartilhar evento"
+                onPress={() => shareLink(event.title, `/e/${event.slug ?? event.id}`)}
+                hitSlop={12}>
+                <Share2 size={22} color={colors.text70} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -848,6 +861,7 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   centered: { flex: 1 },
   notFound: { fontFamily: fonts.body, color: colors.muted, textAlign: 'center', marginTop: 140, fontSize: 15 },
   content: { padding: 16, gap: 12, paddingBottom: 24 },

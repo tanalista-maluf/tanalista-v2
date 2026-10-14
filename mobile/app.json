@@ -48,6 +48,14 @@
         {
           "calendarPermission": "O TáNaLista adiciona ao seu calendário os eventos que você escolher."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O TáNaLista usa a câmera para ler o QR code dos ingressos no check-in e para você tirar fotos.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "experiments": {

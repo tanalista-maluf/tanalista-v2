@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { Flag, Link2, Lock, LogOut, MapPin, Share2, Users } from 'lucide-react-native'
+import { CalendarPlus, Flag, Link2, Lock, LogOut, MapPin, Settings2, Share2, ShoppingBag, Users } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { EventCard, type EventCardData } from '@/components/event-card'
@@ -54,7 +54,7 @@ async function fetchRequests(groupId: string): Promise<JoinRequest[]> {
 }
 
 async function fetchGroup(groupId: string, userId: string) {
-  const [{ data: group }, { data: membership }, { data: members }, { data: events }] = await Promise.all([
+  const [{ data: group }, { data: membership }, { data: members }, { data: events }, { data: past }] = await Promise.all([
     supabase
       .from('groups')
       .select('id, name, slug, description, city, category, visibility, avatar_url, member_count, invite_token')
@@ -75,6 +75,13 @@ async function fetchGroup(groupId: string, userId: string) {
       .gte('starts_at', new Date().toISOString())
       .order('starts_at')
       .limit(50),
+    supabase
+      .from('events')
+      .select('id, title, starts_at, city, price, capacity, confirmed_count, visibility')
+      .eq('group_id', groupId)
+      .eq('status', 'COMPLETED')
+      .order('starts_at', { ascending: false })
+      .limit(5),
   ])
 
   const role = membership?.role ?? null
@@ -83,6 +90,7 @@ async function fetchGroup(groupId: string, userId: string) {
     role,
     members: (members ?? []) as Member[],
     events: (events ?? []).map((event) => ({ ...event, groups: null })) as EventCardData[],
+    past: (past ?? []).map((event) => ({ ...event, groups: null })) as EventCardData[],
     requests: role === 'OWNER' ? await fetchRequests(groupId) : [],
   }
 }
@@ -165,7 +173,7 @@ export default function GroupScreen() {
     )
   }
 
-  const { group, role, members, events, requests } = data
+  const { group, role, members, events, past, requests } = data
 
   if (group === null) {
     return (
@@ -185,14 +193,26 @@ export default function GroupScreen() {
         options={{
           title: '',
           headerRight: () => (
-            <Pressable
-              testID="share"
-              accessibilityRole="button"
-              accessibilityLabel="Compartilhar grupo"
-              onPress={() => shareLink(group.name, `/g/${group.slug ?? group.id}`)}
-              hitSlop={12}>
-              <Share2 size={22} color={colors.text70} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              {role === 'OWNER' && (
+                <Pressable
+                  testID="group-settings"
+                  accessibilityRole="button"
+                  accessibilityLabel="Configurações do grupo"
+                  onPress={() => router.push({ pathname: '/groups/settings/[id]', params: { id } })}
+                  hitSlop={12}>
+                  <Settings2 size={22} color={colors.text70} />
+                </Pressable>
+              )}
+              <Pressable
+                testID="share"
+                accessibilityRole="button"
+                accessibilityLabel="Compartilhar grupo"
+                onPress={() => shareLink(group.name, `/g/${group.slug ?? group.id}`)}
+                hitSlop={12}>
+                <Share2 size={22} color={colors.text70} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -258,8 +278,16 @@ export default function GroupScreen() {
             </Pressable>
           )}
           {isOwner && (
+            <Button
+              testID="group-new-event"
+              label="Criar evento no grupo"
+              icon={<CalendarPlus size={18} color={colors.primaryForeground} />}
+              onPress={() => router.push({ pathname: '/event-form', params: { mode: 'create', groupId: id } })}
+            />
+          )}
+          {isOwner && (
             <Text testID="group-owner" style={styles.ownerNote}>
-              Você é o dono deste grupo. Edição, comunicados e eventos novos ficam no site.
+              Você é o dono deste grupo. Dados, foto, membros e comunicados ficam nas configurações (engrenagem no topo).
             </Text>
           )}
           {isOwner && isPrivate && group.invite_token ? (
@@ -274,6 +302,20 @@ export default function GroupScreen() {
           ) : null}
           {message && <Text style={styles.error}>{message}</Text>}
         </Card>
+
+        {role && (
+          <Pressable
+            testID="group-market"
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: '/groups/market/[id]', params: { id } })}
+            style={({ pressed }) => [styles.market, pressed && styles.dim]}>
+            <ShoppingBag size={20} color={colors.primary} />
+            <View style={styles.personBody}>
+              <Text style={styles.personName}>Marketplace</Text>
+              <Text style={styles.personUser}>Compra, venda e troca entre membros</Text>
+            </View>
+          </Pressable>
+        )}
 
         {requests.length > 0 && (
           <View style={styles.section}>
@@ -329,6 +371,20 @@ export default function GroupScreen() {
             ))
           )}
         </View>
+
+        {past.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Eventos passados</Text>
+            {past.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                badge={{ label: 'Concluído', tone: 'muted' }}
+                onPress={() => router.push({ pathname: '/events/[id]', params: { id: event.id } })}
+              />
+            ))}
+          </View>
+        )}
 
         {members.length > 0 && (
           <View style={styles.section}>
@@ -401,6 +457,17 @@ const styles = StyleSheet.create({
   inviteText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
   dim: { opacity: 0.6 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  market: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+  },
   report: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40 },
   reportText: { fontFamily: fonts.body, fontSize: 13, color: colors.text35 },
   section: { gap: 10 },
