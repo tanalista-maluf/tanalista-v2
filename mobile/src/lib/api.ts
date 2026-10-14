@@ -27,6 +27,10 @@ export function apiPost<T>(path: string, body: unknown = {}) {
   return apiRequest<T>('POST', path, body)
 }
 
+export function apiRequestDelete<T>(path: string, body?: unknown) {
+  return apiRequest<T>('DELETE', path, body)
+}
+
 export function apiGet<T>(path: string) {
   return apiRequest<T>('GET', path)
 }
@@ -189,16 +193,13 @@ export function updateProfile(data: { full_name: string; phone: string; city: st
 }
 
 // Envia a foto de perfil escolhida no aparelho (JPG, PNG ou WebP de até 2MB), em base64
-// Foto de anúncio (até 4MB): o servidor autoriza e devolve um link de envio
-// assinado; a foto vai direto para o Storage, sem passar pela Vercel (que
-// limita o corpo a 4,5MB). Devolve o endereço, enviado depois com o anúncio.
-export async function uploadListingPhoto(image: { base64: string; mimeType: string }) {
+// Foto escolhida no aparelho (base64) em bytes, com o tipo lido dos primeiros
+// bytes: o seletor às vezes informa image/jpg ou HEIC para uma foto que já foi
+// convertida em JPEG
+function photoBytes(image: { base64: string; mimeType: string }) {
   const binary = atob(image.base64)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-
-  // O tipo vem dos primeiros bytes: o seletor às vezes informa image/jpg ou HEIC
-  // para uma foto que já foi convertida em JPEG
   const mimeType =
     bytes[0] === 0xff && bytes[1] === 0xd8
       ? 'image/jpeg'
@@ -207,18 +208,29 @@ export async function uploadListingPhoto(image: { base64: string; mimeType: stri
         : binary.slice(8, 12) === 'WEBP'
           ? 'image/webp'
           : image.mimeType
+  return { bytes, mimeType }
+}
 
+// Fotos (anúncio e evento, até 4MB): o servidor autoriza e devolve um link de
+// envio assinado; a foto vai direto para o Storage, sem passar pela Vercel (que
+// limita o corpo a 4,5MB)
+async function sendToSignedUrl(bucket: string, slot: { path: string; token: string }, bytes: Uint8Array, mimeType: string) {
+  const { error } = await supabase.storage
+    .from(bucket)
+    .uploadToSignedUrl(slot.path, slot.token, bytes, { contentType: mimeType })
+  return error ? { error: 'Não foi possível enviar a foto. Tente de novo.' } : null
+}
+
+// Devolve o endereço da foto, enviado depois com o anúncio
+export async function uploadListingPhoto(image: { base64: string; mimeType: string }) {
+  const { bytes, mimeType } = photoBytes(image)
   const slot = await apiPost<{ path: string; token: string; url: string } | { error: string }>('/api/v1/listing-photos', {
     mimeType,
     size: bytes.length,
   })
   if ('error' in slot) return slot
-
-  const { error } = await supabase.storage
-    .from('listing-photos')
-    .uploadToSignedUrl(slot.path, slot.token, bytes, { contentType: mimeType })
-  if (error) return { error: 'Não foi possível enviar a foto. Tente de novo.' }
-  return { url: slot.url }
+  const failed = await sendToSignedUrl('listing-photos', slot, bytes, mimeType)
+  return failed ?? { url: slot.url }
 }
 
 export function uploadAvatar(image: { base64: string; mimeType: string }) {
@@ -299,7 +311,7 @@ export type EventExtras = {
   participants: { id: string; status: string; team_id: string | null; profile: Person }[]
   comments: { id: string; content: string; created_at: string; canDelete: boolean; profile: Person }[]
   polls: Poll[]
-  photos: { id: string; url: string; created_at: string; profile: Person }[]
+  photos: { id: string; url: string; created_at: string; profile: Person; canDelete?: boolean }[]
   ratings: {
     average: number
     count: number
@@ -339,8 +351,17 @@ export function requestEventJoin(eventId: string) {
   return apiPost<Done>(`/api/v1/events/${eventId}/join-request`)
 }
 
-export function uploadEventPhoto(eventId: string, image: { base64: string; mimeType: string }) {
-  return apiPost<Done>(`/api/v1/events/${eventId}/photos`, { image: image.base64, mimeType: image.mimeType })
+// Foto de evento: autoriza, envia direto ao Storage e registra
+export async function uploadEventPhoto(eventId: string, image: { base64: string; mimeType: string }): Promise<Done> {
+  const { bytes, mimeType } = photoBytes(image)
+  const slot = await apiPost<{ path: string; token: string } | { error: string }>(`/api/v1/events/${eventId}/photos`, {
+    mimeType,
+    size: bytes.length,
+  })
+  if ('error' in slot) return slot
+  const failed = await sendToSignedUrl('event-photos', slot, bytes, mimeType)
+  if (failed) return failed
+  return apiPost<Done>(`/api/v1/events/${eventId}/photos`, { path: slot.path })
 }
 
 export type ReportReason = 'SPAM' | 'INAPPROPRIATE' | 'FAKE' | 'DANGEROUS' | 'OTHER'
@@ -378,6 +399,7 @@ export function redeemCreditCoupon(code: string) {
 
 export type NotificationPreferences = {
   notif_email: boolean
+  notif_push: boolean
   notif_new_event_channel: 'EMAIL' | 'WHATSAPP' | 'NONE'
 }
 

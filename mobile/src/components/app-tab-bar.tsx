@@ -1,6 +1,6 @@
-import { router } from 'expo-router'
+import { router, usePathname } from 'expo-router'
 import { CalendarDays, CircleUserRound, House, UsersRound, Wallet, type LucideIcon } from 'lucide-react-native'
-import { useSyncExternalStore } from 'react'
+import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, fonts } from '@/lib/theme'
@@ -16,27 +16,18 @@ const TABS: { name: TabName; href: string; label: string; icon: LucideIcon; test
   { name: 'profile', href: '/profile', label: 'Perfil', icon: CircleUserRound, testID: 'profile' },
 ]
 
-// Aba atual, avisada pelo layout das abas a cada troca
-let activeTab: TabName = 'index'
-const listeners = new Set<() => void>()
-
-export function setActiveTab(name: string) {
-  if (name === activeTab || !TABS.some((tab) => tab.name === name)) return
-  activeTab = name as TabName
-  listeners.forEach((listener) => listener())
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
 // Barra inferior da área logada, sempre visível: fica abaixo de todas as telas
 // (abas e as abertas a partir delas). Tocar numa aba fecha o que estiver aberto
 // por cima e mostra a aba.
 export function AppTabBar() {
   const insets = useSafeAreaInsets()
-  const current = useSyncExternalStore(subscribe, () => activeTab)
+  // A aba acesa é a da tela atual; numa tela aberta a partir de uma aba
+  // (evento, grupo...), continua acesa a última aba visitada
+  const pathname = usePathname()
+  const match = TABS.find((tab) => tab.href === pathname)?.name
+  const [lastTab, setLastTab] = useState<TabName>('index')
+  if (match && match !== lastTab) setLastTab(match)
+  const current = match ?? lastTab
 
   function open(href: string) {
     if (router.canDismiss()) router.dismissAll()

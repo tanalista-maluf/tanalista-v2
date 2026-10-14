@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -691,13 +692,12 @@ export async function approveEventJoinRequest(requestId: string) {
     if (partError) return { error: 'Erro ao criar participação.' }
   }
 
-  await admin.from('notifications').insert({
-    user_id: req.user_id,
+  await createNotificationAdmin({
+    userId: req.user_id,
     type: 'EVENT_JOIN_APPROVED',
     title: 'Solicitação aprovada!',
     body: `Sua solicitação para participar de "${event.title}" foi aprovada.`,
     data: { event_id: req.event_id, event_slug: event.slug },
-    read: false,
   })
 
   revalidatePath(`/eventos/${req.event_id}`)
@@ -732,13 +732,12 @@ export async function rejectEventJoinRequest(requestId: string) {
     .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
     .eq('id', requestId)
 
-  await admin.from('notifications').insert({
-    user_id: req.user_id,
+  await createNotificationAdmin({
+    userId: req.user_id,
     type: 'EVENT_JOIN_REJECTED',
     title: 'Solicitação recusada',
     body: `Sua solicitação para participar de "${event.title}" foi recusada.`,
     data: { event_id: req.event_id },
-    read: false,
   })
 
   revalidatePath(`/eventos/${req.event_id}`)

@@ -19,6 +19,8 @@ import {
 } from '@/features/eventos/actions'
 import { checkInAction } from '@/features/eventos/actions-checkin'
 import { purgeCancelledEvents } from '@/features/admin/cleanup'
+import { getGroupPreview } from '@/features/grupos/queries-public'
+import { deleteEventPhotoAction } from '@/features/galeria/actions'
 import { getOrganizerEventData } from '@/features/eventos/organizer'
 import { removeParticipantAction } from '@/features/participacoes/actions'
 import {
@@ -116,6 +118,8 @@ const HANDLERS: Record<string, Handler> = {
   regenerateGroupInvite: ([groupId]) => regenerateInviteTokenAction(text(groupId)),
   removeGroupMember: ([groupId, memberId]) => removeMemberAction(text(groupId), text(memberId)),
   requestGroupJoin: ([groupId]) => requestGroupJoinAction(text(groupId)),
+  deleteEventPhoto: ([photoId, eventId]) => deleteEventPhotoAction(text(photoId), text(eventId)),
+  groupPreview: async ([slug], user) => (await getGroupPreview(text(slug), user.id)) ?? { error: 'Grupo não encontrado.' },
   transferGroupOwnership: ([groupId, userId]) => transferGroupOwnershipAction(text(groupId), text(userId)),
   deleteGroup: ([groupId]) => deleteGroupAction(text(groupId)),
   sendGroupBroadcast: ([groupId, message]) => sendGroupBroadcastAction(text(groupId), text(message)),

@@ -180,15 +180,20 @@ export default function DepositScreen() {
                   {error}
                 </Text>
               )}
-              <Button
-                testID="deposit-submit"
-                label={method === 'CARD' ? 'Continuar para o cartão' : 'Gerar PIX'}
-                onPress={handleCreate}
-                loading={creating}
-              />
             </>
           )}
         </ScrollView>
+        {/* Fixo embaixo, acima do teclado: o teclado numérico do iOS não fecha */}
+        {!pix && (
+          <View style={styles.bar}>
+            <Button
+              testID="deposit-submit"
+              label={method === 'CARD' ? 'Continuar para o cartão' : 'Gerar PIX'}
+              onPress={handleCreate}
+              loading={creating}
+            />
+          </View>
+        )}
       </KeyboardAvoidingView>
     </Screen>
   )
@@ -238,6 +243,13 @@ function CardFeeNotice({ amount }: { amount: number | null }) {
 }
 
 const styles = StyleSheet.create({
+  bar: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
   methods: { gap: 8 },
   method: {
     flexDirection: 'row',

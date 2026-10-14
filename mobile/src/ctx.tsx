@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import * as Linking from 'expo-linking'
 import * as WebBrowser from 'expo-web-browser'
 import { createContext, use, useCallback, useEffect, useState, type PropsWithChildren } from 'react'
+import { unregisterPush } from '@/lib/push'
 import { apiUrl } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 
@@ -200,6 +201,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
             : 'Não foi possível salvar. Verifique sua conexão e tente de novo.'
         },
         signOut: async () => {
+          // Antes de sair: tirar o aparelho precisa da sessão
+          await unregisterPush()
           await supabase.auth.signOut()
         },
         forgetSession: async () => {

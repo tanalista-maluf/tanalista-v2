@@ -12,8 +12,7 @@ const CHANNELS: { value: NotificationPreferences['notif_new_event_channel']; lab
   { value: 'NONE', label: 'Nenhum' },
 ]
 
-// Mesmas preferências da página de perfil do site. As notificações no celular
-// (push) ainda não existem no app.
+// Mesmas preferências da página de perfil do site, mais o push no celular
 export default function NotificationSettingsScreen() {
   const headerInset = useHeaderInset()
   const [preferences, setPreferences] = useState<NotificationPreferences | null | undefined>(undefined)
@@ -66,6 +65,21 @@ export default function NotificationSettingsScreen() {
                 trackColor={{ true: colors.primary, false: 'rgba(255,255,255,0.15)' }}
                 thumbColor="#FFFFFF"
                 accessibilityLabel="Avisos por e-mail"
+              />
+            </Card>
+
+            <Card style={styles.row}>
+              <View style={styles.rowBody}>
+                <Text style={styles.title}>Notificações no celular</Text>
+                <Text style={styles.detail}>Os mesmos avisos do sino, mesmo com o app fechado</Text>
+              </View>
+              <Switch
+                testID="pref-push"
+                value={preferences.notif_push}
+                onValueChange={(value) => save({ notif_push: value })}
+                trackColor={{ true: colors.primary, false: 'rgba(255,255,255,0.15)' }}
+                thumbColor="#FFFFFF"
+                accessibilityLabel="Notificações no celular"
               />
             </Card>
 

@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { slugify } from '@/lib/utils'
@@ -167,23 +168,21 @@ export async function decideJoinRequest(
   }
 
   const { data: group } = await admin.from('groups').select('name, slug').eq('id', req.group_id).maybeSingle()
-  await admin.from('notifications').insert(
+  await createNotificationAdmin(
     decision === 'APPROVED'
       ? {
-          user_id: req.user_id,
+          userId: req.user_id,
           type: 'GROUP_JOIN_APPROVED',
           title: 'Solicitação aprovada!',
           body: `Sua solicitação para entrar em "${group?.name}" foi aprovada.`,
           data: { group_id: req.group_id, group_slug: group?.slug },
-          read: false,
         }
       : {
-          user_id: req.user_id,
+          userId: req.user_id,
           type: 'GROUP_JOIN_REJECTED',
           title: 'Solicitação recusada',
           body: `Sua solicitação para entrar em "${group?.name}" foi recusada.`,
           data: { group_id: req.group_id },
-          read: false,
         }
   )
 

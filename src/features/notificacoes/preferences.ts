@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const preferencesSchema = z
   .object({
     notif_email: z.boolean(),
+    notif_push: z.boolean(),
     notif_new_event_channel: z.enum(['EMAIL', 'WHATSAPP', 'NONE']),
   })
   .partial()
@@ -15,7 +16,7 @@ export const preferencesSchema = z
 export async function getNotificationPreferences(userId: string) {
   const { data } = await createAdminClient()
     .from('profiles')
-    .select('notif_email, notif_new_event_channel')
+    .select('notif_email, notif_push, notif_new_event_channel')
     .eq('id', userId)
     .maybeSingle()
   return data

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPushToUser } from '@/lib/push'
 
@@ -68,8 +69,8 @@ export async function GET(request: NextRequest) {
       .eq('id', next.id)
 
     // Notificação in-app
-    await admin.from('notifications').insert({
-      user_id: next.user_id,
+    await createNotificationAdmin({
+      userId: next.user_id,
       type: 'WAITLIST_PROMOTED',
       title: 'Vaga disponível!',
       body: `Uma vaga abriu em "${event.title}". Você tem 24h para confirmar.`,

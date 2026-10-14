@@ -9,6 +9,7 @@ import { Avatar } from '@/components/avatar'
 import { Badge, Button, Card } from '@/components/ui'
 import {
   deleteComment,
+  runAction,
   postComment,
   submitRating,
   uploadEventPhoto,
@@ -352,7 +353,7 @@ export function PhotosSection(props: { eventId: string; extras: EventExtras; onC
 
   async function handleAdd() {
     setError(null)
-    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.5, base64: true })
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6, base64: true })
     if (picked.canceled) return
 
     const asset = picked.assets[0]
@@ -360,9 +361,13 @@ export function PhotosSection(props: { eventId: string; extras: EventExtras; onC
       setError('Não foi possível ler a foto escolhida.')
       return
     }
+    // Mesmo limite do servidor (src/features/galeria/photos.ts)
+    if ((asset.fileSize ?? asset.base64.length * 0.75) > 4 * 1024 * 1024) {
+      setError('A foto passou de 4MB. Escolha outra.')
+      return
+    }
     setUploading(true)
-    const mimeType = asset.mimeType === 'image/png' || asset.mimeType === 'image/webp' ? asset.mimeType : 'image/jpeg'
-    const result = await uploadEventPhoto(eventId, { base64: asset.base64, mimeType })
+    const result = await uploadEventPhoto(eventId, { base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' })
     if ('error' in result) setError(result.error)
     await onChanged()
     setUploading(false)
@@ -387,13 +392,31 @@ export function PhotosSection(props: { eventId: string; extras: EventExtras; onC
       ) : (
         <View style={styles.photos}>
           {extras.photos.map((photo) => (
-            <Image
+            <Pressable
               key={photo.id}
-              source={photo.url}
-              style={styles.photo}
-              contentFit="cover"
-              accessibilityLabel={`Foto enviada por ${personName(photo.profile)}`}
-            />
+              disabled={!photo.canDelete}
+              // Quem enviou (ou o organizador) segura a foto para apagar
+              onLongPress={() =>
+                Alert.alert('Apagar foto?', 'Ela some da galeria do evento.', [
+                  { text: 'Manter', style: 'cancel' },
+                  {
+                    text: 'Apagar',
+                    style: 'destructive',
+                    onPress: async () => {
+                      const result = await runAction('deleteEventPhoto', photo.id, eventId)
+                      if ('error' in result) setError(result.error)
+                      await onChanged()
+                    },
+                  },
+                ])
+              }>
+              <Image
+                source={photo.url}
+                style={styles.photo}
+                contentFit="cover"
+                accessibilityLabel={`Foto enviada por ${personName(photo.profile)}`}
+              />
+            </Pressable>
           ))}
         </View>
       )}

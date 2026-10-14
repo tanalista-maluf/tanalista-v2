@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -229,13 +230,12 @@ export async function requestGroupJoinAction(groupId: string) {
   const groupName = group?.name ?? 'grupo'
 
   for (const owner of owners ?? []) {
-    await admin.from('notifications').insert({
-      user_id: owner.user_id,
+    await createNotificationAdmin({
+      userId: owner.user_id,
       type: 'GROUP_JOIN_REQUEST',
       title: 'Solicitação de entrada',
       body: `${requesterName} quer entrar no grupo "${groupName}".`,
       data: { group_id: groupId, group_slug: group?.slug, requester_id: user.id },
-      read: false,
     })
   }
 
@@ -300,13 +300,12 @@ export async function transferGroupOwnershipAction(groupId: string, newOwnerUser
 
   // Notifica o novo dono
   const { data: group } = await admin.from('groups').select('name, slug').eq('id', groupId).maybeSingle()
-  await admin.from('notifications').insert({
-    user_id: newOwnerUserId,
+  await createNotificationAdmin({
+    userId: newOwnerUserId,
     type: 'GROUP_OWNERSHIP_TRANSFERRED',
     title: 'Você é o novo dono!',
     body: `A liderança do grupo "${group?.name}" foi transferida para você.`,
     data: { group_id: groupId, slug: group?.slug },
-    read: false,
   })
 
   revalidatePath(`/grupos/${group?.slug ?? groupId}`)
