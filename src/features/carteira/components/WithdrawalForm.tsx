@@ -57,7 +57,7 @@ export function WithdrawalForm({ balance }: WithdrawalFormProps) {
       pix_key_type: data.pix_key_type,
     })
 
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       setSuccess(true)

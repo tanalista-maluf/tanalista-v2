@@ -1,0 +1,269 @@
+# Notificações (sino, central, preferências) e carteira (cupom de crédito,
+# recarga por PIX e saque). Mesmos pré-requisitos e variáveis de
+# main-flow.yaml, com o banco recém-criado.
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+# ── Notificações ─────────────────────────────────────────────────────────────
+- assertVisible:
+    id: "notifications-badge"
+- tapOn:
+    id: "notifications"
+- assertVisible: "2 não lidas"
+- takeScreenshot: 60-notificacoes
+# A notificação do evento leva à página dele
+- tapOn: ".*Evento confirmado!.*"
+- assertVisible: "Futebol de quinta"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "1 não lida"
+- tapOn:
+    id: "notifications-read-all"
+- assertVisible: "Tudo lido"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertNotVisible:
+    id: "notifications-badge"
+# Preferências
+- tapOn:
+    id: "profile"
+- tapOn:
+    id: "go-notification-settings"
+- tapOn:
+    id: "pref-email"
+- tapOn:
+    id: "pref-channel-none"
+- takeScreenshot: 61-preferencias
+- runScript:
+    file: check-preferences.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Carteira: cupom de crédito ───────────────────────────────────────────────
+- tapOn:
+    id: "tab-wallet"
+- assertVisible:
+    id: "wallet-empty"
+- assertVisible: "R\\$.0,00"
+- tapOn:
+    id: "wallet-coupon"
+- tapOn:
+    id: "wallet-coupon-code"
+- inputText: "NAOEXISTE"
+- tapOn:
+    id: "wallet-coupon-apply"
+- assertVisible: "Cupom inválido ou expirado."
+- tapOn:
+    id: "wallet-coupon-code"
+- eraseText: 12
+- inputText: "BEMVINDO"
+- tapOn:
+    id: "wallet-coupon-apply"
+- assertVisible: "Cupom aplicado: R\\$.20,00 na sua carteira."
+- assertVisible: "R\\$.20,00"
+- assertVisible: "Crédito"
+
+# ── Recarga por PIX ──────────────────────────────────────────────────────────
+- tapOn:
+    id: "wallet-deposit"
+- tapOn:
+    id: "deposit-amount"
+- inputText: "5"
+- tapOn:
+    id: "deposit-submit"
+- assertVisible: "Valor mínimo para recarga: R\\$.10,00."
+- tapOn:
+    id: "deposit-quick-20"
+- tapOn:
+    id: "deposit-submit"
+- assertVisible:
+    id: "pix-code"
+- takeScreenshot: 62-recarga-pix
+- runScript:
+    file: confirm-deposit.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- extendedWaitUntil:
+    visible:
+      id: "deposit-confirmed"
+    timeout: 15000
+- tapOn:
+    id: "deposit-done"
+- assertVisible: "R\\$.40,00"
+- takeScreenshot: 63-carteira
+
+# ── Saque ────────────────────────────────────────────────────────────────────
+- tapOn:
+    id: "wallet-withdraw"
+- assertVisible:
+    id: "withdraw-balance"
+- tapOn:
+    id: "withdraw-amount"
+- inputText: "15"
+- tapOn:
+    id: "withdraw-cpf"
+- inputText: "12345678909"
+- tapOn:
+    id: "withdraw-type-email"
+- tapOn:
+    id: "withdraw-key"
+- inputText: "bruno@teste.local"
+- scrollUntilVisible:
+    element:
+      id: "withdraw-submit"
+    centerElement: true
+- tapOn:
+    id: "withdraw-submit"
+- assertVisible:
+    id: "withdraw-done"
+- runScript:
+    file: check-withdrawal.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- tapOn:
+    id: "withdraw-back"
+- assertVisible: "R\\$.25,00"
+- assertVisible: "Saque"
+- takeScreenshot: 64-carteira-final
