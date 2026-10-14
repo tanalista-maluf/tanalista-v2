@@ -43,14 +43,56 @@ export function ParticipantsSection({ extras, teams }: { extras: EventExtras; te
     )
   }
 
+  // Evento com times: uma lista por time, na ordem dos times, e por último
+  // quem ficou sem time (inscrições anteriores aos times)
+  if (teams.length > 1) {
+    const withoutTeam = extras.participants.filter((p) => !teams.some((team) => team.id === p.team_id))
+    return (
+      <View style={styles.teams}>
+        {teams.map((team, index) => (
+          <TeamBlock
+            key={team.id}
+            testID={`participants-team-${index}`}
+            title={team.name}
+            detail={`${team.confirmed_count}/${team.capacity}`}
+            participants={extras.participants.filter((p) => p.team_id === team.id)}
+          />
+        ))}
+        {withoutTeam.length > 0 && <TeamBlock title="Sem time" participants={withoutTeam} />}
+      </View>
+    )
+  }
+
+  return <ParticipantList participants={extras.participants} teams={teams} />
+}
+
+type Participant = EventExtras['participants'][number]
+
+function TeamBlock(props: { title: string; detail?: string; participants: Participant[]; testID?: string }) {
+  return (
+    <View testID={props.testID} style={styles.team}>
+      <View style={styles.teamHeader}>
+        <Text style={styles.teamName}>{props.title}</Text>
+        {props.detail && <Text style={styles.teamCount}>{props.detail}</Text>}
+      </View>
+      {props.participants.length === 0 ? (
+        <Text style={styles.teamEmpty}>Ninguém neste time ainda.</Text>
+      ) : (
+        <ParticipantList participants={props.participants} teams={[]} />
+      )}
+    </View>
+  )
+}
+
+function ParticipantList({ participants, teams }: { participants: Participant[]; teams: EventTeam[] }) {
   return (
     <Card style={styles.list}>
-      {extras.participants.map((participant, index) => {
+      {participants.map((participant, index) => {
         const team = teams.find((item) => item.id === participant.team_id)
         return (
           <Pressable
             key={participant.id}
-            testID={`participant-${index}`}
+            testID={`participant-${participant.id}`}
             accessibilityRole="button"
             disabled={!participant.profile?.username}
             onPress={() => openProfile(participant.profile)}
@@ -469,6 +511,12 @@ const styles = StyleSheet.create({
   empty: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', paddingVertical: 24 },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
   list: { paddingHorizontal: 14 },
+  teams: { gap: 16 },
+  team: { gap: 8 },
+  teamHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 4 },
+  teamName: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
+  teamCount: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.text50 },
+  teamEmpty: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, paddingHorizontal: 4 },
   padded: { padding: 16, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   divider: { borderTopWidth: 1, borderTopColor: colors.cardBorder },
