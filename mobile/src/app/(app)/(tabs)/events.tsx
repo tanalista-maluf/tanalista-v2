@@ -1,17 +1,19 @@
 import { router, useFocusEffect } from 'expo-router'
 import { CalendarX2, Plus, Search } from 'lucide-react-native'
+import { DateTimePicker } from '@expo/ui/community/datetime-picker'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native'
+import { Dropdown } from '@/components/dropdown'
 import { EventCard, type EventCardBadge, type EventCardData } from '@/components/event-card'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
@@ -44,14 +46,76 @@ const CATEGORIES = [
   'Outros',
 ]
 
-type Filter = { search: string; category: string | null }
+const CATEGORY_OPTIONS = CATEGORIES.map((c) => ({ key: c, label: c }))
+
+const DATE_OPTIONS = [
+  { key: 'today', label: 'Hoje' },
+  { key: 'tomorrow', label: 'Amanhã' },
+  { key: 'weekend', label: 'Este fim de semana' },
+  { key: 'week', label: 'Próximos 7 dias' },
+  { key: 'month', label: 'Próximos 30 dias' },
+  { key: 'day', label: 'Escolher um dia…' },
+]
+
+type DateFilter = { key: string; day?: Date } | null
+type Filter = { search: string; category: string | null; city: string | null; date: DateFilter }
+
+function startOfDay(date: Date, plusDays = 0) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + plusDays)
+  return d
+}
+
+// Intervalo [from, to) do filtro de data, no fuso do aparelho
+function dateRange(date: NonNullable<DateFilter>): { from: Date; to: Date } {
+  const now = new Date()
+  switch (date.key) {
+    case 'today':
+      return { from: now, to: startOfDay(now, 1) }
+    case 'tomorrow':
+      return { from: startOfDay(now, 1), to: startOfDay(now, 2) }
+    case 'weekend': {
+      // Sábado e domingo desta semana (no domingo, só o que resta dele)
+      const day = now.getDay()
+      const saturday = day === 0 ? startOfDay(now, -1) : startOfDay(now, 6 - day)
+      return { from: saturday, to: startOfDay(saturday, 2) }
+    }
+    case 'week':
+      return { from: now, to: startOfDay(now, 8) }
+    case 'month':
+      return { from: now, to: startOfDay(now, 31) }
+    default:
+      return { from: startOfDay(date.day ?? now), to: startOfDay(date.day ?? now, 1) }
+  }
+}
+
+function formatDay(date: Date) {
+  return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+}
+
+// Cidades que têm algum evento por vir, para o filtro
+async function fetchCities(): Promise<string[]> {
+  const { data } = await supabase
+    .from('events')
+    .select('city')
+    .in('status', ['OPEN', 'PENDING', 'CONFIRMED'])
+    .gte('starts_at', new Date().toISOString())
+    .limit(1000)
+  const cities = new Set((data ?? []).map((row) => row.city?.trim()).filter((city): city is string => !!city))
+  return [...cities].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+}
 
 async function fetchUpcomingEvents(filter: Filter): Promise<ListedEvent[]> {
+  const now = new Date()
+  const range = filter.date ? dateRange(filter.date) : null
+  const from = range && range.from > now ? range.from : now
+
   let query = supabase
     .from('events')
     .select(EVENT_COLUMNS)
     .in('status', ['OPEN', 'PENDING', 'CONFIRMED'])
-    .gte('starts_at', new Date().toISOString())
+    .gte('starts_at', from.toISOString())
     .order('starts_at', { ascending: true })
     .limit(50)
 
@@ -59,6 +123,8 @@ async function fetchUpcomingEvents(filter: Filter): Promise<ListedEvent[]> {
   const term = filter.search.trim().replace(/[%_,()]/g, ' ')
   if (term) query = query.ilike('title', `%${term}%`)
   if (filter.category) query = query.eq('category', filter.category)
+  if (filter.city) query = query.eq('city', filter.city)
+  if (range) query = query.lt('starts_at', range.to.toISOString())
 
   const { data, error } = await query
   if (error) throw error
@@ -113,6 +179,10 @@ export default function EventsScreen() {
   const [events, setEvents] = useState<Partial<Record<Tab, ListedEvent[]>>>({})
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
+  const [city, setCity] = useState<string | null>(null)
+  const [date, setDate] = useState<DateFilter>(null)
+  const [cities, setCities] = useState<string[]>([])
+  const [pickingDay, setPickingDay] = useState(false)
   const [error, setError] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const headerInset = useTabHeaderInset()
@@ -131,18 +201,34 @@ export default function EventsScreen() {
   )
 
   // Recarrega também ao voltar da página de um evento: a inscrição pode ter mudado.
-  // A categoria vale ao tocar; a busca, só ao enviar o campo, não a cada letra.
+  // Os filtros valem ao escolher; a busca, só ao enviar o campo, não a cada letra.
   useFocusEffect(
     useCallback(() => {
-      load(tab, { search, category })
+      load(tab, { search, category, city, date })
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [load, tab, category])
+    }, [load, tab, category, city, date])
+  )
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchCities().then(setCities)
+    }, [])
   )
 
   async function handleRefresh() {
     setRefreshing(true)
-    await load(tab, { search, category })
+    await Promise.all([load(tab, { search, category, city, date }), fetchCities().then(setCities)])
     setRefreshing(false)
+  }
+
+  function chooseDate(key: string | null) {
+    if (key === 'day') setPickingDay(true)
+    else setDate(key ? { key } : null)
+  }
+
+  function chooseDay(day: Date) {
+    setPickingDay(false)
+    setDate({ key: 'day', day })
   }
 
   const current = TABS.find((t) => t.key === tab)!
@@ -195,7 +281,7 @@ export default function EventsScreen() {
                     testID="events-search"
                     value={search}
                     onChangeText={setSearch}
-                    onSubmitEditing={() => load('upcoming', { search, category })}
+                    onSubmitEditing={() => load('upcoming', { search, category, city, date })}
                     placeholder="Buscar evento pelo nome"
                     placeholderTextColor={colors.text35}
                     selectionColor={colors.primary}
@@ -204,27 +290,33 @@ export default function EventsScreen() {
                     style={styles.searchInput}
                   />
                 </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  style={styles.categories}
-                  contentContainerStyle={styles.categoriesContent}>
-                  {CATEGORIES.map((item, index) => {
-                    const selected = item === category
-                    return (
-                      <Pressable
-                        key={item}
-                        testID={`category-${index}`}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        onPress={() => setCategory(selected ? null : item)}
-                        style={[styles.chip, selected && styles.chipSelected]}>
-                        <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{item}</Text>
-                      </Pressable>
-                    )
-                  })}
-                </ScrollView>
+                <View style={styles.filters}>
+                  <Dropdown
+                    testID="filter-category"
+                    placeholder="Categoria"
+                    allLabel="Todas as categorias"
+                    options={CATEGORY_OPTIONS}
+                    selected={category}
+                    onSelect={setCategory}
+                  />
+                  <Dropdown
+                    testID="filter-date"
+                    placeholder="Data"
+                    allLabel="Qualquer data"
+                    options={DATE_OPTIONS}
+                    selected={date?.key ?? null}
+                    selectedLabel={date?.day ? formatDay(date.day) : undefined}
+                    onSelect={chooseDate}
+                  />
+                  <Dropdown
+                    testID="filter-city"
+                    placeholder="Cidade"
+                    allLabel="Todas as cidades"
+                    options={cities.map((c) => ({ key: c, label: c }))}
+                    selected={city}
+                    onSelect={setCity}
+                  />
+                </View>
               </>
             )}
             <Text style={styles.heading}>{current.heading}</Text>
@@ -250,7 +342,39 @@ export default function EventsScreen() {
           />
         )}
       />
+      {pickingDay && <DayPicker value={date?.day ?? new Date()} onPick={chooseDay} onCancel={() => setPickingDay(false)} />}
     </Screen>
+  )
+}
+
+// Calendário para escolher um dia: no Android, o diálogo do sistema; no iOS,
+// o calendário do sistema numa janela por cima da tela
+function DayPicker({ value, onPick, onCancel }: { value: Date; onPick: (day: Date) => void; onCancel: () => void }) {
+  const picker = (
+    <DateTimePicker
+      testID="filter-day-picker"
+      value={value}
+      mode="date"
+      display={process.env.EXPO_OS === 'ios' ? 'inline' : 'default'}
+      minimumDate={startOfDay(new Date())}
+      locale="pt_BR"
+      accentColor={colors.primary}
+      themeVariant="dark"
+      onValueChange={(_, day) => onPick(day)}
+      onDismiss={onCancel}
+    />
+  )
+  if (process.env.EXPO_OS !== 'ios') return picker
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
+      <Pressable style={styles.backdrop} onPress={onCancel} accessibilityLabel="Fechar">
+        <Pressable style={styles.calendar} onPress={() => {}}>
+          <Text style={styles.calendarTitle}>Escolha um dia</Text>
+          {picker}
+        </Pressable>
+      </Pressable>
+    </Modal>
   )
 }
 
@@ -294,21 +418,17 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   searchInput: { flex: 1, height: 48, fontFamily: fonts.body, fontSize: 15, color: colors.foreground },
-  // A faixa de categorias vai até as bordas da tela, por cima do recuo da lista
-  categories: { marginHorizontal: -16, flexGrow: 0 },
-  categoriesContent: { gap: 8, paddingHorizontal: 16 },
-  chip: {
-    minHeight: 36,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderRadius: radius.pill,
+  filters: { flexDirection: 'row', gap: 8 },
+  backdrop: { flex: 1, justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.6)' },
+  calendar: {
+    padding: 16,
+    gap: 8,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.input,
+    borderRadius: radius.card,
   },
-  chipSelected: { borderColor: 'rgba(74,222,128,0.45)', backgroundColor: 'rgba(74,222,128,0.1)' },
-  chipText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.text70 },
-  chipTextSelected: { color: colors.primary },
+  calendarTitle: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.foreground },
   heading: { fontFamily: fonts.headingBlack, fontSize: 24, color: colors.foreground, letterSpacing: -0.5 },
   loading: { marginTop: 64 },
   empty: { alignItems: 'center', gap: 12, marginTop: 64, paddingHorizontal: 24 },
