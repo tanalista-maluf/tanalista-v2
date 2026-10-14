@@ -366,13 +366,12 @@ export async function sendGroupBroadcastAction(groupId: string, message: string)
 
   const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
   const { sendGroupBroadcastToMember } = await import('@/lib/emails')
-  const { sendPushToUser } = await import('@/lib/push')
 
   let sent = 0
   await Promise.allSettled(members.map(async (m) => {
     const { data: profile } = await admin
       .from('profiles')
-      .select('full_name, notif_email, notif_push')
+      .select('full_name, notif_email')
       .eq('id', m.user_id)
       .single()
 
@@ -384,13 +383,6 @@ export async function sendGroupBroadcastAction(groupId: string, message: string)
       data: { group_id: groupId },
     })
 
-    if (profile?.notif_push ?? true) {
-      await sendPushToUser(m.user_id, {
-        title: `Aviso: ${group.name}`,
-        body: trimmed,
-        url: `/grupos/${groupId}`,
-      }).catch(() => {})
-    }
 
     if (profile?.notif_email ?? true) {
       const { data: authUser } = await admin.auth.admin.getUserById(m.user_id)

@@ -232,7 +232,8 @@ appId: ${APP_ID}
 - tapOn:
     id: "manage-rules"
 - inputText: "Chegar cedo"
-- hideKeyboard
+# hideKeyboard não fecha campo de várias linhas no iOS: toque no título da seção
+- tapOn: "Regras e diretrizes"
 - scrollUntilVisible:
     element:
       id: "manage-rules-save"
@@ -249,7 +250,7 @@ appId: ${APP_ID}
 - tapOn:
     id: "manage-broadcast"
 - inputText: "Tragam agua"
-- hideKeyboard
+- tapOn: "Mensagem aos confirmados"
 - scrollUntilVisible:
     element:
       id: "manage-broadcast-send"
@@ -454,6 +455,8 @@ appId: ${APP_ID}
 - tapOn:
     id: "listing-title"
 - inputText: "Bola oficial"
+# Fecha o teclado: com ele aberto, a descrição fica escondida atrás dele
+- tapOn: "Fotos.*"
 - tapOn:
     id: "listing-description"
 - inputText: "Bola de futsal pouco usada"

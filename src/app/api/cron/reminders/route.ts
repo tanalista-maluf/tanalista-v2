@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEventReminder } from '@/lib/emails'
-import { sendPushToUser } from '@/lib/push'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { formatDateTime } from '@/utils/format'
 
 async function runReminders() {
@@ -79,13 +79,14 @@ async function runReminders() {
           reminder_type: '24h',
         })
 
-        if (wantsPush) {
-          await sendPushToUser(p.user_id, {
-            title: `Lembrete: ${event.title}`,
-            body: `Seu evento é amanhã — ${formatDateTime(event.starts_at)}`,
-            url: `/eventos/${event.id}`,
-          }).catch(() => {})
-        }
+        // No sino e, para quem deixou ligado, como push no celular e no navegador
+        await createNotificationAdmin({
+          userId: p.user_id,
+          type: 'EVENT_REMINDER',
+          title: `Lembrete: ${event.title}`,
+          body: `Seu evento é amanhã — ${formatDateTime(event.starts_at)}`,
+          data: { event_id: event.id },
+        })
 
         sent++
       } catch (e) {

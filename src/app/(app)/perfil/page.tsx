@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { AvatarUpload } from '@/features/perfil/components/AvatarUpload'
 import { NotificationSettings } from '@/features/notificacoes/components/NotificationSettings'
 import { logoutAction } from '@/features/auth/actions'
+import { DeleteAccount } from '@/features/perfil/components/DeleteAccount'
 import { Wallet, BarChart2, Activity, User, KeyRound, LogOut, ChevronRight, FileText, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { formatBalance } from '@/utils/format'
@@ -144,6 +145,8 @@ export default async function PerfilPage() {
             <ChevronRight className="size-4 text-white/20" />
           </Link>
         </div>
+
+        <DeleteAccount />
 
         {/* Logout */}
         <div className="pt-4">

@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { deleteAccount } from './delete-account'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { onboardingStep2Schema } from './schemas'
@@ -100,6 +101,21 @@ export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login', re
 export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
+  redirect('/login')
+}
+
+// Exclusão da própria conta pelo site (mesma regra do app, em delete-account.ts).
+// Com pendências, devolve o que falta resolver; senão encerra a sessão.
+export async function deleteAccountAction() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Sessão expirada. Faça login novamente.' }
+
+  const result = await deleteAccount(user.id)
+  if ('error' in result) return result
+
+  // O login já foi encerrado no servidor; aqui sai do cookie deste navegador
+  await supabase.auth.signOut({ scope: 'local' })
   redirect('/login')
 }
 

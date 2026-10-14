@@ -848,13 +848,12 @@ export async function sendEventBroadcastAction(eventId: string, message: string)
 
   const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
   const { sendEventBroadcastToParticipant } = await import('@/lib/emails')
-  const { sendPushToUser } = await import('@/lib/push')
 
   let sent = 0
   await Promise.allSettled(participants.map(async (p) => {
     const { data: profile } = await admin
       .from('profiles')
-      .select('full_name, notif_email, notif_push')
+      .select('full_name, notif_email')
       .eq('id', p.user_id)
       .single()
 
@@ -866,13 +865,6 @@ export async function sendEventBroadcastAction(eventId: string, message: string)
       data: { event_id: eventId },
     })
 
-    if (profile?.notif_push ?? true) {
-      await sendPushToUser(p.user_id, {
-        title: `Aviso: ${event.title}`,
-        body: trimmed,
-        url: `/eventos/${eventId}`,
-      }).catch(() => {})
-    }
 
     if (profile?.notif_email ?? true) {
       const { data: authUser } = await admin.auth.admin.getUserById(p.user_id)
