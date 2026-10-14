@@ -18,6 +18,7 @@ import {
   uploadEventCoverAction,
 } from '@/features/eventos/actions'
 import { checkInAction } from '@/features/eventos/actions-checkin'
+import { purgeCancelledEvents } from '@/features/admin/cleanup'
 import { getOrganizerEventData } from '@/features/eventos/organizer'
 import { removeParticipantAction } from '@/features/participacoes/actions'
 import {
@@ -132,6 +133,7 @@ const HANDLERS: Record<string, Handler> = {
   adminWithdrawals: adminOnly(() => listAdminWithdrawals()),
   adminUsers: adminOnly(([q]) => listAdminUsers(optionalText(q))),
   adminEvents: adminOnly(([q, status]) => listAdminEvents(optionalText(q), optionalText(status))),
+  adminPurgeCancelledEvents: adminOnly(() => purgeCancelledEvents()),
   adminGroups: adminOnly(() => listAdminGroups()),
   adminCoupons: adminOnly(() => listAdminCoupons()),
   adminCreateCoupon: adminOnly(([input]) => createCouponAction(input)),

@@ -75,7 +75,7 @@ export default function Onboarding() {
       {fieldError('username') ?? <Text style={authStyles.hint}>É como os outros encontram você: @{username || 'seu_usuario'}</Text>}
       <Field
         testID="phone"
-        label="WhatsApp"
+        label="Telefone"
         placeholder="11999998888"
         keyboardType="number-pad"
         textContentType="telephoneNumber"
@@ -84,7 +84,7 @@ export default function Onboarding() {
         onChangeText={setPhone}
       />
       {fieldError('phone') ?? <Text style={authStyles.hint}>Os organizadores usam para falar com você sobre o evento.</Text>}
-      {/* Por último: o teclado numérico do WhatsApp não tem tecla de concluir */}
+      {/* Por último: o teclado numérico do telefone não tem tecla de concluir */}
       <Field
         testID="city"
         label="Cidade"
