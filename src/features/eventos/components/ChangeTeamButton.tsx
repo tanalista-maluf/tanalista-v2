@@ -60,7 +60,7 @@ export function ChangeTeamButton({
 
     setLoading(false)
 
-    if (result?.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       toast.success(isWaitlist ? 'Fila alterada!' : 'Time alterado com sucesso!')

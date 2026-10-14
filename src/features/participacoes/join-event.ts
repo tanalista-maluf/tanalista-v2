@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { calculateFees } from '@/lib/mercadopago'
 import { releaseCouponUse, releaseStaleCouponUses } from '@/lib/refunds'
 import type { Database } from '@/types/database'
+import { checkTeamForJoin } from '@/features/eventos/teams'
 import { getOpenPayment, OPEN_PAYMENT_ERROR } from './card-payment'
 
 // Regra de inscrição em evento, sem nada de transporte: é chamada pela server
@@ -103,6 +104,11 @@ export async function joinEvent(
 
   if ((count ?? 0) >= event.capacity) {
     return { error: 'Evento lotado. Tente a fila de espera.', code: 'FULL' }
+  }
+
+  if (teamId) {
+    const teamError = await checkTeamForJoin(eventId, teamId)
+    if (teamError) return { error: teamError }
   }
 
   // Organizador isento: confirma diretamente

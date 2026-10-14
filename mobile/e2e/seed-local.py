@@ -2,6 +2,7 @@
 
 Usuários (senha senha-teste-123): ana (organizadora), bruno (quem o teste usa)
 e carla. Eventos: um gratuito, um pago (com o cupom TESTE50), um privado e um lotado.
+Para e2e/extras-flow.yaml: um evento com dois times.
 """
 import datetime
 import json
@@ -74,6 +75,7 @@ events = call(
         event(group["id"], ana, "Torneio pago de sábado", "torneio-pago", 4, 3000, 20, cancel_before_hours=0),
         event(group["id"], ana, "Treino fechado", "treino-fechado", 6, 0, 10, "PRIVATE"),
         event(group["id"], ana, "Racha lotado", "racha-lotado", 8, 0, 2),
+        event(group["id"], ana, "Vôlei com times", "volei-com-times", 10, 0, 4, cancel_before_hours=0),
     ],
 )
 
@@ -90,5 +92,15 @@ call(
 # Cupom de 50% para o evento pago (com percent_off, amount_cents não é usado)
 paid = next(e for e in events if e["slug"] == "torneio-pago")
 call("/rest/v1/coupons", {"code": "TESTE50", "percent_off": 50, "amount_cents": 1, "event_id": paid["id"], "active": True})
+
+# Dois times no evento de vôlei
+volei = next(e for e in events if e["slug"] == "volei-com-times")
+call(
+    "/rest/v1/event_teams",
+    [
+        {"event_id": volei["id"], "name": "Time Azul", "capacity": 2, "position": 0},
+        {"event_id": volei["id"], "name": "Time Branco", "capacity": 2, "position": 1},
+    ],
+)
 
 print("Dados de teste criados:", ", ".join(e["title"] for e in events))

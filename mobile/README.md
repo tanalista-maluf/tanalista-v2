@@ -11,11 +11,12 @@ Os tipos do banco são os do site: `../src/types/database.ts`.
 
 ## O que existe hoje
 
-Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola, cartão de crédito ou saldo da carteira), cancelamento de inscrição e perfil com exclusão de conta. Evento privado ou lotado aparece com o motivo de não dar para se inscrever pelo app. Recuperação de senha, escolha de time e fila de espera ainda são só pelo site.
+Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, lista de próximos eventos, "Meus eventos", página do evento, inscrição em evento gratuito ou pago (cupom de desconto, PIX copia e cola, cartão de crédito ou saldo da carteira), escolha e troca de time, fila de espera (entrar, sair e confirmar a vaga reservada), cancelamento de inscrição, recuperação de senha e perfil com exclusão de conta. Evento privado aparece com o motivo de não dar para se inscrever pelo app.
 
 ## Configuração fora do código
 
 - **Login com Google:** `tanalista://auth/callback` precisa estar em Authentication → URL Configuration → Redirect URLs do Supabase. Sem isso o Google volta para o site em vez do app.
+- **Recuperação de senha:** usa o mesmo endereço de retorno. O link do e-mail só funciona no aparelho em que o pedido foi feito, com o app instalado.
 - **Confirmação de e-mail do cadastro:** o link do e-mail abre `https://www.tanalista.app/app/email-confirmado`, que também precisa estar nas Redirect URLs.
 - **Cartão:** o formulário é o Card Payment Brick do Mercado Pago, numa página do site (`/embed/cartao`) aberta em WebView; o app recebe só o token do cartão. Depende de `MERCADOPAGO_PLATFORM_PUBLIC_KEY` no site (a chave pública da mesma aplicação de `MERCADOPAGO_PLATFORM_ACCESS_TOKEN`). Sem ela, a opção de cartão não aparece nem no app nem no site.
 
@@ -39,4 +40,6 @@ eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
 maestro test -e APP_ID=app.tanalista \
   -e APP_URL='exp+tanalista://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \
   -e SUPABASE_URL=$API_URL -e SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY e2e/main-flow.yaml
+# recuperação de senha, times e fila de espera: mesmo comando com
+#   -e MAILPIT_URL=http://127.0.0.1:54324 e2e/extras-flow.yaml (banco zerado antes: supabase db reset + seed)
 ```

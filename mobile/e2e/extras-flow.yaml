@@ -1,0 +1,291 @@
+# Recuperação de senha, escolha de time e fila de espera, de ponta a ponta.
+# Mesmos pré-requisitos e variáveis de main-flow.yaml, mais o Mailpit local:
+#   -e MAILPIT_URL=http://127.0.0.1:54324
+# Usa os dados de seed-local.py (Bruno, "Vôlei com times", "Racha lotado") e
+# não depende de main-flow.yaml ter rodado antes.
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo Go de cima do cabeçalho
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "50%, 85%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "50%, 85%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+
+# ── Recuperação de senha ─────────────────────────────────────────────────────
+- tapOn:
+    id: "go-forgot-password"
+- assertVisible: "Recuperar senha"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "submit"
+- assertVisible:
+    id: "reset-sent"
+- takeScreenshot: 20-recuperar-enviado
+# O link do e-mail abre o app na tela de senha nova
+- runScript:
+    file: recovery-link.js
+    env:
+      MAILPIT_URL: ${MAILPIT_URL}
+- openLink: ${output.appLink}
+# O iOS confirma antes de abrir um link no app
+- extendedWaitUntil:
+    visible: "Criar senha nova|Abrir|Open"
+    timeout: 20000
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Criar senha nova"
+    timeout: 20000
+- tapOn:
+    id: "new-password"
+- inputText: "curta"
+- tapOn:
+    id: "submit"
+- assertVisible: "A senha precisa de ao menos 8 caracteres."
+- tapOn:
+    id: "new-password"
+- eraseText: 10
+- inputText: "Senha-nova-2"
+- takeScreenshot: 21-senha-nova
+- tapOn:
+    id: "submit"
+# O iOS pode perguntar se quer guardar a senha
+- extendedWaitUntil:
+    visible: "Próximos eventos|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+- assertVisible: "Próximos eventos"
+# A senha nova vale: sai e entra com ela
+- tapOn:
+    id: "profile"
+- tapOn:
+    id: "sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "Senha-nova-2"
+- tapOn:
+    id: "submit"
+# O iOS oferece atualizar a senha guardada
+- extendedWaitUntil:
+    visible: "Próximos eventos|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+- assertVisible: "Próximos eventos"
+
+# ── Evento com times ─────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element: "Vôlei com times.*"
+- tapOn: "Vôlei com times.*"
+# Sem escolher o time, a inscrição não sai
+- tapOn:
+    id: "join"
+- scrollUntilVisible:
+    element: "Escolha um time para se inscrever."
+- scrollUntilVisible:
+    element:
+      id: "team-0"
+- tapOn:
+    id: "team-0"
+- takeScreenshot: 22-escolha-de-time
+- tapOn:
+    id: "join"
+- assertVisible:
+    id: "status-confirmed"
+- scrollUntilVisible:
+    element:
+      id: "current-team"
+    centerElement: true
+- assertVisible: "Time Azul"
+# Uma troca de time, e só uma
+- tapOn:
+    id: "change-team"
+- scrollUntilVisible:
+    element:
+      id: "team-0"
+- tapOn:
+    id: "team-0"
+- scrollUntilVisible:
+    element:
+      id: "change-team-confirm"
+    centerElement: true
+- tapOn:
+    id: "change-team-confirm"
+- scrollUntilVisible:
+    element: "Troca usada"
+- assertVisible: "Time Branco"
+- assertNotVisible:
+    id: "change-team"
+- takeScreenshot: 23-time-trocado
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Próximos eventos"
+
+# ── Fila de espera ───────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element: "Racha lotado.*"
+    direction: UP
+- tapOn: "Racha lotado.*"
+- assertVisible:
+    id: "join-waitlist"
+- tapOn:
+    id: "join-waitlist"
+- assertVisible:
+    id: "status-waiting"
+- scrollUntilVisible:
+    element: ".*na posição #1.*"
+- takeScreenshot: 24-na-fila
+# Sai da fila e entra de novo
+- scrollUntilVisible:
+    element:
+      id: "leave-waitlist"
+    centerElement: true
+- tapOn:
+    id: "leave-waitlist"
+- assertVisible: "Sair da fila\\?"
+- tapOn: "Sim, sair"
+- assertVisible:
+    id: "join-waitlist"
+- tapOn:
+    id: "join-waitlist"
+- assertVisible:
+    id: "status-waiting"
+# Alguém cancela: a fila reserva a vaga para o Bruno
+- runScript:
+    file: open-spot.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Próximos eventos"
+- tapOn: "Racha lotado.*"
+- assertVisible:
+    id: "confirm-spot"
+- scrollUntilVisible:
+    element: "Abriu uma vaga para você!.*"
+- takeScreenshot: 25-vaga-reservada
+- tapOn:
+    id: "confirm-spot"
+- assertVisible:
+    id: "status-confirmed"
+- takeScreenshot: 26-vaga-confirmada

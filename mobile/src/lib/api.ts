@@ -40,7 +40,10 @@ export type JoinMethod = 'PIX' | 'WALLET' | 'CREDIT_CARD'
 
 // Sem options, vale para evento gratuito; em evento pago vai o meio de pagamento e o cupom.
 // Também refaz o checkout de uma inscrição pendente que não tem cobrança em aberto.
-export function joinEvent(eventId: string, options: { method?: JoinMethod; couponCode?: string } = {}) {
+export function joinEvent(
+  eventId: string,
+  options: { method?: JoinMethod; couponCode?: string; teamId?: string } = {}
+) {
   return apiPost<JoinEventResponse>(`/api/v1/events/${eventId}/join`, options)
 }
 
@@ -105,4 +108,37 @@ export function completeOnboarding(data: Record<OnboardingField, string>) {
 // blockers: pendências que a pessoa precisa resolver antes de excluir a conta
 export function deleteAccount() {
   return apiRequest<{ success: true } | { error: string; blockers?: string[] }>('DELETE', '/api/v1/me')
+}
+
+export type EventTeam = { id: string; name: string; capacity: number; confirmed_count: number }
+
+// Times do evento com a ocupação de cada um (lista vazia = evento sem times)
+export function fetchEventTeams(eventId: string) {
+  return apiGet<{ teams: EventTeam[] } | { error: string }>(`/api/v1/events/${eventId}/teams`)
+}
+
+// Uma troca de time por inscrição confirmada
+export function changeTeam(participationId: string, teamId: string) {
+  return apiPost<{ success: true } | { error: string }>(`/api/v1/participations/${participationId}/team`, { teamId })
+}
+
+export function joinWaitlist(eventId: string, teamId?: string) {
+  return apiPost<{ success: true; position: number } | { error: string }>(`/api/v1/events/${eventId}/waitlist`, {
+    teamId,
+  })
+}
+
+// Sair da fila, ou recusar a vaga que ela reservou
+export function leaveWaitlist(eventId: string) {
+  return apiRequest<{ success: true } | { error: string }>('DELETE', `/api/v1/events/${eventId}/waitlist`)
+}
+
+// Confirma a vaga reservada pela fila; em evento pago, com o meio de pagamento
+export function confirmWaitlistSpot(eventId: string, method?: JoinMethod) {
+  return apiPost<JoinEventResponse>(`/api/v1/events/${eventId}/waitlist/confirm`, { method })
+}
+
+// Enquanto aguarda, a pessoa pode mudar para a fila de outro time
+export function changeWaitlistTeam(entryId: string, teamId: string) {
+  return apiPost<{ success: true } | { error: string }>(`/api/v1/waitlist-entries/${entryId}/team`, { teamId })
 }

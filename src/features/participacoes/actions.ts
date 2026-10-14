@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { refundParticipationPayments, releaseCouponUse } from '@/lib/refunds'
 import { cancelParticipation } from './cancel-participation'
-import { canJoinPrivateEvent, joinEvent, type JoinMethod } from './join-event'
+import { joinWaitlist } from '@/features/fila/waitlist'
+import { joinEvent, type JoinMethod } from './join-event'
 
 // ── Inscrição no evento ──────────────────────────────────────────────────────
 
@@ -44,59 +45,7 @@ export async function joinWaitlistAction(eventId: string, teamId?: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('status, organizer_id, visibility')
-    .eq('id', eventId)
-    .single()
-
-  if (!event || event.status !== 'OPEN') return { error: 'Inscrições encerradas.' }
-  if (!(await canJoinPrivateEvent(event, eventId, user.id))) {
-    return { error: 'Este evento é privado. Solicite a entrada ao organizador.' }
-  }
-
-  const admin = createAdminClient()
-
-  // Verificar se já está na fila. Cada pessoa tem uma única linha por evento
-  // (unique), então uma entrada antiga EXPIRED/CONFIRMED é reaproveitada.
-  const { data: existingEntry } = await admin
-    .from('waitlist_entries')
-    .select('id, status')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (existingEntry && ['WAITING', 'NOTIFIED'].includes(existingEntry.status)) {
-    return { error: 'Você já está na fila de espera.' }
-  }
-
-  // Próxima posição: depois da maior já usada no evento. Contar só os ativos
-  // repetia posições de entradas antigas, e (event_id, position) é unique.
-  const { data: last } = await admin
-    .from('waitlist_entries')
-    .select('position')
-    .eq('event_id', eventId)
-    .order('position', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  const position = (last?.position ?? 0) + 1
-  const entry = {
-    position,
-    status: 'WAITING' as const,
-    notified_at: null,
-    expires_at: null,
-    team_id: teamId ?? null,
-  }
-
-  const { error } = existingEntry
-    ? await admin.from('waitlist_entries').update(entry).eq('id', existingEntry.id)
-    : await admin.from('waitlist_entries').insert({ event_id: eventId, user_id: user.id, ...entry })
-
-  if (error) return { error: 'Erro ao entrar na fila.' }
-
-  revalidatePath(`/eventos/${eventId}`)
-  return { success: true, position }
+  return joinWaitlist(supabase, user.id, eventId, teamId)
 }
 
 // ── Remover participante (organizador) ────────────────────────────────────────

@@ -3,9 +3,21 @@ import { Calendar, CheckCircle2, Clock, Lock, MapPin, Users, X } from 'lucide-re
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { TeamPicker } from '@/components/team-picker'
 import { Button, Card, OccupancyBar, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { cancelParticipation, fetchOpenPayment, joinEvent } from '@/lib/api'
+import {
+  cancelParticipation,
+  changeTeam,
+  changeWaitlistTeam,
+  confirmWaitlistSpot,
+  fetchEventTeams,
+  fetchOpenPayment,
+  joinEvent,
+  joinWaitlist,
+  leaveWaitlist,
+  type EventTeam,
+} from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
@@ -33,8 +45,19 @@ type EventDetail = {
   profiles: { full_name: string } | null
 }
 
+type Participation = { id: string; status: string; team_id: string | null; team_changes_used: number }
+
+// Lugar da pessoa na fila de espera: aguardando (WAITING) ou com vaga reservada (NOTIFIED)
+type WaitlistEntry = {
+  id: string
+  status: string
+  position: number
+  expires_at: string | null
+  team_id: string | null
+}
+
 async function fetchEvent(eventId: string, userId: string) {
-  const [{ data: event }, { data: participation }] = await Promise.all([
+  const [{ data: event }, { data: participation }, { data: entry }, teams] = await Promise.all([
     supabase
       .from('events')
       .select(
@@ -44,15 +67,28 @@ async function fetchEvent(eventId: string, userId: string) {
       .maybeSingle(),
     supabase
       .from('participations')
-      .select('id, status')
+      .select('id, status, team_id, team_changes_used')
       .eq('event_id', eventId)
       .eq('user_id', userId)
       .maybeSingle(),
+    supabase
+      .from('waitlist_entries')
+      .select('id, status, position, expires_at, team_id')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .in('status', ['WAITING', 'NOTIFIED'])
+      .maybeSingle(),
+    fetchEventTeams(eventId),
   ])
 
   // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
   const active = participation && participation.status !== 'CANCELLED' ? participation : null
-  return { event: event as EventDetail | null, participation: active }
+  return {
+    event: event as EventDetail | null,
+    participation: active as Participation | null,
+    entry: entry as WaitlistEntry | null,
+    teams: 'teams' in teams ? teams.teams : [],
+  }
 }
 
 export default function EventScreen() {
@@ -63,24 +99,41 @@ export default function EventScreen() {
   const userId = session!.user.id
 
   const [event, setEvent] = useState<EventDetail | null | undefined>(undefined)
-  const [participation, setParticipation] = useState<{ id: string; status: string } | null>(null)
+  const [participation, setParticipation] = useState<Participation | null>(null)
+  const [entry, setEntry] = useState<WaitlistEntry | null>(null)
+  const [teams, setTeams] = useState<EventTeam[]>([])
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
+  // Trocando de time (inscrito) ou de fila (aguardando)
+  const [changingTeam, setChangingTeam] = useState(false)
   const [joining, setJoining] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+
+  const apply = useCallback((result: Awaited<ReturnType<typeof fetchEvent>>) => {
+    setEvent(result.event)
+    setParticipation(result.participation)
+    setEntry(result.entry)
+    setTeams(result.teams)
+  }, [])
+
+  // Relê tudo depois de uma ação: vagas, times e a situação da pessoa mudaram
+  async function reload() {
+    apply(await fetchEvent(id, userId))
+    setSelectedTeam(null)
+    setChangingTeam(false)
+  }
 
   // Recarrega também ao voltar da tela de pagamento: a inscrição pode ter sido confirmada
   useFocusEffect(
     useCallback(() => {
       let active = true
       fetchEvent(id, userId).then((result) => {
-        if (!active) return
-        setEvent(result.event)
-        setParticipation(result.participation)
+        if (active) apply(result)
       })
       return () => {
         active = false
       }
-    }, [id, userId])
+    }, [id, userId, apply])
   )
 
   // Inscrição pendente: volta ao PIX já gerado; sem cobrança em aberto (ex.:
@@ -103,22 +156,86 @@ export default function EventScreen() {
   }
 
   async function handleJoin() {
+    if (teams.length > 0 && !selectedTeam) {
+      setMessage('Escolha um time para se inscrever.')
+      return
+    }
+    const teamId = selectedTeam ?? undefined
+
     // Evento pago (para quem não é o organizador isento): cupom e meio de pagamento
     // são escolhidos no checkout. Gratuito confirma direto daqui.
     if (event && event.price > 0 && !(event.organizer_id === userId && event.organizer_exempt)) {
-      router.push({ pathname: '/checkout/[eventId]', params: { eventId: id } })
+      router.push({ pathname: '/checkout/[eventId]', params: { eventId: id, ...(teamId && { teamId }) } })
       return
     }
 
     setJoining(true)
     setMessage(null)
-    const joined = await joinEvent(id)
+    const joined = await joinEvent(id, { teamId })
     if ('error' in joined) setMessage(joined.error)
+    await reload()
+    setJoining(false)
+  }
 
-    // Relê o evento: o número de inscritos e a situação da pessoa mudaram
-    const result = await fetchEvent(id, userId)
-    setEvent(result.event)
-    setParticipation(result.participation)
+  async function handleJoinWaitlist() {
+    if (teams.length > 0 && !selectedTeam) {
+      setMessage('Escolha o time em que você quer a vaga.')
+      return
+    }
+    setJoining(true)
+    setMessage(null)
+    const joined = await joinWaitlist(id, selectedTeam ?? undefined)
+    if ('error' in joined) setMessage(joined.error)
+    await reload()
+    setJoining(false)
+  }
+
+  // Vaga reservada pela fila: evento pago passa pelo checkout, gratuito confirma daqui
+  async function handleConfirmSpot() {
+    if (event && event.price > 0 && !(event.organizer_id === userId && event.organizer_exempt)) {
+      router.push({ pathname: '/checkout/[eventId]', params: { eventId: id, waitlist: '1' } })
+      return
+    }
+    setJoining(true)
+    setMessage(null)
+    const confirmed = await confirmWaitlistSpot(id)
+    if ('error' in confirmed) setMessage(confirmed.error)
+    await reload()
+    setJoining(false)
+  }
+
+  function confirmLeaveWaitlist(reserved: boolean) {
+    Alert.alert(
+      reserved ? 'Recusar a vaga?' : 'Sair da fila?',
+      reserved ? 'A vaga passa para a próxima pessoa da fila.' : 'Você perde seu lugar na fila de espera.',
+      [
+        { text: 'Voltar', style: 'cancel' },
+        { text: reserved ? 'Sim, recusar' : 'Sim, sair', style: 'destructive', onPress: handleLeaveWaitlist },
+      ]
+    )
+  }
+
+  async function handleLeaveWaitlist() {
+    setCancelling(true)
+    setMessage(null)
+    const left = await leaveWaitlist(id)
+    if ('error' in left) setMessage(left.error)
+    await reload()
+    setCancelling(false)
+  }
+
+  async function handleChangeTeam() {
+    if (!selectedTeam) return
+    setJoining(true)
+    setMessage(null)
+    const changed =
+      participation?.status === 'CONFIRMED'
+        ? await changeTeam(participation.id, selectedTeam)
+        : entry
+          ? await changeWaitlistTeam(entry.id, selectedTeam)
+          : { error: 'Não foi possível trocar de time.' }
+    if ('error' in changed) setMessage(changed.error)
+    await reload()
     setJoining(false)
   }
 
@@ -141,10 +258,7 @@ export default function EventScreen() {
     setMessage(null)
     const cancelled = await cancelParticipation(participationId)
     if ('error' in cancelled) setMessage(cancelled.error)
-
-    const result = await fetchEvent(id, userId)
-    setEvent(result.event)
-    setParticipation(result.participation)
+    await reload()
     setCancelling(false)
   }
 
@@ -169,7 +283,16 @@ export default function EventScreen() {
   }
 
   const isOrganizer = event.organizer_id === userId
-  const action = resolveAction(event, participation?.status ?? null, isOrganizer)
+  const action = resolveAction(event, participation?.status ?? null, entry, isOrganizer)
+
+  // Time em que a pessoa está: o da inscrição confirmada ou o da fila em que aguarda
+  const currentTeamId =
+    action.kind === 'confirmed' ? participation?.team_id : action.kind === 'waiting' ? entry?.team_id : null
+  const currentTeam = teams.find((team) => team.id === currentTeamId) ?? null
+  // Inscrito troca de time uma vez; quem aguarda muda de fila quantas vezes quiser
+  const canChangeTeam =
+    !!currentTeam && teams.length > 1 && (action.kind === 'waiting' || (participation?.team_changes_used ?? 0) < 1)
+  const choosingTeam = teams.length > 0 && (action.kind === 'join' || action.kind === 'waitlist')
   const cancellation = participation ? resolveCancellation(event, isOrganizer) : null
   const spotsLeft = Math.max(0, event.capacity - event.confirmed_count)
 
@@ -226,10 +349,112 @@ export default function EventScreen() {
           </Card>
         ) : null}
 
+        {choosingTeam && (
+          <View style={styles.teams}>
+            <Text style={styles.sectionLabel}>
+              {action.kind === 'waitlist' ? 'Fila de qual time?' : 'Escolha seu time'}
+            </Text>
+            <TeamPicker
+              teams={teams}
+              selectedId={selectedTeam}
+              onSelect={setSelectedTeam}
+              allowFull={action.kind === 'waitlist'}
+              disabled={joining}
+            />
+          </View>
+        )}
+
+        {currentTeam && (
+          <Card style={styles.team}>
+            <View style={styles.teamRow}>
+              <View style={styles.teamBody}>
+                <Text style={styles.sectionLabel}>{action.kind === 'waiting' ? 'Fila do time' : 'Seu time'}</Text>
+                <Text testID="current-team" style={styles.teamName}>
+                  {currentTeam.name}
+                </Text>
+              </View>
+              {canChangeTeam && !changingTeam && (
+                <Pressable
+                  testID="change-team"
+                  accessibilityRole="button"
+                  onPress={() => setChangingTeam(true)}
+                  hitSlop={10}>
+                  <Text style={styles.teamLink}>{action.kind === 'waiting' ? 'Mudar fila' : 'Trocar time'}</Text>
+                </Pressable>
+              )}
+              {!canChangeTeam && action.kind === 'confirmed' && teams.length > 1 && (
+                <Text style={styles.teamUsed}>Troca usada</Text>
+              )}
+            </View>
+            {changingTeam && (
+              <>
+                {action.kind === 'confirmed' && (
+                  <Text style={styles.teamHint}>Você pode trocar de time uma única vez.</Text>
+                )}
+                <TeamPicker
+                  teams={teams.filter((team) => team.id !== currentTeam.id)}
+                  selectedId={selectedTeam}
+                  onSelect={setSelectedTeam}
+                  allowFull={action.kind === 'waiting'}
+                  disabled={joining}
+                />
+                <Button
+                  testID="change-team-confirm"
+                  label="Confirmar troca"
+                  onPress={handleChangeTeam}
+                  loading={joining}
+                  disabled={!selectedTeam}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setChangingTeam(false)
+                    setSelectedTeam(null)
+                  }}
+                  hitSlop={8}
+                  style={styles.teamCancel}>
+                  <Text style={styles.teamCancelText}>Deixar como está</Text>
+                </Pressable>
+              </>
+            )}
+          </Card>
+        )}
+
         {action.kind === 'notice' && (
           <Text testID="notice" style={styles.notice}>
             {action.text}
           </Text>
+        )}
+        {action.kind === 'waitlist' && (
+          <Text testID="notice" style={styles.notice}>
+            Evento lotado. Entre na fila de espera: avisamos você se abrir uma vaga.
+          </Text>
+        )}
+        {action.kind === 'waiting' && (
+          <Text testID="notice" style={styles.notice}>
+            Você está na fila de espera, na posição #{action.position}. Avisamos você se abrir uma vaga.
+          </Text>
+        )}
+        {action.kind === 'spot' && (
+          <Text testID="notice" style={styles.spot}>
+            Abriu uma vaga para você!
+            {action.expiresAt ? ` Confirme até ${formatLongDate(action.expiresAt)}.` : ' Confirme sua inscrição.'}
+          </Text>
+        )}
+        {(action.kind === 'waiting' || action.kind === 'spot') && (
+          <Pressable
+            testID="leave-waitlist"
+            accessibilityRole="button"
+            onPress={() => confirmLeaveWaitlist(action.kind === 'spot')}
+            disabled={cancelling}
+            hitSlop={8}
+            style={styles.cancel}>
+            {cancelling ? (
+              <ActivityIndicator color={colors.destructive} />
+            ) : (
+              <Text style={styles.cancelText}>{action.kind === 'spot' ? 'Recusar vaga' : 'Sair da fila'}</Text>
+            )}
+          </Pressable>
         )}
         {cancellation?.allowed && (
           <Pressable
@@ -270,6 +495,29 @@ export default function EventScreen() {
         {action.kind === 'join' && (
           <Button testID="join" label="Inscrever-se" onPress={handleJoin} loading={joining} style={styles.barButton} />
         )}
+        {action.kind === 'waitlist' && (
+          <Button
+            testID="join-waitlist"
+            label="Entrar na fila"
+            onPress={handleJoinWaitlist}
+            loading={joining}
+            style={styles.barButton}
+          />
+        )}
+        {action.kind === 'spot' && (
+          <Button
+            testID="confirm-spot"
+            label="Confirmar vaga"
+            onPress={handleConfirmSpot}
+            loading={joining}
+            style={styles.barButton}
+          />
+        )}
+        {action.kind === 'waiting' && (
+          <View testID="status-waiting" style={styles.unavailable}>
+            <Text style={styles.unavailableText}>Na fila</Text>
+          </View>
+        )}
         {action.kind === 'pay' && participation && (
           <Button
             testID="pay"
@@ -299,21 +547,30 @@ type Action =
   | { kind: 'join' }
   | { kind: 'pay' }
   | { kind: 'confirmed' }
+  // Fila de espera: dá para entrar, a pessoa aguarda, ou a fila reservou uma vaga para ela
+  | { kind: 'waitlist' }
+  | { kind: 'waiting'; position: number }
+  | { kind: 'spot'; expiresAt: string | null }
   // label vai no botão desativado da barra; text explica o motivo acima dela
   | { kind: 'notice'; label: string; text: string }
 
-function resolveAction(event: EventDetail, participationStatus: string | null, isOrganizer: boolean): Action {
+function resolveAction(
+  event: EventDetail,
+  participationStatus: string | null,
+  entry: WaitlistEntry | null,
+  isOrganizer: boolean
+): Action {
   if (participationStatus === 'CONFIRMED') return { kind: 'confirmed' }
   if (participationStatus === 'PENDING') return { kind: 'pay' }
   if (event.status !== 'OPEN' || new Date(event.registration_deadline) < new Date()) {
     return { kind: 'notice', label: 'Encerrado', text: 'Inscrições encerradas.' }
   }
-  if (event.confirmed_count >= event.capacity) {
-    return { kind: 'notice', label: 'Esgotado', text: 'Evento lotado.' }
-  }
+  if (entry?.status === 'NOTIFIED') return { kind: 'spot', expiresAt: entry.expires_at }
+  if (entry) return { kind: 'waiting', position: entry.position }
   if (event.visibility === 'PRIVATE' && !isOrganizer) {
     return { kind: 'notice', label: 'Privado', text: 'Evento privado. Peça a entrada ao organizador pelo site.' }
   }
+  if (event.confirmed_count >= event.capacity) return { kind: 'waitlist' }
   return { kind: 'join' }
 }
 
@@ -432,6 +689,17 @@ const styles = StyleSheet.create({
   spots: { fontFamily: fonts.body, fontSize: 12, color: colors.text35 },
   about: { padding: 18, gap: 10 },
   description: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.foreground },
+  teams: { gap: 10, marginTop: 4 },
+  team: { padding: 18, gap: 14 },
+  teamRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  teamBody: { flex: 1, gap: 4 },
+  teamName: { fontFamily: fonts.bodyBold, fontSize: 17, color: colors.text },
+  teamLink: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
+  teamUsed: { fontFamily: fonts.body, fontSize: 12, color: colors.text35 },
+  teamHint: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
+  teamCancel: { alignItems: 'center', justifyContent: 'center', minHeight: 36 },
+  teamCancelText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.text50 },
+  spot: { fontFamily: fonts.bodySemi, fontSize: 15, lineHeight: 21, color: colors.primary, textAlign: 'center', marginTop: 4 },
   notice: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.muted, textAlign: 'center', marginTop: 4 },
   cancel: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: 4 },
   cancelText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.destructive },

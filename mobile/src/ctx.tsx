@@ -20,14 +20,40 @@ type SessionValue = {
   signIn: (email: string, password: string) => Promise<string | null>
   signUp: (fullName: string, email: string, password: string) => Promise<{ error: string } | { confirmEmail: boolean }>
   signInWithGoogle: () => Promise<string | null>
+  // Sempre "enviado" para e-mail bem formado: não revela se a conta existe
+  requestPasswordReset: (email: string) => Promise<string | null>
+  // A pessoa voltou pelo link de recuperação e ainda precisa definir a senha nova
+  recovering: boolean
+  updatePassword: (password: string) => Promise<string | null>
   signOut: () => Promise<void>
   // Depois de excluir a conta: a sessão já não existe no servidor
   forgetSession: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
 
-// Precisa estar na lista de Redirect URLs do Supabase Auth
+// Precisa estar na lista de Redirect URLs do Supabase Auth. É para onde voltam
+// o login com Google e o link do e-mail de recuperação de senha.
 const OAUTH_REDIRECT = 'tanalista://auth/callback'
+
+// Troca o código do retorno pela sessão. O mesmo retorno pode chegar por dois
+// caminhos (quem abriu o navegador e a rota auth/callback), e o código só vale
+// uma vez: a segunda chamada reaproveita a primeira.
+const exchanges = new Map<string, Promise<{ ok: boolean; recovery: boolean }>>()
+
+export function exchangeAuthCode(code: string) {
+  let pending = exchanges.get(code)
+  if (!pending) {
+    pending = supabase.auth
+      .exchangeCodeForSession(code)
+      // redirectType vem na resposta, mas falta na tipagem desta versão do supabase-js
+      .then(({ data, error }) => ({
+        ok: !error,
+        recovery: (data as { redirectType?: string | null } | null)?.redirectType === 'recovery',
+      }))
+    exchanges.set(code, pending)
+  }
+  return pending
+}
 
 const AuthContext = createContext<SessionValue | null>(null)
 
@@ -49,6 +75,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 export function SessionProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [sessionLoading, setSessionLoading] = useState(true)
+  const [recovering, setRecovering] = useState(false)
   // Perfil de qual usuário já foi buscado: enquanto não é o da sessão atual, carregando
   const [loaded, setLoaded] = useState<{ userId: string; profile: Profile | null } | null>(null)
   const userId = session?.user.id
@@ -59,7 +86,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
       setSessionLoading(false)
     })
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+    const { data: listener } = supabase.auth.onAuthStateChange((event, next) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+      if (!next) setRecovering(false)
+      setSession(next)
+    })
     return () => listener.subscription.unsubscribe()
   }, [])
 
@@ -142,8 +173,29 @@ export function SessionProvider({ children }: PropsWithChildren) {
           const code = Linking.parse(result.url).queryParams?.code
           if (typeof code !== 'string') return 'O Google não confirmou o acesso. Tente novamente.'
 
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-          return exchangeError ? 'Não foi possível entrar com o Google. Tente novamente.' : null
+          const { ok } = await exchangeAuthCode(code)
+          return ok ? null : 'Não foi possível entrar com o Google. Tente novamente.'
+        },
+        requestPasswordReset: async (email) => {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: OAUTH_REDIRECT })
+          if (!error) return null
+          if (error.status === 429) return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
+          return error.status
+            ? 'Erro ao enviar e-mail. Tente novamente.'
+            : 'Não foi possível enviar. Verifique sua conexão e tente de novo.'
+        },
+        recovering,
+        updatePassword: async (password) => {
+          const { error } = await supabase.auth.updateUser({ password })
+          if (!error) {
+            setRecovering(false)
+            return null
+          }
+          if (error.code === 'same_password') return 'A senha nova precisa ser diferente da atual.'
+          if (error.code === 'weak_password') return 'Senha fraca. Use ao menos 8 caracteres, com maiúscula e número.'
+          return error.status
+            ? 'Erro ao salvar a senha. Tente novamente.'
+            : 'Não foi possível salvar. Verifique sua conexão e tente de novo.'
         },
         signOut: async () => {
           await supabase.auth.signOut()

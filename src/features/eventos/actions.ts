@@ -8,7 +8,9 @@ import { slugify } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import { sendEventCancelledToParticipant } from '@/lib/emails'
 import { refundParticipationPayments, releaseCouponUse } from '@/lib/refunds'
+import { changeWaitlistTeam } from '@/features/fila/waitlist'
 import type { EventSchema } from './schemas'
+import { changeTeam } from './teams'
 
 // Preço em string "R$ xx,xx" → centavos
 function parsePriceToCents(price: string): number {
@@ -494,52 +496,7 @@ export async function changeTeamAction(participationId: string, newTeamId: strin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-
-  // Buscar participação
-  const { data: participation } = await admin
-    .from('participations')
-    .select('id, user_id, event_id, status, team_id, team_changes_used')
-    .eq('id', participationId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!participation) return { error: 'Participação não encontrada.' }
-
-  if (participation.status === 'CONFIRMED') {
-    if (participation.team_changes_used >= 1) {
-      return { error: 'Você já utilizou sua troca de time permitida.' }
-    }
-
-    // Verificar se novo time tem vaga
-    const { data: team } = await admin
-      .from('event_teams')
-      .select('capacity')
-      .eq('id', newTeamId)
-      .single()
-
-    if (!team) return { error: 'Time não encontrado.' }
-
-    const { count } = await admin
-      .from('participations')
-      .select('*', { count: 'exact', head: true })
-      .eq('team_id', newTeamId)
-      .eq('status', 'CONFIRMED')
-
-    if ((count ?? 0) >= team.capacity) {
-      return { error: 'Este time está lotado. Você pode entrar na fila de espera do time.' }
-    }
-
-    await admin
-      .from('participations')
-      .update({ team_id: newTeamId, team_changes_used: 1 })
-      .eq('id', participationId)
-
-    revalidatePath(`/eventos/${participation.event_id}`)
-    return { success: true }
-  }
-
-  return { error: 'Apenas participantes confirmados podem trocar de time aqui.' }
+  return changeTeam(user.id, participationId, newTeamId)
 }
 
 // ── Troca de fila de espera entre times (ilimitado) ───────────────────────────
@@ -548,25 +505,7 @@ export async function changeWaitlistTeamAction(waitlistId: string, newTeamId: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-
-  const { data: entry } = await admin
-    .from('waitlist_entries')
-    .select('id, user_id, event_id, status')
-    .eq('id', waitlistId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!entry) return { error: 'Entrada na fila não encontrada.' }
-  if (entry.status !== 'WAITING') return { error: 'Só é possível trocar de fila enquanto aguarda.' }
-
-  await admin
-    .from('waitlist_entries')
-    .update({ team_id: newTeamId })
-    .eq('id', waitlistId)
-
-  revalidatePath(`/eventos/${entry.event_id}`)
-  return { success: true }
+  return changeWaitlistTeam(user.id, waitlistId, newTeamId)
 }
 
 export async function regenerateEventInviteAction(eventId: string) {

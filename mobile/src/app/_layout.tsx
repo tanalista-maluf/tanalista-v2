@@ -30,15 +30,20 @@ export default function Root() {
 }
 
 function RootNavigator() {
-  const { session, profile, isLoading } = useSession()
+  const { session, profile, isLoading, recovering } = useSession()
   if (isLoading) return null
 
   // Conta nova (por e-mail ou Google) completa o perfil antes de usar o app
-  const needsOnboarding = !!session && !!profile && !profile.onboarding_completed
+  const needsOnboarding = !!session && !!profile && !profile.onboarding_completed && !recovering
 
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-      <Stack.Protected guard={!!session && !needsOnboarding}>
+      {/* Quem voltou pelo link de recuperação define a senha nova antes de qualquer outra tela */}
+      <Stack.Protected guard={!!session && recovering}>
+        <Stack.Screen name="new-password" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={!!session && !needsOnboarding && !recovering}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
 
@@ -49,6 +54,7 @@ function RootNavigator() {
       <Stack.Protected guard={!session}>
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="sign-up" />
+        <Stack.Screen name="forgot-password" />
       </Stack.Protected>
 
       <Stack.Screen name="auth/callback" />
