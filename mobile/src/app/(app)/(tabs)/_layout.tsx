@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router/js-tabs'
-import { CalendarDays, CircleUserRound, UsersRound } from 'lucide-react-native'
+import { CalendarDays, CircleUserRound, House, UsersRound } from 'lucide-react-native'
 import { StyleSheet, View } from 'react-native'
 import { Logo } from '@/components/logo'
 import { colors, fonts } from '@/lib/theme'
@@ -28,14 +28,22 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: '',
-          tabBarLabel: 'Eventos',
-          tabBarAccessibilityLabel: 'Eventos',
-          tabBarButtonTestID: 'tab-events',
+          tabBarLabel: 'Início',
+          tabBarAccessibilityLabel: 'Início',
+          tabBarButtonTestID: 'tab-home',
           headerLeft: () => (
             <View style={styles.logo}>
               <Logo size={19} />
             </View>
           ),
+          tabBarIcon: ({ color, size }) => <House size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="events"
+        options={{
+          title: 'Eventos',
+          tabBarButtonTestID: 'tab-events',
           tabBarIcon: ({ color, size }) => <CalendarDays size={size} color={color} />,
         }}
       />

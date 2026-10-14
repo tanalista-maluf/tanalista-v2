@@ -1,0 +1,353 @@
+# Tela inicial, busca de eventos e as seções da página do evento: capa,
+# participantes, ingresso, mural e enquete, regras, denúncia e avaliação.
+# Mesmos pré-requisitos e variáveis de main-flow.yaml, com o banco recém-criado.
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+# ── Tela inicial ─────────────────────────────────────────────────────────────
+- assertVisible:
+    id: "home-greeting"
+- assertVisible:
+    id: "home-no-events"
+- takeScreenshot: 50-inicio
+- tapOn:
+    id: "home-explore"
+- assertVisible: "Próximos eventos"
+
+# ── Busca e categoria ────────────────────────────────────────────────────────
+- tapOn:
+    id: "events-search"
+- inputText: "racha"
+- pressKey: Enter
+- assertVisible: "Racha lotado.*"
+- assertNotVisible: "Futebol de quinta.*"
+- tapOn:
+    id: "events-search"
+- eraseText: 10
+- pressKey: Enter
+- assertVisible: "Futebol de quinta.*"
+- tapOn:
+    id: "category-0"
+- assertVisible: "Futebol de quinta.*"
+- assertNotVisible: "Racha lotado.*"
+- takeScreenshot: 51-filtro-categoria
+- tapOn:
+    id: "category-0"
+- assertVisible: "Racha lotado.*"
+
+# ── Página do evento ─────────────────────────────────────────────────────────
+- tapOn: "Futebol de quinta.*"
+- assertVisible:
+    id: "event-cover"
+- scrollUntilVisible:
+    element:
+      id: "add-to-calendar"
+- tapOn:
+    id: "join"
+- assertVisible:
+    id: "status-confirmed"
+- scrollUntilVisible:
+    element:
+      id: "section-participants"
+    centerElement: true
+- tapOn:
+    id: "section-participants"
+- scrollUntilVisible:
+    element: ".*Bruno Participante.*"
+- takeScreenshot: 52-participantes
+# Ingresso com QR code
+- scrollUntilVisible:
+    element:
+      id: "section-ticket"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "section-ticket"
+- scrollUntilVisible:
+    element:
+      id: "ticket-qr"
+    centerElement: true
+- takeScreenshot: 53-ingresso
+# Mural: enquete e mensagem
+- scrollUntilVisible:
+    element:
+      id: "section-mural"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "section-mural"
+- scrollUntilVisible:
+    element:
+      id: "poll-option-0"
+    centerElement: true
+- tapOn:
+    id: "poll-option-0"
+- scrollUntilVisible:
+    element: "1 voto · você já votou"
+- scrollUntilVisible:
+    element:
+      id: "mural-input"
+    centerElement: true
+- tapOn:
+    id: "mural-input"
+- inputText: "Combinado"
+# No simulador do iOS o toque em enviar com o teclado aberto só confirma a
+# palavra sugerida; fechar o teclado antes evita isso
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "mural-send"
+    centerElement: true
+- tapOn:
+    id: "mural-send"
+# A mensagem publicada (no simulador do iOS a última letra digitada às vezes se perde)
+- scrollUntilVisible:
+    element:
+      id: "comment-delete-0"
+    centerElement: true
+- assertVisible: "Combinad.*"
+- takeScreenshot: 54-mural
+- tapOn:
+    id: "comment-delete-0"
+- tapOn: "Apagar"
+- assertVisible:
+    id: "mural-empty"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# No Android o primeiro "voltar" pode só fechar o teclado
+- runFlow:
+    when:
+      visible:
+        id: "section-mural"
+    commands:
+      - back
+- assertVisible: "Próximos eventos"
+# Regras, com as do organizador, e denúncia
+- tapOn: "Futebol de quinta.*"
+- scrollUntilVisible:
+    element:
+      id: "section-rules"
+    centerElement: true
+- tapOn:
+    id: "section-rules"
+- scrollUntilVisible:
+    element: "Chuteira society. Sem carrinho."
+- takeScreenshot: 55-regras
+- scrollUntilVisible:
+    element:
+      id: "section-details"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "section-details"
+- scrollUntilVisible:
+    element:
+      id: "report"
+    centerElement: true
+- tapOn:
+    id: "report"
+- assertVisible: "Denunciar evento"
+- tapOn:
+    id: "report-submit"
+- scrollUntilVisible:
+    element: "Escolha o motivo da denúncia."
+- scrollUntilVisible:
+    element:
+      id: "report-reason-0"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "report-reason-0"
+- tapOn:
+    id: "report-submit"
+- assertVisible:
+    id: "report-sent"
+- tapOn:
+    id: "report-done"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Próximos eventos"
+
+# ── Evento concluído: avaliação e fotos ──────────────────────────────────────
+- tapOn:
+    id: "tab-mine"
+- assertVisible: "Pelada concluída.*Concluído.*"
+- tapOn: "Pelada concluída.*"
+- scrollUntilVisible:
+    element:
+      id: "section-ratings"
+    centerElement: true
+- tapOn:
+    id: "section-ratings"
+- scrollUntilVisible:
+    element:
+      id: "star-5"
+    centerElement: true
+- tapOn:
+    id: "star-5"
+- scrollUntilVisible:
+    element:
+      id: "rating-submit"
+    centerElement: true
+- tapOn:
+    id: "rating-submit"
+- scrollUntilVisible:
+    element: "Avaliação enviada. Obrigado!"
+- scrollUntilVisible:
+    element: "1 avaliação"
+    direction: UP
+- takeScreenshot: 56-avaliacao
+- scrollUntilVisible:
+    element:
+      id: "section-photos"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "section-photos"
+- scrollUntilVisible:
+    element:
+      id: "photos-empty"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# A inscrição no futebol aparece na tela inicial
+- tapOn:
+    id: "tab-home"
+- assertVisible: "Futebol de quinta.*Inscrito.*"
+- takeScreenshot: 57-inicio-com-evento

@@ -1,0 +1,304 @@
+# Conta: dados pessoais, perfil público, atividade, senha e e-mail.
+# Mesmos pré-requisitos e variáveis de main-flow.yaml, com o banco recém-criado
+# (troca a senha do Bruno, como extras-flow.yaml).
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- launchApp
+- waitForAnimationToEnd
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+# O iOS às vezes confirma antes de abrir um link no app
+- runFlow:
+    when:
+      visible: "Abrir|Open"
+    commands:
+      - tapOn: "Abrir|Open"
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "new-password-cancel"
+    commands:
+      - tapOn:
+          id: "new-password-cancel"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+- tapOn:
+    id: "submit"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- tapOn:
+    id: "tab-events"
+- assertVisible: "Próximos eventos"
+
+# ── Dados pessoais ───────────────────────────────────────────────────────────
+- tapOn:
+    id: "profile"
+- assertVisible: "Bruno Participante"
+- assertVisible: "São Paulo"
+- takeScreenshot: 40-perfil
+- tapOn:
+    id: "go-edit-profile"
+- assertVisible: "Dados pessoais"
+# A bio vai primeiro, com o teclado fechado: com ele aberto, a barra do botão
+# Salvar sobe e fica por cima do campo
+- tapOn:
+    id: "edit-bio"
+- inputText: "Goleiro nas horas vagas"
+- scrollUntilVisible:
+    element:
+      id: "edit-phone"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "edit-phone"
+- eraseText: 11
+- inputText: "119"
+- tapOn:
+    id: "edit-submit"
+- scrollUntilVisible:
+    element: "WhatsApp inválido.*"
+- scrollUntilVisible:
+    element:
+      id: "edit-phone"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "edit-phone"
+- eraseText: 11
+- inputText: "51988887777"
+- tapOn:
+    id: "edit-city"
+- eraseText: 20
+- inputText: "Porto Alegre"
+- takeScreenshot: 41-dados-pessoais
+# Salvar fecha a tela: sem repetir o toque quando a tela demora a mudar
+- tapOn:
+    id: "edit-submit"
+    retryTapIfNoChange: false
+- assertVisible:
+    id: "go-edit-profile"
+- assertVisible: "Porto Alegre"
+
+# ── Perfil público ───────────────────────────────────────────────────────────
+- tapOn:
+    id: "go-public-profile"
+- assertVisible:
+    id: "public-name"
+- assertVisible: "Goleiro nas horas vagas"
+- assertVisible: "Participações"
+- takeScreenshot: 42-perfil-publico
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Atividade da conta ───────────────────────────────────────────────────────
+- tapOn:
+    id: "go-activity"
+- assertVisible: "Por segurança, registramos.*"
+- takeScreenshot: 43-atividade
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
+# ── Senha e e-mail ───────────────────────────────────────────────────────────
+- tapOn:
+    id: "go-security"
+- tapOn:
+    id: "security-password"
+- inputText: "curta"
+- scrollUntilVisible:
+    element:
+      id: "security-password-submit"
+    centerElement: true
+- tapOn:
+    id: "security-password-submit"
+- assertVisible: "A senha precisa de ao menos 8 caracteres."
+- tapOn:
+    id: "security-password"
+- eraseText: 10
+- inputText: "Senha-nova-3"
+- scrollUntilVisible:
+    element:
+      id: "security-password-submit"
+    centerElement: true
+- tapOn:
+    id: "security-password-submit"
+- extendedWaitUntil:
+    visible: "Senha alterada.|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+- assertVisible: "Senha alterada."
+# E-mail: só a validação; a troca de verdade depende do link enviado ao endereço novo
+- scrollUntilVisible:
+    element:
+      id: "security-email-submit"
+    centerElement: true
+- tapOn:
+    id: "security-email-submit"
+- scrollUntilVisible:
+    element: "E-mail inválido."
+- takeScreenshot: 44-senha-e-email
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# No Android o primeiro "voltar" pode só fechar o teclado
+- runFlow:
+    when:
+      visible: "Alterar e-mail"
+    commands:
+      - back
+# A senha nova vale: sai e entra com ela
+- scrollUntilVisible:
+    element:
+      id: "sign-out"
+    centerElement: true
+- tapOn:
+    id: "sign-out"
+- assertVisible: "Entrar na sua conta"
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+- tapOn:
+    id: "password"
+- inputText: "Senha-nova-3"
+- tapOn:
+    id: "submit"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- tapOn:
+    id: "tab-events"
+- assertVisible: "Próximos eventos"
+# Membro de grupo abre o perfil público
+- tapOn:
+    id: "tab-groups"
+- tapOn: "Clube fechado.*"
+- scrollUntilVisible:
+    element: ".*@bruno.*"
+    centerElement: true
+- tapOn: ".*@bruno.*"
+- assertVisible:
+    id: "public-name"

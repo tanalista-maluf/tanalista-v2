@@ -19,7 +19,7 @@ appId: ${APP_ID}
 # uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
 # depois de o app carregar, então espera por ele ou pelo app antes de decidir.
 - extendedWaitUntil:
-    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
     timeout: 40000
 # O iOS às vezes confirma antes de abrir um link no app
 - runFlow:
@@ -28,7 +28,7 @@ appId: ${APP_ID}
     commands:
       - tapOn: "Abrir|Open"
 - extendedWaitUntil:
-    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
     timeout: 40000
 - waitForAnimationToEnd
 - runFlow:
@@ -44,7 +44,7 @@ appId: ${APP_ID}
           start: "50%, 50%"
           end: "50%, 98%"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
     timeout: 30000
 - runFlow:
     when:
@@ -76,6 +76,10 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
       - tapOn:
           id: "sign-out"
 - runFlow:
@@ -139,17 +143,24 @@ appId: ${APP_ID}
     id: "submit"
 # O iOS pode perguntar se quer guardar a senha
 - extendedWaitUntil:
-    visible: "Próximos eventos|Agora Não|Not Now"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
     timeout: 15000
 - runFlow:
     when:
       visible: "Agora Não|Not Now"
     commands:
       - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- tapOn:
+    id: "tab-events"
 - assertVisible: "Próximos eventos"
 # A senha nova vale: sai e entra com ela
 - tapOn:
     id: "profile"
+- scrollUntilVisible:
+    element:
+      id: "sign-out"
+    centerElement: true
 - tapOn:
     id: "sign-out"
 - assertVisible: "Entrar na sua conta"
@@ -163,13 +174,16 @@ appId: ${APP_ID}
     id: "submit"
 # O iOS oferece atualizar a senha guardada
 - extendedWaitUntil:
-    visible: "Próximos eventos|Agora Não|Not Now"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
     timeout: 15000
 - runFlow:
     when:
       visible: "Agora Não|Not Now"
     commands:
       - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- tapOn:
+    id: "tab-events"
 - assertVisible: "Próximos eventos"
 
 # ── Evento com times ─────────────────────────────────────────────────────────

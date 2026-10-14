@@ -9,6 +9,8 @@ export type Profile = {
   full_name: string
   username: string
   city: string | null
+  bio: string | null
+  avatar_url: string | null
   onboarding_completed: boolean
 }
 
@@ -66,7 +68,7 @@ export function useSession() {
 async function fetchProfile(userId: string): Promise<Profile | null> {
   const { data } = await supabase
     .from('profiles')
-    .select('full_name, username, city, onboarding_completed')
+    .select('full_name, username, city, bio, avatar_url, onboarding_completed')
     .eq('id', userId)
     .maybeSingle()
   return data

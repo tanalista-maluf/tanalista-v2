@@ -26,7 +26,7 @@ appId: ${APP_ID}
 # uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
 # depois de o app carregar, então espera por ele ou pelo app antes de decidir.
 - extendedWaitUntil:
-    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil"
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil"
     timeout: 40000
 - waitForAnimationToEnd
 - runFlow:
@@ -42,7 +42,7 @@ appId: ${APP_ID}
           start: "50%, 50%"
           end: "50%, 98%"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Entrar na sua conta|Complete seu perfil"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil"
     timeout: 30000
 - runFlow:
     when:
@@ -74,6 +74,10 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
       - tapOn:
           id: "sign-out"
 - runFlow:
@@ -109,7 +113,7 @@ appId: ${APP_ID}
 # uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
 # depois de o app carregar, então espera por ele ou pelo app antes de decidir.
 - extendedWaitUntil:
-    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil"
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil"
     timeout: 40000
 - waitForAnimationToEnd
 - runFlow:
@@ -125,7 +129,7 @@ appId: ${APP_ID}
           start: "50%, 50%"
           end: "50%, 98%"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Entrar na sua conta"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta"
     timeout: 30000
 - tapOn:
     id: "email"
@@ -135,6 +139,12 @@ appId: ${APP_ID}
 - inputText: "senha-teste-123"
 - tapOn:
     id: "submit"
+# Depois do login o app abre na tela inicial
+- assertVisible:
+    id: "home-greeting"
+- takeScreenshot: 02b-inicio
+- tapOn:
+    id: "tab-events"
 - assertVisible: "Futebol de quinta.*0/14 inscritos"
 - assertVisible: "Racha lotado.*Esgotado"
 - takeScreenshot: 03-lista
@@ -200,7 +210,9 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Sua inscrição aguarda o pagamento."
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Sua inscrição aguarda o pagamento."
 - tapOn:
     id: "pay"
 - assertVisible:
@@ -234,7 +246,17 @@ appId: ${APP_ID}
       - back
 - assertVisible: "Próximos eventos"
 - tapOn: ".*Treino fechado.*"
-- assertVisible: "Evento privado. Peça a entrada ao organizador pelo site."
+# Evento privado: a pessoa pede a entrada e fica aguardando o organizador
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Evento privado: peça a entrada ao organizador."
+- tapOn:
+    id: "request-join"
+- assertVisible:
+    id: "status-requested"
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Seu pedido de entrada foi enviado.*"
 - runFlow:
     when:
       platform: iOS
@@ -249,7 +271,9 @@ appId: ${APP_ID}
       - back
 - assertVisible: "Próximos eventos"
 - tapOn: "Racha lotado.*"
-- assertVisible: "Evento lotado.*"
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Evento lotado.*"
 - runFlow:
     when:
       platform: iOS
@@ -277,6 +301,10 @@ appId: ${APP_ID}
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
     id: "status-confirmed"
+- scrollUntilVisible:
+    element:
+      id: "cancel"
+    centerElement: true
 - tapOn:
     id: "cancel"
 - assertVisible: "Cancelar inscrição\\?"
@@ -300,6 +328,10 @@ appId: ${APP_ID}
 - assertNotVisible: "Futebol de quinta.*"
 # Cancelar a inscrição paga devolve o valor para a carteira
 - tapOn: "Torneio pago de sábado.*"
+- scrollUntilVisible:
+    element:
+      id: "cancel"
+    centerElement: true
 - tapOn:
     id: "cancel"
 - assertVisible: ".*volta integralmente como crédito na sua carteira.*"
@@ -421,8 +453,12 @@ appId: ${APP_ID}
     id: "city"
 - pressKey: Enter
 - extendedWaitUntil:
-    visible: "Próximos eventos"
+    visible:
+      id: "home-greeting"
     timeout: 15000
+- tapOn:
+    id: "tab-events"
+- assertVisible: "Próximos eventos"
 # Cartão recusado: a inscrição segue pendente e dá para tentar de novo ou trocar o meio
 - tapOn: "Torneio pago de sábado.*"
 - tapOn:
@@ -457,7 +493,9 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Sua inscrição aguarda o pagamento."
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Sua inscrição aguarda o pagamento."
 - tapOn:
     id: "pay"
 # Refaz o checkout da mesma inscrição, agora com cupom, e paga com outro cartão
@@ -499,6 +537,10 @@ appId: ${APP_ID}
 - assertVisible:
     id: "status-confirmed"
 # Cancelar devolve o valor para a carteira, e saldo impede excluir a conta
+- scrollUntilVisible:
+    element:
+      id: "cancel"
+    centerElement: true
 - tapOn:
     id: "cancel"
 - tapOn: "Confirmar cancelamento"
@@ -535,6 +577,10 @@ appId: ${APP_ID}
       SUPABASE_URL: ${SUPABASE_URL}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       USERNAME: dani_nova
+- scrollUntilVisible:
+    element:
+      id: "delete-account"
+    centerElement: true
 - tapOn:
     id: "delete-account"
 - tapOn: "Excluir definitivamente"

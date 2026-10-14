@@ -101,7 +101,7 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
       const { publicId, secureUrl, fileSize } = await uploadToCloudinary(compressed, eventId)
       const result = await saveEventPhotoAction(eventId, { publicId, secureUrl, fileSize })
 
-      if (result.error) {
+      if ('error' in result) {
         toast.error(result.error)
       } else {
         toast.success('Foto enviada!')
@@ -128,7 +128,7 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
     setDeletingId(photoId)
     const result = await deleteEventPhotoAction(photoId, eventId)
     setDeletingId(null)
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       setPhotos(prev => prev.filter(p => p.id !== photoId))

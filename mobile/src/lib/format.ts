@@ -38,3 +38,14 @@ export function countdownParts(iso: string, now: number) {
 export function formatMoney(cents: number): string {
   return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
+
+// "há 8 horas", "há 2 dias": quanto tempo passou, para listas de atividade
+export function formatRelative(iso: string, now = Date.now()): string {
+  const minutes = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000))
+  if (minutes < 1) return 'agora'
+  if (minutes < 60) return `há ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return hours === 1 ? 'há 1 hora' : `há ${hours} horas`
+  const days = Math.floor(hours / 24)
+  return days === 1 ? 'há 1 dia' : `há ${days} dias`
+}

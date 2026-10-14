@@ -5,8 +5,9 @@
 set -e
 cd "$(dirname "$0")/../.."
 
-# mailpit fica: o teste lê nele o e-mail de recuperação de senha
-supabase start -x studio,imgproxy,logflare,vector,realtime,storage-api,edge-runtime,supavisor,postgres-meta
+# mailpit fica: o teste lê nele o e-mail de recuperação de senha.
+# storage-api fica: fotos de perfil e de eventos.
+supabase start -x studio,imgproxy,logflare,vector,realtime,edge-runtime,supavisor,postgres-meta
 eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
 
 cat > .env.local <<ENV
