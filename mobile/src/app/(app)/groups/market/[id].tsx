@@ -1,3 +1,4 @@
+import { Image } from 'expo-image'
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { Plus, ShoppingBag } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
@@ -21,6 +22,9 @@ type Listing = {
   price_negotiable: boolean
   payment_methods: string[]
   contact: string | null
+  photo_url: string | null
+  // Ausente antes da migration 20261018000001
+  photo_urls?: string[]
   status: string
   published_at: string | null
   created_at: string
@@ -98,6 +102,7 @@ export default function MarketScreen() {
             const mine = listing.user_id === userId
             return (
               <Card key={listing.id} style={styles.listing}>
+                <ListingPhotos urls={listing.photo_urls?.length ? listing.photo_urls : listing.photo_url ? [listing.photo_url] : []} />
                 <View style={styles.listingHeader}>
                   <Badge label={LISTING_TYPES[listing.type] ?? listing.type} tone="primary" />
                   {listing.status === 'DRAFT' && <Badge label="Rascunho" tone="warning" />}
@@ -151,7 +156,28 @@ export default function MarketScreen() {
   )
 }
 
+// Fotos do anúncio: a principal grande e as outras numa faixa que rola de lado
+function ListingPhotos({ urls }: { urls: string[] }) {
+  if (urls.length === 0) return null
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
+      {urls.map((url, index) => (
+        <Image
+          key={url}
+          source={{ uri: url }}
+          style={index === 0 ? styles.photoMain : styles.photo}
+          contentFit="cover"
+          accessibilityLabel={index === 0 ? 'Foto principal' : `Foto ${index + 1}`}
+        />
+      ))}
+    </ScrollView>
+  )
+}
+
 const styles = StyleSheet.create({
+  photos: { gap: 8 },
+  photoMain: { width: 220, height: 160, borderRadius: 12, backgroundColor: colors.input },
+  photo: { width: 120, height: 160, borderRadius: 12, backgroundColor: colors.input },
   content: { padding: 16, gap: 12, paddingBottom: 32 },
   hint: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text40, textAlign: 'center' },
   notice: { fontFamily: fonts.body, fontSize: 14, color: colors.primary, textAlign: 'center' },

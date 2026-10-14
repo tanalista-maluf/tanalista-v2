@@ -798,6 +798,7 @@ export type Database = {
           id: string
           payment_methods: string[]
           photo_url: string | null
+          photo_urls: string[]
           price: number | null
           price_negotiable: boolean
           published_at: string | null
@@ -815,6 +816,7 @@ export type Database = {
           id?: string
           payment_methods?: string[]
           photo_url?: string | null
+          photo_urls?: string[]
           price?: number | null
           price_negotiable?: boolean
           published_at?: string | null
@@ -832,6 +834,7 @@ export type Database = {
           id?: string
           payment_methods?: string[]
           photo_url?: string | null
+          photo_urls?: string[]
           price?: number | null
           price_negotiable?: boolean
           published_at?: string | null
