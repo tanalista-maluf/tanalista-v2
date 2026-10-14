@@ -139,6 +139,15 @@ appId: ${APP_ID}
 - inputText: "senha-teste-123"
 - tapOn:
     id: "submit"
+# O iOS pode perguntar se quer guardar a senha
+- extendedWaitUntil:
+    visible: "Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
 # Depois do login o app abre na tela inicial
 - assertVisible:
     id: "home-greeting"
