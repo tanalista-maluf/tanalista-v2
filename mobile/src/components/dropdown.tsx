@@ -1,6 +1,16 @@
 import { Check, ChevronDown } from 'lucide-react-native'
 import { useRef, useState } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native'
 import { colors, fonts, radius } from '@/lib/theme'
 
 export type DropdownOption = { key: string; label: string }
@@ -16,6 +26,10 @@ type Props = {
   allLabel: string
   // Rótulo do botão quando o escolhido não é uma das opções (ex.: um dia do calendário)
   selectedLabel?: string
+  // Sem a linha que limpa (escolha obrigatória, ex.: número de times)
+  hideAll?: boolean
+  disabled?: boolean
+  style?: StyleProp<ViewStyle>
   testID?: string
 }
 
@@ -23,7 +37,8 @@ const MENU_MAX_HEIGHT = 360
 
 // Botão com menu suspenso: a lista abre logo abaixo dele, por cima da tela, e
 // fecha ao escolher ou ao tocar fora.
-export function Dropdown({ placeholder, options, selected, onSelect, allLabel, selectedLabel, testID }: Props) {
+export function Dropdown(props: Props) {
+  const { placeholder, options, selected, onSelect, allLabel, selectedLabel, hideAll, disabled, style, testID } = props
   const trigger = useRef<View>(null)
   const window = useWindowDimensions()
   const [anchor, setAnchor] = useState<{ x: number; y: number; width: number } | null>(null)
@@ -54,7 +69,8 @@ export function Dropdown({ placeholder, options, selected, onSelect, allLabel, s
         accessibilityRole="button"
         accessibilityLabel={`${placeholder}: ${active ? label : allLabel}`}
         onPress={open}
-        style={({ pressed }) => [styles.trigger, active && styles.triggerActive, pressed && styles.dim]}>
+        disabled={disabled}
+        style={({ pressed }) => [styles.trigger, active && styles.triggerActive, (pressed || disabled) && styles.dim, style]}>
         <Text numberOfLines={1} style={[styles.triggerText, active && styles.triggerTextActive]}>
           {label}
         </Text>
@@ -66,7 +82,7 @@ export function Dropdown({ placeholder, options, selected, onSelect, allLabel, s
         {anchor && (
           <View style={[styles.menu, { top: Math.max(menuTop, 60), left: menuLeft, width: menuWidth }]}>
             <ScrollView bounces={false}>
-              {[{ key: null, label: allLabel } as { key: string | null; label: string }, ...options].map((option, index) => {
+              {[...(hideAll ? [] : [{ key: null, label: allLabel }]), ...options].map((option: { key: string | null; label: string }, index) => {
                 const checked = option.key === selected
                 return (
                   <Pressable
@@ -91,13 +107,12 @@ export function Dropdown({ placeholder, options, selected, onSelect, allLabel, s
 
 const styles = StyleSheet.create({
   trigger: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 6,
-    minHeight: 40,
-    paddingHorizontal: 14,
+    minHeight: 44,
+    paddingHorizontal: 16,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,

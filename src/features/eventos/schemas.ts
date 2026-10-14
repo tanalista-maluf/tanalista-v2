@@ -36,7 +36,11 @@ export const eventSchema = z.object({
   recurrence: z.enum(['none', 'weekly', 'biweekly', 'monthly']),
   recurrence_count: z.number().int().min(1).max(52).optional(),
   use_teams: z.boolean().optional(),
-  teams: z.array(teamSchema).optional(),
+  teams: z.array(teamSchema).max(10, 'No máximo 10 times').optional(),
+  // Salva sem publicar: só o organizador vê, até publicar
+  as_draft: z.boolean().optional(),
+  // Edição de rascunho pelo app: refaz times e série recorrente
+  draft_series: z.boolean().optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
   cancel_before_hours: z.number().int().min(0).max(720).nullable().optional(),
 }).superRefine((d, ctx) => {

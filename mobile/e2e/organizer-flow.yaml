@@ -124,6 +124,16 @@ appId: ${APP_ID}
 # O erro aparece no fim do formulário
 - scrollUntilVisible:
     element: "O título precisa ter de 3 a 40 caracteres."
+# Endereço primeiro: o título fica no topo e, com o teclado aberto, a rolagem
+# deixaria o endereço atrás do cabeçalho
+- scrollUntilVisible:
+    element: "Local"
+    direction: UP
+    centerElement: true
+- tapOn:
+    id: "form-address"
+- inputText: "Rua do Campo 200"
+- tapOn: "Local"
 - scrollUntilVisible:
     element:
       id: "form-title"
@@ -132,13 +142,7 @@ appId: ${APP_ID}
 - tapOn:
     id: "form-title"
 - inputText: "Pelada nova"
-- scrollUntilVisible:
-    element:
-      id: "form-address"
-    centerElement: true
-- tapOn:
-    id: "form-address"
-- inputText: "Rua do Campo 200"
+- tapOn: "Informações básicas"
 - takeScreenshot: 70-criar-evento
 - tapOn:
     id: "form-submit"

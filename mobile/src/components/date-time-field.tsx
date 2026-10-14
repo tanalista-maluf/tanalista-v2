@@ -1,4 +1,6 @@
 import { DateTimePicker } from '@expo/ui/community/datetime-picker'
+import { DatePicker, Host } from '@expo/ui/swift-ui'
+import { datePickerStyle, environment, frame, labelsHidden, tint } from '@expo/ui/swift-ui/modifiers'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { colors, fonts, radius } from '@/lib/theme'
@@ -18,8 +20,9 @@ type Props = {
   optional?: boolean
 }
 
-// Data e hora num campo só. No iOS o seletor compacto do sistema fica no
-// próprio campo; no Android o toque abre o calendário e depois o relógio.
+// Data e hora num campo só. No iOS o seletor compacto do sistema fica dentro
+// do campo, à esquerda; no Android o toque abre o calendário e depois
+// o relógio.
 export function DateTimeField({ label, value, onChange, testID, optional }: Props) {
   const [step, setStep] = useState<'date' | 'time' | null>(null)
   const current = value ?? new Date()
@@ -29,16 +32,26 @@ export function DateTimeField({ label, value, onChange, testID, optional }: Prop
       <Text style={styles.label}>{label}</Text>
       {process.env.EXPO_OS === 'ios' && value ? (
         <View style={styles.row}>
-          <DateTimePicker
-            testID={testID}
-            value={value}
-            mode="datetime"
-            display="compact"
-            locale="pt_BR"
-            accentColor={colors.primary}
-            themeVariant="dark"
-            onValueChange={(_, date) => onChange(date)}
-          />
+          {/* O seletor ocupa o campo todo e se alinha à esquerda, centrado na
+              altura: sem o frame do SwiftUI ele vai para o canto e sai da tela */}
+          <View style={[styles.input, styles.pickerBox]}>
+            <Host style={styles.pickerHost}>
+              <DatePicker
+                testID={testID}
+                selection={value}
+                displayedComponents={['date', 'hourAndMinute']}
+                onDateChange={onChange}
+                modifiers={[
+                  datePickerStyle('compact'),
+                  labelsHidden(),
+                  frame({ maxWidth: 10000, maxHeight: 10000, alignment: 'leading' }),
+                  tint(colors.primary),
+                  environment('locale', 'pt_BR'),
+                  environment('colorScheme', 'dark'),
+                ]}
+              />
+            </Host>
+          </View>
           {optional && (
             <Pressable accessibilityRole="button" onPress={() => onChange(null)} hitSlop={8}>
               <Text style={styles.clear}>Remover</Text>
@@ -112,6 +125,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.pill,
   },
+  // Alinhado à esquerda, como o "Definir" dos campos vazios
+  pickerBox: { height: 50 },
+  pickerHost: { position: 'absolute', top: 0, bottom: 0, left: 6, right: 10 },
   value: { fontFamily: fonts.body, fontSize: 15, color: colors.foreground },
   placeholder: { fontFamily: fonts.body, fontSize: 15, color: colors.text35 },
   clear: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.text50 },

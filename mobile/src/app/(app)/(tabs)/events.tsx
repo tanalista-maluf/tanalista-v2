@@ -1,9 +1,10 @@
-import { router, useFocusEffect } from 'expo-router'
-import { CalendarX2, Plus, Search } from 'lucide-react-native'
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { CalendarX2, FilePen, Plus, Repeat, Search, Trash2 } from 'lucide-react-native'
 import { DateTimePicker } from '@expo/ui/community/datetime-picker'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -15,8 +16,10 @@ import {
 } from 'react-native'
 import { Dropdown } from '@/components/dropdown'
 import { EventCard, type EventCardBadge, type EventCardData } from '@/components/event-card'
-import { Screen } from '@/components/ui'
+import { Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
+import { runAction } from '@/lib/api'
+import { formatLongDate } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { useTabHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
@@ -165,6 +168,38 @@ async function fetchMyEvents(userId: string): Promise<ListedEvent[]> {
   return [...next, ...done]
 }
 
+// Rascunho do organizador; uma série recorrente vira um item só, com quantos
+// eventos ela tem ao todo
+type Draft = { id: string; title: string; starts_at: string; city: string; seriesSize: number; rule: string | null }
+
+async function fetchDrafts(userId: string): Promise<Draft[]> {
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, title, starts_at, city, parent_event_id, recurrence_rule')
+    .eq('organizer_id', userId)
+    .eq('status', 'DRAFT')
+    .order('starts_at', { ascending: true })
+    .limit(200)
+  if (error) throw error
+  const rows = data ?? []
+  return rows
+    .filter((row) => !row.parent_event_id || !rows.some((other) => other.id === row.parent_event_id))
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      starts_at: row.starts_at,
+      city: row.city,
+      rule: row.recurrence_rule,
+      seriesSize: 1 + rows.filter((other) => other.parent_event_id === row.id).length,
+    }))
+}
+
+function repeatLabel(rule: string | null) {
+  if (!rule) return ''
+  if (rule.includes('MONTHLY')) return 'todo mês'
+  return rule.includes('INTERVAL=2') ? 'a cada 2 semanas' : 'toda semana'
+}
+
 function participationBadge(status?: string): EventCardBadge | undefined {
   if (status === 'CONFIRMED') return { label: 'Inscrito', tone: 'primary' }
   if (status === 'PENDING') return { label: 'Pendente', tone: 'warning' }
@@ -175,7 +210,10 @@ function participationBadge(status?: string): EventCardBadge | undefined {
 export default function EventsScreen() {
   const { session } = useSession()
   const userId = session!.user.id
+  const params = useLocalSearchParams<{ tab?: string }>()
   const [tab, setTab] = useState<Tab>('upcoming')
+  const [drafts, setDrafts] = useState<Draft[]>([])
+  const [busyDraft, setBusyDraft] = useState<string | null>(null)
   const [events, setEvents] = useState<Partial<Record<Tab, ListedEvent[]>>>({})
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
@@ -187,9 +225,17 @@ export default function EventsScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const headerInset = useTabHeaderInset()
 
+  // Ao salvar um rascunho, o formulário volta para cá abrindo Meus eventos
+  const [tabParam, setTabParam] = useState(params.tab)
+  if (params.tab !== tabParam) {
+    setTabParam(params.tab)
+    if (params.tab === 'mine') setTab('mine')
+  }
+
   const load = useCallback(
     async (which: Tab, filter: Filter) => {
       try {
+        if (which === 'mine') setDrafts(await fetchDrafts(userId))
         const data = which === 'mine' ? await fetchMyEvents(userId) : await fetchUpcomingEvents(filter)
         setEvents((current) => ({ ...current, [which]: data }))
         setError(false)
@@ -219,6 +265,39 @@ export default function EventsScreen() {
     setRefreshing(true)
     await Promise.all([load(tab, { search, category, city, date }), fetchCities().then(setCities)])
     setRefreshing(false)
+  }
+
+  async function publishDraft(draft: Draft) {
+    setBusyDraft(draft.id)
+    const result = await runAction('publishEvent', draft.id)
+    setBusyDraft(null)
+    if ('error' in result) {
+      Alert.alert('Não foi possível publicar', result.error)
+      return
+    }
+    await load('mine', { search, category, city, date })
+    router.push({ pathname: '/events/[id]', params: { id: draft.id } })
+  }
+
+  function confirmDeleteDraft(draft: Draft) {
+    Alert.alert(
+      'Excluir rascunho?',
+      draft.seriesSize > 1 ? `Os ${draft.seriesSize} eventos da série serão excluídos.` : 'Ele não poderá ser recuperado.',
+      [
+        { text: 'Manter', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            setBusyDraft(draft.id)
+            const result = await runAction('deleteDraftEvent', draft.id)
+            setBusyDraft(null)
+            if ('error' in result) Alert.alert('Não foi possível excluir', result.error)
+            await load('mine', { search, category, city, date })
+          },
+        },
+      ]
+    )
   }
 
   function chooseDate(key: string | null) {
@@ -298,6 +377,7 @@ export default function EventsScreen() {
                     options={CATEGORY_OPTIONS}
                     selected={category}
                     onSelect={setCategory}
+                    style={styles.flex}
                   />
                   <Dropdown
                     testID="filter-date"
@@ -307,6 +387,7 @@ export default function EventsScreen() {
                     selected={date?.key ?? null}
                     selectedLabel={date?.day ? formatDay(date.day) : undefined}
                     onSelect={chooseDate}
+                    style={styles.flex}
                   />
                   <Dropdown
                     testID="filter-city"
@@ -315,9 +396,31 @@ export default function EventsScreen() {
                     options={cities.map((c) => ({ key: c, label: c }))}
                     selected={city}
                     onSelect={setCity}
+                    style={styles.flex}
                   />
                 </View>
               </>
+            )}
+            {tab === 'mine' && drafts.length > 0 && (
+              <View style={styles.drafts}>
+                <View style={styles.draftsHeader}>
+                  <FilePen size={18} color={colors.warning} />
+                  <Text style={styles.draftsTitle}>Rascunhos</Text>
+                  <Text style={styles.draftsCount}>{drafts.length}</Text>
+                </View>
+                <Text style={styles.draftsHint}>Só você vê. Publique quando estiver pronto.</Text>
+                {drafts.map((draft, index) => (
+                  <DraftCard
+                    key={draft.id}
+                    testID={`draft-${index}`}
+                    draft={draft}
+                    busy={busyDraft === draft.id}
+                    onEdit={() => router.push({ pathname: '/event-form', params: { mode: 'edit', eventId: draft.id } })}
+                    onPublish={() => publishDraft(draft)}
+                    onDelete={() => confirmDeleteDraft(draft)}
+                  />
+                ))}
+              </View>
             )}
             <Text style={styles.heading}>{current.heading}</Text>
           </View>
@@ -344,6 +447,68 @@ export default function EventsScreen() {
       />
       {pickingDay && <DayPicker value={date?.day ?? new Date()} onPick={chooseDay} onCancel={() => setPickingDay(false)} />}
     </Screen>
+  )
+}
+
+function DraftCard(props: {
+  draft: Draft
+  busy: boolean
+  testID: string
+  onEdit: () => void
+  onPublish: () => void
+  onDelete: () => void
+}) {
+  const { draft, busy } = props
+  return (
+    <Card style={styles.draft}>
+      <Pressable testID={props.testID} accessibilityRole="button" onPress={props.onEdit} style={styles.draftBody}>
+        <Text style={styles.draftTitle} numberOfLines={1}>
+          {draft.title}
+        </Text>
+        <Text style={styles.draftMeta}>
+          {formatLongDate(draft.starts_at)} · {draft.city}
+        </Text>
+        {draft.seriesSize > 1 && (
+          <View style={styles.series}>
+            <Repeat size={13} color={colors.primary} />
+            <Text style={styles.seriesText}>
+              Série de {draft.seriesSize} eventos, {repeatLabel(draft.rule)}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+      <View style={styles.draftActions}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={props.onEdit}
+          disabled={busy}
+          style={({ pressed }) => [styles.draftButton, pressed && styles.dim]}>
+          <Text style={styles.draftButtonText}>Continuar editando</Text>
+        </Pressable>
+        <Pressable
+          testID={`${props.testID}-publish`}
+          accessibilityRole="button"
+          onPress={props.onPublish}
+          disabled={busy}
+          style={({ pressed }) => [styles.publishButton, (pressed || busy) && styles.dim]}>
+          {busy ? (
+            <ActivityIndicator color={colors.primaryForeground} />
+          ) : (
+            <Text style={styles.publishText}>{draft.seriesSize > 1 ? 'Publicar série' : 'Publicar'}</Text>
+          )}
+        </Pressable>
+        <Pressable
+          testID={`${props.testID}-delete`}
+          accessibilityRole="button"
+          accessibilityLabel="Excluir rascunho"
+          onPress={props.onDelete}
+          disabled={busy}
+          hitSlop={8}
+          style={({ pressed }) => [styles.deleteButton, pressed && styles.dim]}>
+          <Trash2 size={18} color={colors.destructive} />
+        </Pressable>
+      </View>
+    </Card>
   )
 }
 
@@ -419,6 +584,49 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, height: 48, fontFamily: fonts.body, fontSize: 15, color: colors.foreground },
   filters: { flexDirection: 'row', gap: 8 },
+  drafts: { gap: 10 },
+  draftsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  draftsTitle: { fontFamily: fonts.headingBlack, fontSize: 20, color: colors.foreground },
+  draftsCount: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.warning,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(250,204,21,0.1)',
+    overflow: 'hidden',
+  },
+  draftsHint: { fontFamily: fonts.body, fontSize: 13, color: colors.text50, marginTop: -4 },
+  draft: { padding: 14, gap: 12, borderColor: 'rgba(250,204,21,0.25)', borderStyle: 'dashed' },
+  draftBody: { gap: 4 },
+  draftTitle: { fontFamily: fonts.bodyBold, fontSize: 16, color: colors.text },
+  draftMeta: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
+  series: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  seriesText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.primary },
+  draftActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  draftButton: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+  },
+  draftButtonText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.text },
+  publishButton: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  publishText: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.primaryForeground },
+  deleteButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  flex: { flex: 1 },
   backdrop: { flex: 1, justifyContent: 'center', padding: 16, backgroundColor: 'rgba(0,0,0,0.6)' },
   calendar: {
     padding: 16,

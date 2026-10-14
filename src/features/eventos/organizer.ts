@@ -15,10 +15,10 @@ export async function getOrganizerEventData(userId: string, eventId: string) {
 
   if (!event || event.organizer_id !== userId) return null
 
-  const [{ data: participants }, { data: requests }, waitlist] = await Promise.all([
+  const [{ data: participants }, { data: requests }, waitlist, { data: teams }] = await Promise.all([
     admin
       .from('participations')
-      .select('id, status, checked_in_at, created_at, profiles(full_name, username, avatar_url), payments!payments_participation_id_fkey(method, status, amount)')
+      .select('id, status, checked_in_at, created_at, team_id, profiles(full_name, username, avatar_url), payments!payments_participation_id_fkey(method, status, amount)')
       .eq('event_id', eventId)
       .in('status', ['CONFIRMED', 'PENDING'])
       .order('created_at', { ascending: true }),
@@ -29,6 +29,7 @@ export async function getOrganizerEventData(userId: string, eventId: string) {
       .eq('status', 'PENDING')
       .order('created_at', { ascending: true }),
     getWaitlistForEvent(eventId),
+    admin.from('event_teams').select('id, name, capacity').eq('event_id', eventId).order('position', { ascending: true }),
   ])
 
   return {
@@ -36,6 +37,7 @@ export async function getOrganizerEventData(userId: string, eventId: string) {
       id: row.id,
       status: row.status,
       checkedInAt: row.checked_in_at,
+      teamId: row.team_id,
       profile: row.profiles,
       // Forma do pagamento aprovado, se houver
       payment: (row.payments ?? []).find((payment) => payment.status === 'APPROVED') ?? null,
@@ -47,6 +49,8 @@ export async function getOrganizerEventData(userId: string, eventId: string) {
       status: row.status,
       profile: row.profiles,
     })),
+    // Times do evento, na ordem de exibição (vazio = sem times)
+    teams: teams ?? [],
     inviteToken: event.visibility === 'PRIVATE' ? event.invite_token : null,
   }
 }

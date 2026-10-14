@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DateTimeField } from '@/components/date-time-field'
+import { Dropdown } from '@/components/dropdown'
 import { Button, Card, Field, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { runAction } from '@/lib/api'
@@ -25,7 +26,6 @@ const CATEGORIES = [
   'Social',
   'Outros',
 ]
-const SPORTS = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball'])
 const CANCEL_POLICIES: { value: number | null; label: string }[] = [
   { value: null, label: 'Não permitido' },
   { value: 0, label: 'Sempre' },
@@ -41,7 +41,24 @@ const RECURRENCES = [
   { value: 'monthly', label: 'Todo mês' },
 ] as const
 
+// Sem times ou de 2 a 10 times
+const TEAM_COUNTS = [
+  { key: '0', label: 'Sem times' },
+  ...Array.from({ length: 9 }, (_, i) => ({ key: String(i + 2), label: `${i + 2} times` })),
+]
+
 type Team = { name: string; capacity: string }
+
+function teamName(index: number) {
+  return `Time ${String.fromCharCode(65 + index)}`
+}
+
+// recurrence_rule gravado pelo servidor -> opção do formulário
+function recurrenceFromRule(rule: string | null): (typeof RECURRENCES)[number]['value'] {
+  if (!rule) return 'none'
+  if (rule.includes('MONTHLY')) return 'monthly'
+  return rule.includes('INTERVAL=2') ? 'biweekly' : 'weekly'
+}
 type Group = { id: string; name: string }
 
 function defaultStart() {
@@ -71,6 +88,8 @@ export default function EventFormScreen() {
   const [loading, setLoading] = useState(mode !== 'create')
   // Evento já publicado: como no site, só descrição, endereço e valor mudam
   const [locked, setLocked] = useState(false)
+  // Editando um rascunho: tudo muda, inclusive times e repetição
+  const [isDraft, setIsDraft] = useState(false)
   const [groups, setGroups] = useState<Group[]>([])
   const [groupId, setGroupId] = useState<string | null>(params.groupId ?? null)
   const [title, setTitle] = useState('')
@@ -89,13 +108,12 @@ export default function EventFormScreen() {
   const [cancelPolicy, setCancelPolicy] = useState<number | null>(24)
   const [recurrence, setRecurrence] = useState<(typeof RECURRENCES)[number]['value']>('none')
   const [recurrenceCount, setRecurrenceCount] = useState(4)
-  const [useTeams, setUseTeams] = useState(false)
-  const [teams, setTeams] = useState<Team[]>([
-    { name: 'Time A', capacity: '10' },
-    { name: 'Time B', capacity: '10' },
-  ])
+  const [teams, setTeams] = useState<Team[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [saving, setSaving] = useState<'draft' | 'publish' | null>(null)
+  // Times e repetição: ao criar, ao duplicar e num rascunho
+  const editingDraft = mode === 'edit' && isDraft
+  const canShape = mode !== 'edit' || editingDraft
 
   useEffect(() => {
     // Grupos de que a pessoa participa: o evento pode ser de um deles ou avulso
@@ -109,11 +127,11 @@ export default function EventFormScreen() {
     supabase
       .from('events')
       .select(
-        'title, description, address, city, category, price, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id'
+        'title, description, address, city, category, price, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id, recurrence_rule, event_teams(name, capacity, position)'
       )
       .eq('id', params.eventId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data) {
           setTitle(data.title)
           setDescription(data.description ?? '')
@@ -127,11 +145,27 @@ export default function EventFormScreen() {
           setVisibility(data.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC')
           setCancelPolicy(data.cancel_before_hours)
           setGroupId(data.group_id)
+          setTeams(
+            [...(data.event_teams ?? [])]
+              .sort((a, b) => a.position - b.position)
+              .map((team) => ({ name: team.name, capacity: String(team.capacity) }))
+          )
           if (mode === 'edit') {
             setStartsAt(new Date(data.starts_at))
             setEndsAt(data.ends_at ? new Date(data.ends_at) : null)
             setDeadline(new Date(data.registration_deadline))
             setLocked(data.status !== 'DRAFT')
+            setIsDraft(data.status === 'DRAFT')
+            // Rascunho de série: a repetição volta como foi salva
+            if (data.status === 'DRAFT' && data.recurrence_rule) {
+              const { count } = await supabase
+                .from('events')
+                .select('id', { count: 'exact', head: true })
+                .eq('parent_event_id', params.eventId!)
+                .eq('status', 'DRAFT')
+              setRecurrence(recurrenceFromRule(data.recurrence_rule))
+              if (count) setRecurrenceCount(Math.max(2, count))
+            }
           }
         }
         setLoading(false)
@@ -158,20 +192,33 @@ export default function EventFormScreen() {
     if (!startsAt || startsAt <= new Date()) return 'A data de início precisa ser no futuro.'
     if (!deadline || deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
     if (endsAt && endsAt <= startsAt) return 'O término precisa ser depois do início.'
-    if (useTeams) {
-      if (teams.length < 2) return 'Use ao menos 2 times.'
+    if (canShape && teams.length > 0) {
       if (teams.some((team) => !team.name.trim() || !(Number(team.capacity) >= 1))) return 'Cada time precisa de nome e vagas.'
+      const names = new Set(teams.map((team) => team.name.trim().toLowerCase()))
+      if (names.size < teams.length) return 'Os times precisam ter nomes diferentes.'
     }
     return null
   }
 
-  async function handleSubmit() {
+  // Muda o número de times mantendo o que já foi preenchido nos primeiros
+  function changeTeamCount(key: string | null) {
+    const count = Number(key ?? 0)
+    if (count < 2) {
+      setTeams([])
+      return
+    }
+    const perTeam = String(Math.max(1, Math.floor(Number(capacity) / count) || 1))
+    setTeams(Array.from({ length: count }, (_, i) => teams[i] ?? { name: teamName(i), capacity: perTeam }))
+  }
+
+  // asDraft: salva sem publicar (só você vê, em Meus eventos > Rascunhos)
+  async function handleSubmit(asDraft: boolean) {
     const invalid = validate()
     if (invalid) {
       setError(invalid)
       return
     }
-    setSaving(true)
+    setSaving(asDraft ? 'draft' : 'publish')
     setError(null)
     const data = {
       title: title.trim(),
@@ -187,25 +234,51 @@ export default function EventFormScreen() {
       registration_deadline: deadline!.toISOString(),
       organizer_exempt: exempt,
       ...(groupId ? { group_id: groupId } : {}),
-      recurrence: mode === 'edit' ? 'none' : recurrence,
+      recurrence: canShape ? recurrence : 'none',
       recurrence_count: recurrenceCount,
-      use_teams: mode !== 'edit' && useTeams && SPORTS.has(category),
+      use_teams: canShape && teams.length >= 2,
       teams: teams.map((team) => ({ name: team.name.trim(), capacity: Number(team.capacity) })),
       visibility,
       cancel_before_hours: cancelPolicy,
+      ...(mode === 'edit' ? (editingDraft ? { draft_series: true } : {}) : { as_draft: asDraft }),
     }
     const result = mode === 'edit' ? await runAction('updateEvent', params.eventId, data) : await runAction('createEvent', data)
-    if ('redirect' in result) {
-      // A edição volta para onde foi aberta (o painel do organizador); evento novo abre a página dele
-      if (mode === 'edit') router.back()
-      else await openEvent(result.redirect)
+    if (!('redirect' in result)) {
+      setSaving(null)
+      setError('error' in result ? result.error : 'Não foi possível salvar o evento.')
       return
     }
-    setSaving(false)
-    setError('error' in result ? result.error : 'Não foi possível salvar o evento.')
+
+    // Rascunho editado e publicado de uma vez
+    if (editingDraft && !asDraft) {
+      const published = await runAction('publishEvent', params.eventId)
+      if ('error' in published) {
+        setSaving(null)
+        setError(published.error)
+        return
+      }
+      await openEvent(params.eventId!)
+      return
+    }
+
+    // Rascunho salvo: volta para Meus eventos, onde ficam os rascunhos
+    if (asDraft) {
+      router.dismissTo({ pathname: '/events', params: { tab: 'mine' } })
+      return
+    }
+
+    // A edição volta para onde foi aberta (o painel do organizador); evento novo abre a página dele
+    if (mode === 'edit') router.back()
+    else await openEvent(result.redirect)
   }
 
-  const titleText = mode === 'edit' ? 'Editar evento' : mode === 'duplicate' ? 'Duplicar evento' : 'Criar evento'
+  const titleText = editingDraft
+    ? 'Editar rascunho'
+    : mode === 'edit'
+      ? 'Editar evento'
+      : mode === 'duplicate'
+        ? 'Duplicar evento'
+        : 'Criar evento'
 
   if (loading) {
     return (
@@ -251,11 +324,14 @@ export default function EventFormScreen() {
               style={styles.multiline}
             />
             <Text style={styles.label}>Categoria</Text>
-            <Chips
-              items={CATEGORIES.map((item) => ({ value: item, label: item }))}
-              selected={category}
-              onSelect={(value) => !locked && setCategory(value === category ? '' : value)}
-              testPrefix="form-category"
+            <Dropdown
+              testID="form-category"
+              placeholder="Escolha a categoria"
+              allLabel="Sem categoria"
+              options={CATEGORIES.map((item) => ({ key: item, label: item }))}
+              selected={category || null}
+              onSelect={(value) => setCategory(value ?? '')}
+              disabled={locked}
             />
           </Section>
 
@@ -289,7 +365,7 @@ export default function EventFormScreen() {
                 <DateTimeField testID="form-deadline" label="Inscrições até" value={deadline} onChange={setDeadline} />
               </>
             )}
-            {mode !== 'edit' && (
+            {canShape && (
               <>
                 <Text style={styles.label}>Repetição</Text>
                 <Chips
@@ -345,57 +421,42 @@ export default function EventFormScreen() {
             />
           </Section>
 
-          {mode !== 'edit' && SPORTS.has(category) && (
+          {canShape && (
             <Section title="Times">
-              <ToggleRow
-                testID="form-teams"
-                title="Dividir em times"
-                detail="Cada pessoa escolhe o time ao se inscrever"
-                value={useTeams}
-                onChange={setUseTeams}
+              <Text style={styles.detail}>Cada pessoa escolhe o time ao se inscrever.</Text>
+              <Dropdown
+                testID="form-team-count"
+                placeholder="Sem times"
+                allLabel="Sem times"
+                hideAll
+                options={TEAM_COUNTS}
+                selected={teams.length >= 2 ? String(teams.length) : '0'}
+                onSelect={changeTeamCount}
               />
-              {useTeams &&
-                teams.map((team, index) => (
-                  <View key={index} style={styles.team}>
-                    <View style={styles.flex}>
-                      <Field
-                        label={`Time ${index + 1}`}
-                        value={team.name}
-                        onChangeText={(name) => setTeams(teams.map((item, i) => (i === index ? { ...item, name } : item)))}
-                        maxLength={50}
-                      />
-                    </View>
-                    <View style={styles.teamCapacity}>
-                      <Field
-                        label="Vagas"
-                        keyboardType="number-pad"
-                        value={team.capacity}
-                        onChangeText={(value) =>
-                          setTeams(teams.map((item, i) => (i === index ? { ...item, capacity: value } : item)))
-                        }
-                      />
-                    </View>
-                    {teams.length > 2 && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remover ${team.name}`}
-                        onPress={() => setTeams(teams.filter((_, i) => i !== index))}
-                        hitSlop={8}
-                        style={styles.teamRemove}>
-                        <Minus size={18} color={colors.destructive} />
-                      </Pressable>
-                    )}
+              {teams.map((team, index) => (
+                <View key={index} style={styles.team}>
+                  <View style={styles.flex}>
+                    <Field
+                      testID={`form-team-name-${index}`}
+                      label={`Time ${index + 1}`}
+                      value={team.name}
+                      onChangeText={(name) => setTeams(teams.map((item, i) => (i === index ? { ...item, name } : item)))}
+                      maxLength={50}
+                    />
                   </View>
-                ))}
-              {useTeams && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setTeams([...teams, { name: `Time ${String.fromCharCode(65 + teams.length)}`, capacity: '10' }])}
-                  style={styles.addTeam}>
-                  <Plus size={16} color={colors.primary} />
-                  <Text style={styles.link}>Adicionar time</Text>
-                </Pressable>
-              )}
+                  <View style={styles.teamCapacity}>
+                    <Field
+                      testID={`form-team-capacity-${index}`}
+                      label="Vagas"
+                      keyboardType="number-pad"
+                      value={team.capacity}
+                      onChangeText={(value) =>
+                        setTeams(teams.map((item, i) => (i === index ? { ...item, capacity: value } : item)))
+                      }
+                    />
+                  </View>
+                </View>
+              ))}
             </Section>
           )}
 
@@ -437,12 +498,32 @@ export default function EventFormScreen() {
           )}
         </ScrollView>
         <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Button
-            testID="form-submit"
-            label={mode === 'edit' ? 'Salvar alterações' : 'Publicar evento'}
-            onPress={handleSubmit}
-            loading={saving}
-          />
+          {mode === 'edit' && !editingDraft ? (
+            <Button testID="form-submit" label="Salvar alterações" onPress={() => handleSubmit(false)} loading={saving !== null} />
+          ) : (
+            <View style={styles.pair}>
+              <Pressable
+                testID="form-save-draft"
+                accessibilityRole="button"
+                onPress={() => handleSubmit(true)}
+                disabled={saving !== null}
+                style={({ pressed }) => [styles.draftButton, (pressed || saving !== null) && styles.dim]}>
+                {saving === 'draft' ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <Text style={styles.draftText}>Salvar rascunho</Text>
+                )}
+              </Pressable>
+              <Button
+                testID="form-submit"
+                label="Publicar evento"
+                onPress={() => handleSubmit(false)}
+                loading={saving === 'publish'}
+                disabled={saving !== null}
+                style={styles.flex}
+              />
+            </View>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -582,9 +663,18 @@ const styles = StyleSheet.create({
   stepValue: { minWidth: 28, textAlign: 'center', fontFamily: fonts.bodyBold, fontSize: 16, color: colors.text },
   team: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   teamCapacity: { width: 90 },
-  teamRemove: { height: 50, justifyContent: 'center' },
-  addTeam: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-  link: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
+  draftButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(74,222,128,0.3)',
+    backgroundColor: 'rgba(74,222,128,0.08)',
+  },
+  draftText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
+  dim: { opacity: 0.6 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
     paddingHorizontal: 18,

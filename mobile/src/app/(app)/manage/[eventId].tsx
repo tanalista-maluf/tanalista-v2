@@ -30,11 +30,14 @@ type OrganizerData = {
     id: string
     status: string
     checkedInAt: string | null
+    teamId?: string | null
     profile: Person
     payment: { method: string; amount: number } | null
   }[]
   joinRequests: { id: string; created_at: string; profile: Person }[]
   waitlist: { id: string; position: number; status: string; profile: Person }[]
+  // Ausente numa versão anterior do servidor
+  teams?: { id: string; name: string; capacity: number }[]
   inviteToken: string | null
 }
 
@@ -145,6 +148,54 @@ export default function ManageEventScreen() {
   const confirmed = organizer.participants.filter((p) => p.status === 'CONFIRMED')
   const checkedIn = confirmed.filter((p) => p.checkedInAt).length
   const active = !['CANCELLED', 'COMPLETED'].includes(event.status)
+
+  const teams = organizer.teams ?? []
+
+  // Uma linha de inscrito; index é a posição na lista toda (testIDs estáveis)
+  function renderParticipant(participant: OrganizerData['participants'][number], index: number, divider: boolean) {
+    return (
+      <View key={participant.id} style={[styles.row, divider && styles.divider]}>
+        <Avatar name={personName(participant.profile)} url={participant.profile?.avatar_url} size={34} />
+        <View style={styles.rowBody}>
+          <Text style={styles.rowTitle}>{personName(participant.profile)}</Text>
+          <Text style={styles.rowDetail}>
+            {participant.status === 'PENDING'
+              ? 'Aguardando pagamento'
+              : participant.payment
+                ? `${METHODS[participant.payment.method] ?? participant.payment.method} · ${formatPrice(participant.payment.amount)}`
+                : 'Confirmado'}
+          </Text>
+        </View>
+        {participant.status === 'CONFIRMED' &&
+          (participant.checkedInAt ? (
+            <CheckCircle2 size={22} color={colors.primary} accessibilityLabel="Check-in feito" />
+          ) : active ? (
+            <Pressable
+              testID={`checkin-${index}`}
+              accessibilityRole="button"
+              onPress={() => act(participant.id, 'checkIn', [eventId, participant.id])}
+              disabled={busy !== null}
+              style={styles.smallButton}>
+              {busy === participant.id ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Text style={styles.smallButtonText}>Check-in</Text>
+              )}
+            </Pressable>
+          ) : null)}
+        {active && (
+          <Pressable
+            testID={`remove-${index}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Remover ${personName(participant.profile)}`}
+            onPress={() => confirmRemove(participant.id, personName(participant.profile))}
+            hitSlop={8}>
+            <XCircle size={20} color={colors.text35} />
+          </Pressable>
+        )}
+      </View>
+    )
+  }
 
   async function changeCover() {
     const picked = await ImagePicker.launchImageLibraryAsync({
@@ -278,48 +329,38 @@ export default function ManageEventScreen() {
               <Text style={styles.empty}>Ninguém se inscreveu ainda.</Text>
             ) : (
               <>
-                {organizer.participants.map((participant, index) => (
-                  <View key={participant.id} style={[styles.row, index > 0 && styles.divider]}>
-                    <Avatar name={personName(participant.profile)} url={participant.profile?.avatar_url} size={34} />
-                    <View style={styles.rowBody}>
-                      <Text style={styles.rowTitle}>{personName(participant.profile)}</Text>
-                      <Text style={styles.rowDetail}>
-                        {participant.status === 'PENDING'
-                          ? 'Aguardando pagamento'
-                          : participant.payment
-                            ? `${METHODS[participant.payment.method] ?? participant.payment.method} · ${formatPrice(participant.payment.amount)}`
-                            : 'Confirmado'}
-                      </Text>
-                    </View>
-                    {participant.status === 'CONFIRMED' &&
-                      (participant.checkedInAt ? (
-                        <CheckCircle2 size={22} color={colors.primary} accessibilityLabel="Check-in feito" />
-                      ) : active ? (
-                        <Pressable
-                          testID={`checkin-${index}`}
-                          accessibilityRole="button"
-                          onPress={() => act(participant.id, 'checkIn', [eventId, participant.id])}
-                          disabled={busy !== null}
-                          style={styles.smallButton}>
-                          {busy === participant.id ? (
-                            <ActivityIndicator color={colors.primary} />
+                {teams.length > 1
+                  ? [
+                      ...teams.map((team) => ({
+                        key: team.id,
+                        title: team.name,
+                        detail: `${organizer.participants.filter((p) => p.teamId === team.id && p.status === 'CONFIRMED').length}/${team.capacity}`,
+                        members: organizer.participants.filter((p) => p.teamId === team.id),
+                      })),
+                      {
+                        key: 'none',
+                        title: 'Sem time',
+                        detail: '',
+                        members: organizer.participants.filter((p) => !teams.some((team) => team.id === p.teamId)),
+                      },
+                    ]
+                      .filter((group) => group.key !== 'none' || group.members.length > 0)
+                      .map((group) => (
+                        <View key={group.key} testID={`manage-team-${group.key}`} style={styles.teamGroup}>
+                          <View style={styles.teamHeader}>
+                            <Text style={styles.teamName}>{group.title}</Text>
+                            <Text style={styles.teamCount}>{group.detail}</Text>
+                          </View>
+                          {group.members.length === 0 ? (
+                            <Text style={styles.teamEmpty}>Ninguém neste time ainda.</Text>
                           ) : (
-                            <Text style={styles.smallButtonText}>Check-in</Text>
+                            group.members.map((participant, position) =>
+                              renderParticipant(participant, organizer.participants.indexOf(participant), position > 0)
+                            )
                           )}
-                        </Pressable>
-                      ) : null)}
-                    {active && (
-                      <Pressable
-                        testID={`remove-${index}`}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remover ${personName(participant.profile)}`}
-                        onPress={() => confirmRemove(participant.id, personName(participant.profile))}
-                        hitSlop={8}>
-                        <XCircle size={20} color={colors.text35} />
-                      </Pressable>
-                    )}
-                  </View>
-                ))}
+                        </View>
+                      ))
+                  : organizer.participants.map((participant, index) => renderParticipant(participant, index, index > 0))}
                 <Pressable testID="manage-export" accessibilityRole="button" onPress={exportList} style={styles.inline}>
                   <FileDown size={16} color={colors.primary} />
                   <Text style={styles.link}>Exportar lista</Text>
@@ -588,6 +629,11 @@ const styles = StyleSheet.create({
   empty: { fontFamily: fonts.body, fontSize: 14, color: colors.muted },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   divider: { borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  teamGroup: { gap: 2, marginTop: 6 },
+  teamHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingVertical: 6 },
+  teamName: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
+  teamCount: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.text50 },
+  teamEmpty: { fontFamily: fonts.body, fontSize: 13, color: colors.muted, paddingBottom: 6 },
   rowBody: { flex: 1, gap: 2 },
   rowTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
   rowDetail: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text50 },
