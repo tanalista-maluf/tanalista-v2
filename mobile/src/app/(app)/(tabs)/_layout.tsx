@@ -1,6 +1,5 @@
 import { Tabs } from 'expo-router/js-tabs'
 import { StyleSheet, View } from 'react-native'
-import { setActiveTab } from '@/components/app-tab-bar'
 import { Logo } from '@/components/logo'
 import { NotificationBell } from '@/components/notification-bell'
 import { colors, fonts } from '@/lib/theme'
@@ -11,7 +10,6 @@ export default function TabsLayout() {
   return (
     <Tabs
       tabBar={() => null}
-      screenListeners={({ route }) => ({ focus: () => setActiveTab(route.name) })}
       screenOptions={{
         // Mesmo cabeçalho do Stack: escuro, translúcido, o conteúdo passa por baixo
         headerTransparent: true,

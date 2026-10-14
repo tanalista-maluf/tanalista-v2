@@ -2,10 +2,12 @@ import { Stack } from 'expo-router'
 import { StyleSheet, View } from 'react-native'
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AppTabBar } from '@/components/app-tab-bar'
+import { usePushNotifications } from '@/lib/push'
 import { colors, fonts } from '@/lib/theme'
 
 export default function AppLayout() {
   const insets = useSafeAreaInsets()
+  usePushNotifications()
   return (
     <View style={styles.root}>
       {/* A barra inferior fica abaixo das telas e cuida da margem de baixo do

@@ -119,7 +119,17 @@ export default function GroupsScreen() {
 
   // Link de convite do site (.../grupos/entrar/<código>) ou só o código
   async function joinByInvite() {
-    const token = invite.trim().split('/').filter(Boolean).pop() ?? ''
+    const text = invite.trim()
+    // Link da página do grupo (tanalista.app/g/<slug>): abre o grupo, onde
+    // dá para entrar (público) ou pedir para entrar (privado)
+    const page = text.match(/\/g\/([^/?#\s]+)/)
+    if (page) {
+      setInvite('')
+      setInviteOpen(false)
+      router.push({ pathname: '/groups/preview/[slug]', params: { slug: page[1] } })
+      return
+    }
+    const token = text.split('/').filter(Boolean).pop() ?? ''
     if (!token) return
     setJoining(true)
     setInviteError(null)
@@ -201,7 +211,7 @@ export default function GroupsScreen() {
                       testID="group-invite-code"
                       value={invite}
                       onChangeText={setInvite}
-                      placeholder="Cole o link ou o código do convite"
+                      placeholder="Cole o link do grupo ou do convite"
                       placeholderTextColor={colors.text35}
                       selectionColor={colors.primary}
                       autoCapitalize="none"

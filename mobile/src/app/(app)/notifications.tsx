@@ -2,6 +2,7 @@ import { router, Stack, useFocusEffect } from 'expo-router'
 import { Bell, BellOff } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { notificationTarget } from '@/lib/push'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { markNotificationsRead } from '@/lib/api'
@@ -31,12 +32,8 @@ async function fetchNotifications(userId: string): Promise<Notification[]> {
   return (data ?? []) as Notification[]
 }
 
-// Para onde a notificação leva: o evento ou o grupo de que ela fala
 function target(notification: Notification) {
-  const data = notification.data ?? {}
-  if (typeof data.event_id === 'string') return { pathname: '/events/[id]' as const, params: { id: data.event_id } }
-  if (typeof data.group_id === 'string') return { pathname: '/groups/[id]' as const, params: { id: data.group_id } }
-  return null
+  return notificationTarget(notification.data)
 }
 
 export default function NotificationsScreen() {

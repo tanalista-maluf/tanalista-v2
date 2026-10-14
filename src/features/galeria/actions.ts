@@ -3,14 +3,21 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { cloudinaryDestroy, saveEventPhoto, type PhotoUpload } from './photos'
+import { confirmEventPhotoUpload, createEventPhotoUpload, removeEventPhotoFiles } from './photos'
 
-export async function saveEventPhotoAction(eventId: string, params: PhotoUpload) {
+// Envio pelo navegador: link assinado do Storage e, depois do envio, o registro
+export async function createEventPhotoUploadAction(eventId: string, input: { mimeType: string; size: number }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
+  return createEventPhotoUpload(supabase, user.id, eventId, input)
+}
 
-  return saveEventPhoto(supabase, user.id, eventId, params)
+export async function confirmEventPhotoUploadAction(eventId: string, path: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+  return confirmEventPhotoUpload(supabase, user.id, eventId, path)
 }
 
 export async function deleteEventPhotoAction(photoId: string, eventId: string) {
@@ -31,10 +38,8 @@ export async function deleteEventPhotoAction(photoId: string, eventId: string) {
   const canDelete = photo.user_id === user.id || event?.organizer_id === user.id
   if (!canDelete) return { error: 'Sem permissão.' }
 
-  // Remover do Cloudinary
-  if (photo.storage_key) {
-    await cloudinaryDestroy(photo.storage_key)
-  }
+  // Remover o arquivo (Storage ou, nas fotos antigas, Cloudinary)
+  await removeEventPhotoFiles([photo.storage_key])
 
   await admin.from('event_photos').delete().eq('id', photoId)
 

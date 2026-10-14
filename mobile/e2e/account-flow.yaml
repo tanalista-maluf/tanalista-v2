@@ -142,7 +142,7 @@ appId: ${APP_ID}
 - tapOn:
     id: "edit-submit"
 - scrollUntilVisible:
-    element: "WhatsApp inválido.*"
+    element: "Telefone inválido.*"
 - scrollUntilVisible:
     element:
       id: "edit-phone"

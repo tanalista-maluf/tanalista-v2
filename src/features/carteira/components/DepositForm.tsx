@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Loader2, Copy, CheckCheck, RefreshCw } from 'lucide-react'
+import { Loader2, Copy, CheckCheck, RefreshCw, QrCode, CreditCard, TriangleAlert, Clock } from 'lucide-react'
+import { CardPaymentForm, type CardFormData } from '@/features/participacoes/components/CardPaymentForm'
 import Image from 'next/image'
+import Link from 'next/link'
 
 const PRESET_AMOUNTS = [10, 25, 50, 100, 200]
 
@@ -19,6 +21,20 @@ interface PendingPix {
 
 interface Props {
   pendingPix?: PendingPix | null
+  // Formulário de cartão (chave pública do Mercado Pago ou, fora de produção, cobrança de teste)
+  card: { publicKey: string | null; stub: boolean }
+  email?: string
+}
+
+// Mesma taxa do servidor (src/features/carteira/wallet.ts): sai do valor creditado
+const CARD_FEE = { single: 0.03, installments: 0.05 }
+
+function brl(cents: number) {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function credited(cents: number, installments: number) {
+  return cents - Math.round(cents * (installments > 1 ? CARD_FEE.installments : CARD_FEE.single))
 }
 
 function PixView({ pixData, onNew }: { pixData: { qr_code: string; qr_code_base64: string; amount?: number; expires_at?: string }; onNew: () => void }) {
@@ -90,8 +106,25 @@ function PixView({ pixData, onNew }: { pixData: { qr_code: string; qr_code_base6
   )
 }
 
-export function DepositForm({ pendingPix }: Props) {
+export function DepositForm({ pendingPix, card, email }: Props) {
   const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState<'PIX' | 'CARD'>('PIX')
+  // Recarga com cartão: valor escolhido e, depois de pagar, o resultado
+  const [cardAmount, setCardAmount] = useState<number | null>(null)
+  const [cardResult, setCardResult] = useState<{ status: 'approved' | 'in_process'; credited: number } | null>(null)
+  const cardEnabled = !!card.publicKey || card.stub
+
+  async function payWithCard(data: CardFormData) {
+    if (!cardAmount) return
+    const res = await fetch('/api/pagamentos/deposito/cartao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount_cents: cardAmount, card: data }),
+    })
+    const result = await res.json()
+    if (result.error) toast.error(result.error)
+    else setCardResult(result)
+  }
   const [loading, setLoading] = useState(false)
   const [pixData, setPixData] = useState<{ qr_code: string; qr_code_base64: string; amount?: number; expires_at?: string } | null>(null)
   const [showPending, setShowPending] = useState(true)
@@ -104,6 +137,11 @@ export function DepositForm({ pendingPix }: Props) {
     }
     if (value > 5000) {
       toast.error('Valor máximo por recarga: R$ 5.000,00')
+      return
+    }
+
+    if (method === 'CARD') {
+      setCardAmount(Math.round(value * 100))
       return
     }
 
@@ -132,6 +170,48 @@ export function DepositForm({ pendingPix }: Props) {
           <p className="text-xs text-white/40 mt-0.5">Você tem um PIX não pago. Conclua ou gere uma nova recarga.</p>
         </div>
         <PixView pixData={pendingPix} onNew={() => setShowPending(false)} />
+      </div>
+    )
+  }
+
+  if (cardResult) {
+    return (
+      <div className="space-y-4 text-center py-6">
+        {cardResult.status === 'approved' ? (
+          <CheckCheck className="size-10 mx-auto text-primary" />
+        ) : (
+          <Clock className="size-10 mx-auto text-yellow-400" />
+        )}
+        <p className="text-white font-medium">
+          {cardResult.status === 'approved'
+            ? `Recarga confirmada! ${brl(cardResult.credited)} já estão na sua carteira.`
+            : `Pagamento em análise. ${brl(cardResult.credited)} entram na carteira assim que o Mercado Pago aprovar.`}
+        </p>
+        <Link href="/carteira" className="inline-block text-sm text-primary hover:underline">Voltar à carteira</Link>
+      </div>
+    )
+  }
+
+  if (cardAmount) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center space-y-1">
+          <p className="text-2xl font-bold text-primary">{brl(cardAmount)}</p>
+          <p className="text-xs text-yellow-400">
+            Entram {brl(credited(cardAmount, 1))} à vista (taxa de 3%) ou {brl(credited(cardAmount, 2))} parcelado (taxa de 5%)
+          </p>
+        </div>
+        <CardPaymentForm
+          publicKey={card.publicKey}
+          stub={card.stub}
+          amountCents={cardAmount}
+          email={email}
+          maxInstallments={12}
+          onSubmit={payWithCard}
+        />
+        <Button variant="outline" className="w-full" onClick={() => setCardAmount(null)}>
+          Voltar
+        </Button>
       </div>
     )
   }
@@ -167,12 +247,57 @@ export function DepositForm({ pendingPix }: Props) {
         ))}
       </div>
 
+      <div className="space-y-2">
+        <Label>Forma de pagamento</Label>
+        {[
+          { id: 'PIX' as const, label: 'PIX', desc: 'Sem taxa: o valor entra inteiro', icon: QrCode },
+          ...(cardEnabled
+            ? [{ id: 'CARD' as const, label: 'Cartão de crédito', desc: 'À vista ou parcelado', icon: CreditCard }]
+            : []),
+        ].map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setMethod(option.id)}
+            className={[
+              'w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+              method === option.id ? 'border-primary bg-primary/5' : 'border-white/10 hover:border-primary/30',
+            ].join(' ')}>
+            <option.icon className="size-5 text-primary shrink-0" />
+            <div>
+              <p className="text-sm font-medium">{option.label}</p>
+              <p className="text-xs text-white/50">{option.desc}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {method === 'CARD' && (
+        <div className="flex gap-2 rounded-lg border border-yellow-400/25 bg-yellow-400/5 p-3">
+          <TriangleAlert className="size-4 text-yellow-400 shrink-0 mt-0.5" />
+          <div className="text-xs">
+            <p className="font-semibold text-yellow-400">Taxa do cartão: 3% à vista e 5% parcelado</p>
+            <p className="text-white/60 mt-0.5">
+              A taxa é descontada do valor creditado.
+              {(() => {
+                const cents = Math.round(parseFloat(amount.replace(',', '.')) * 100)
+                return cents >= 1000 && cents <= 500000
+                  ? ` Recarregando ${brl(cents)}, entram ${brl(credited(cents, 1))} à vista ou ${brl(credited(cents, 2))} parcelado.`
+                  : ''
+              })()}
+            </p>
+          </div>
+        </div>
+      )}
+
       <Button className="w-full" onClick={handleSubmit} disabled={loading}>
         {loading ? (
           <>
             <Loader2 className="size-4 animate-spin mr-2" />
             Gerando PIX...
           </>
+        ) : method === 'CARD' ? (
+          'Continuar para o cartão'
         ) : (
           'Gerar PIX de recarga'
         )}

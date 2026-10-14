@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { Camera, X, Loader2, ImageOff, Download, ChevronLeft, ChevronRight } from 'lucide-react'
-import { saveEventPhotoAction, deleteEventPhotoAction } from '../actions'
+import { confirmEventPhotoUploadAction, createEventPhotoUploadAction, deleteEventPhotoAction } from '../actions'
+import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { format } from 'date-fns'
@@ -56,28 +57,19 @@ async function compressImage(file: File, maxSizeKB = 900): Promise<File> {
   })
 }
 
-async function uploadToCloudinary(file: File, eventId: string): Promise<{ publicId: string; secureUrl: string; fileSize: number }> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!
-  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
+// A foto vai direto do navegador para o Storage, por um link assinado que o
+// servidor gera depois de conferir quem pode enviar; depois o servidor a registra
+async function uploadPhoto(file: File, eventId: string): Promise<{ error: string } | { url: string; size: number }> {
+  const slot = await createEventPhotoUploadAction(eventId, { mimeType: file.type, size: file.size })
+  if ('error' in slot) return { error: slot.error }
 
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('upload_preset', preset)
-  fd.append('folder', `tanalista/eventos/${eventId}`)
+  const { error } = await createClient()
+    .storage.from('event-photos')
+    .uploadToSignedUrl(slot.path, slot.token, file, { contentType: file.type })
+  if (error) return { error: 'Erro ao enviar foto. Tente novamente.' }
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: 'POST',
-    body: fd,
-  })
-
-  if (!res.ok) throw new Error('Erro no upload para Cloudinary')
-
-  const data = await res.json()
-  return {
-    publicId: data.public_id,
-    secureUrl: data.secure_url,
-    fileSize: data.bytes,
-  }
+  const saved = await confirmEventPhotoUploadAction(eventId, slot.path)
+  return 'error' in saved ? { error: saved.error } : { url: saved.url, size: saved.size }
 }
 
 export function EventGallery({ eventId, photos: initial, canUpload, currentUserId, isOrganizer, storageUsage: initialUsage }: Props) {
@@ -98,16 +90,16 @@ export function EventGallery({ eventId, photos: initial, canUpload, currentUserI
     setUploading(true)
     try {
       const compressed = await compressImage(file)
-      const { publicId, secureUrl, fileSize } = await uploadToCloudinary(compressed, eventId)
-      const result = await saveEventPhotoAction(eventId, { publicId, secureUrl, fileSize })
+      const result = await uploadPhoto(compressed, eventId)
 
       if ('error' in result) {
         toast.error(result.error)
       } else {
+        const fileSize = result.size
         toast.success('Foto enviada!')
         setPhotos(prev => [{
           id: Date.now().toString(),
-          storage_path: secureUrl,
+          storage_path: result.url,
           file_size: fileSize,
           created_at: new Date().toISOString(),
           profiles: null,

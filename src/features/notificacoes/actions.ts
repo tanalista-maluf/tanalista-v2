@@ -1,5 +1,6 @@
 'use server'
 
+import { sendMobilePush } from '@/lib/mobile-push'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -21,6 +22,9 @@ export async function createNotificationAdmin(params: {
     data: (params.data ?? {}) as Json,
     read: false,
   })
+
+  // E no celular, para quem tem o app e deixou o push ligado
+  await sendMobilePush(params.userId, { title: params.title, body: params.body, data: params.data })
 }
 
 export async function setNotificationPreferenceAction(

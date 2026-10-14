@@ -1,4 +1,5 @@
 import { revalidatePath } from 'next/cache'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isPhotoUploadEnabled } from '@/features/galeria/photos'
@@ -147,13 +148,12 @@ export async function requestEventJoin(userId: string, eventId: string): Promise
 
   if (event?.organizer_id) {
     const requesterName = requester?.full_name ?? requester?.username ?? 'Alguém'
-    await admin.from('notifications').insert({
-      user_id: event.organizer_id,
+    await createNotificationAdmin({
+      userId: event.organizer_id,
       type: 'EVENT_JOIN_REQUEST',
       title: 'Solicitação de participação',
       body: `${requesterName} quer participar de "${event.title}".`,
       data: { event_id: eventId, event_slug: event.slug, requester_id: userId },
-      read: false,
     })
   }
 
@@ -249,7 +249,14 @@ export async function getEventExtras(supabase: UserClient, userId: string, event
       profile: row.profiles,
     })),
     polls,
-    photos: photos.map((row) => ({ id: row.id, url: row.storage_path, created_at: row.created_at, profile: row.profiles })),
+    photos: photos.map((row) => ({
+      id: row.id,
+      url: row.storage_path,
+      created_at: row.created_at,
+      profile: row.profiles,
+      // Quem enviou e o organizador podem apagar
+      canDelete: row.user_id === userId || isOrganizer,
+    })),
     ratings: {
       average: scores.length ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10 : 0,
       count: scores.length,
@@ -261,7 +268,6 @@ export async function getEventExtras(supabase: UserClient, userId: string, event
       })),
       mine: (ratings ?? []).find((row) => row.user_id === userId)?.rating ?? null,
     },
-    // O envio de fotos depende de configuração do servidor
     photoUpload: isMember && isPhotoUploadEnabled(),
     checkedInAt: mine?.checked_in_at ?? null,
     // Pedido de entrada em evento privado: PENDING, APPROVED, REJECTED ou nenhum

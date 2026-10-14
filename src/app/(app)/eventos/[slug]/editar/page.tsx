@@ -28,6 +28,19 @@ export default async function EditarEventoPage({
   const isLocked = event.status !== 'DRAFT'
 
   const admin = createAdminClient()
+
+  // Rascunho: times e repetição voltam como foram salvos
+  const isDraft = event.status === 'DRAFT'
+  const [{ data: teams }, { data: shape }, { count: seriesCount }] = await Promise.all([
+    admin.from('event_teams').select('name, capacity').eq('event_id', event.id).order('position'),
+    admin.from('events').select('recurrence_rule').eq('id', event.id).single(),
+    admin.from('events').select('id', { count: 'exact', head: true }).eq('parent_event_id', event.id).eq('status', 'DRAFT'),
+  ])
+  const rule = shape?.recurrence_rule ?? ''
+  const recurrence = !isDraft || !rule || !seriesCount
+    ? 'none'
+    : rule.includes('MONTHLY') ? 'monthly' : rule.includes('INTERVAL=2') ? 'biweekly' : 'weekly'
+
   const couponScopeFilter = event.group_id
     ? `event_id.eq.${event.id},group_id.eq.${event.group_id}`
     : `event_id.eq.${event.id}`
@@ -44,7 +57,7 @@ export default async function EditarEventoPage({
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
-          Editar evento
+          {isDraft ? 'Editar rascunho' : 'Editar evento'}
         </h1>
       </div>
 
@@ -52,6 +65,7 @@ export default async function EditarEventoPage({
         eventId={event.id}
         groupId={event.group_id ?? undefined}
         isLocked={isLocked}
+        isDraft={isDraft}
         defaultValues={{
           title: event.title,
           description: event.description ?? '',
@@ -68,6 +82,10 @@ export default async function EditarEventoPage({
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
           group_id: event.group_id ?? undefined,
+          use_teams: (teams?.length ?? 0) >= 2,
+          teams: teams ?? [],
+          recurrence,
+          recurrence_count: seriesCount || 4,
         }}
       />
 

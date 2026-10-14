@@ -72,6 +72,11 @@ export function ListingCard({ listing, isOwner, walletBalance = 0 }: Props) {
         {listing.photo_url && (
           <div className="relative h-44 w-full bg-white/5">
             <Image src={listing.photo_url} alt={listing.title} fill className="object-cover" />
+            {(listing.photo_urls?.length ?? 0) > 1 && (
+              <span className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white">
+                {listing.photo_urls.length} fotos
+              </span>
+            )}
           </div>
         )}
 
@@ -165,14 +170,17 @@ export function ListingCard({ listing, isOwner, walletBalance = 0 }: Props) {
             </div>
           </div>
 
-          {/* Foto em tamanho real */}
+          {/* Fotos em tamanho real: a principal primeiro, as outras rolando de lado */}
           {listing.photo_url && (
-            <div className="w-full" onClick={e => e.stopPropagation()}>
-              <img
-                src={listing.photo_url}
-                alt={listing.title}
-                className="w-full object-contain max-h-[60vh]"
-              />
+            <div className="w-full flex overflow-x-auto snap-x snap-mandatory" onClick={e => e.stopPropagation()}>
+              {(listing.photo_urls?.length ? listing.photo_urls : [listing.photo_url]).map((url, index) => (
+                <img
+                  key={url}
+                  src={url}
+                  alt={index === 0 ? listing.title : `${listing.title} — foto ${index + 1}`}
+                  className="w-full shrink-0 snap-center object-contain max-h-[60vh]"
+                />
+              ))}
             </div>
           )}
 
