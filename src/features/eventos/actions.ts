@@ -10,6 +10,7 @@ import { sendEventCancelledToParticipant } from '@/lib/emails'
 import { refundParticipationPayments, releaseCouponUse } from '@/lib/refunds'
 import { changeWaitlistTeam } from '@/features/fila/waitlist'
 import type { EventSchema } from './schemas'
+import { requestEventJoin } from './engagement'
 import { changeTeam } from './teams'
 
 // Preço em string "R$ xx,xx" → centavos
@@ -532,40 +533,7 @@ export async function requestEventJoinAction(eventId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-  const { error } = await admin
-    .from('event_join_requests')
-    .upsert({ event_id: eventId, user_id: user.id, status: 'PENDING', updated_at: new Date().toISOString() }, { onConflict: 'event_id,user_id' })
-
-  if (error) return { error: 'Erro ao enviar solicitação.' }
-
-  // Notify organizer
-  const { data: event } = await admin
-    .from('events')
-    .select('organizer_id, title, slug')
-    .eq('id', eventId)
-    .maybeSingle()
-
-  const { data: requester } = await admin
-    .from('profiles')
-    .select('full_name, username')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (event?.organizer_id) {
-    const requesterName = requester?.full_name ?? requester?.username ?? 'Alguém'
-    await admin.from('notifications').insert({
-      user_id: event.organizer_id,
-      type: 'EVENT_JOIN_REQUEST',
-      title: 'Solicitação de participação',
-      body: `${requesterName} quer participar de "${event.title}".`,
-      data: { event_id: eventId, event_slug: event.slug, requester_id: user.id },
-      read: false,
-    })
-  }
-
-  revalidatePath(`/eventos/${eventId}`)
-  return { success: true }
+  return requestEventJoin(user.id, eventId)
 }
 
 export async function approveEventJoinRequest(requestId: string) {

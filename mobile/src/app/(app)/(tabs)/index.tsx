@@ -1,105 +1,91 @@
 import { router, useFocusEffect } from 'expo-router'
-import { CalendarX2 } from 'lucide-react-native'
-import { useCallback, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
+import { CalendarDays, ChevronRight, UsersRound } from 'lucide-react-native'
+import { useCallback, useState, type ReactNode } from 'react'
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Avatar } from '@/components/avatar'
 import { EventCard, type EventCardBadge, type EventCardData } from '@/components/event-card'
-import { Screen } from '@/components/ui'
+import { Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { supabase } from '@/lib/supabase'
+import { fetchHome, fetchWalletBalance, type GroupActivity } from '@/lib/api'
+import { formatMoney, formatRelative } from '@/lib/format'
 import { useTabHeaderInset } from '@/lib/header'
-import { colors, fonts, radius } from '@/lib/theme'
+import { supabase } from '@/lib/supabase'
+import { colors, fonts } from '@/lib/theme'
 
-type Tab = 'upcoming' | 'mine'
-type ListedEvent = EventCardData & { participationStatus?: string }
+type MyEvent = EventCardData & { participationStatus: string }
 
-const EVENT_COLUMNS = 'id, title, starts_at, city, price, capacity, confirmed_count, visibility, groups(name)'
-
-const TABS: { key: Tab; label: string; heading: string; empty: string }[] = [
-  { key: 'upcoming', label: 'Próximos', heading: 'Próximos eventos', empty: 'Nenhum evento por vir.' },
-  { key: 'mine', label: 'Meus eventos', heading: 'Meus eventos', empty: 'Você ainda não está inscrito em nenhum evento.' },
-]
-
-async function fetchUpcomingEvents(): Promise<ListedEvent[]> {
-  const { data, error } = await supabase
-    .from('events')
-    .select(EVENT_COLUMNS)
-    .in('status', ['OPEN', 'PENDING', 'CONFIRMED'])
-    .gte('starts_at', new Date().toISOString())
-    .order('starts_at', { ascending: true })
-    .limit(50)
-
-  if (error) throw error
-  return data ?? []
-}
-
-// Eventos por vir em que a pessoa tem inscrição confirmada ou aguardando pagamento
-async function fetchMyEvents(userId: string): Promise<ListedEvent[]> {
-  const { data, error } = await supabase
+// Os próximos eventos em que a pessoa está inscrita (confirmada ou aguardando pagamento)
+async function fetchMyNextEvents(userId: string): Promise<MyEvent[]> {
+  const { data } = await supabase
     .from('participations')
-    .select(`status, events!inner(${EVENT_COLUMNS}, status)`)
+    .select(
+      'status, events!inner(id, title, starts_at, city, price, capacity, confirmed_count, visibility, status, groups(name))'
+    )
     .eq('user_id', userId)
     .in('status', ['CONFIRMED', 'PENDING'])
     .neq('events.status', 'CANCELLED')
     .gte('events.starts_at', new Date().toISOString())
-    .limit(100)
+    .limit(50)
 
-  if (error) throw error
   return (data ?? [])
     .map((row) => ({ ...row.events, participationStatus: row.status }))
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .slice(0, 3)
 }
 
-function participationBadge(status?: string): EventCardBadge | undefined {
-  if (status === 'CONFIRMED') return { label: 'Inscrito', tone: 'primary' }
-  if (status === 'PENDING') return { label: 'Pendente', tone: 'warning' }
-  return undefined
+async function fetchAll(userId: string) {
+  const [events, wallet, home] = await Promise.all([fetchMyNextEvents(userId), fetchWalletBalance(), fetchHome()])
+  return {
+    events,
+    balance: 'balance' in wallet ? wallet.balance : null,
+    activity: 'activity' in home ? home.activity : [],
+  }
 }
 
-export default function EventsScreen() {
-  const { session } = useSession()
+function greeting() {
+  const hour = new Date().getHours()
+  return hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
+}
+
+function badge(status: string): EventCardBadge {
+  return status === 'CONFIRMED' ? { label: 'Inscrito', tone: 'primary' } : { label: 'Pendente', tone: 'warning' }
+}
+
+// Tela inicial, como a do site: saudação, saldo, próximos eventos da pessoa e
+// o que anda acontecendo nos grupos dela
+export default function HomeScreen() {
+  const { session, profile } = useSession()
   const userId = session!.user.id
-  const [tab, setTab] = useState<Tab>('upcoming')
-  const [events, setEvents] = useState<Partial<Record<Tab, ListedEvent[]>>>({})
-  const [error, setError] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
   const headerInset = useTabHeaderInset()
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchAll>> | undefined>(undefined)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const load = useCallback(
-    async (which: Tab) => {
-      try {
-        const data = which === 'mine' ? await fetchMyEvents(userId) : await fetchUpcomingEvents()
-        setEvents((current) => ({ ...current, [which]: data }))
-        setError(false)
-      } catch {
-        setError(true)
-      }
-    },
-    [userId]
-  )
-
-  // Recarrega também ao voltar da página de um evento: a inscrição pode ter mudado
   useFocusEffect(
     useCallback(() => {
-      load(tab)
-    }, [load, tab])
+      let active = true
+      fetchAll(userId).then((result) => {
+        if (active) setData(result)
+      })
+      return () => {
+        active = false
+      }
+    }, [userId])
   )
 
   async function handleRefresh() {
     setRefreshing(true)
-    await load(tab)
+    setData(await fetchAll(userId))
     setRefreshing(false)
   }
 
-  const current = TABS.find((t) => t.key === tab)!
-  const listed = events[tab]
+  const firstName = profile?.full_name?.trim().split(/\s+/)[0]
+  const events = data?.events ?? []
 
   return (
     <Screen>
-      <FlatList
-        data={listed ?? []}
-        keyExtractor={(event) => event.id}
+      <ScrollView
         contentInsetAdjustmentBehavior="never"
-        contentContainerStyle={[styles.list, { paddingTop: 16 + headerInset }]}
+        contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -107,66 +93,161 @@ export default function EventsScreen() {
             tintColor={colors.primary}
             progressViewOffset={headerInset}
           />
-        }
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.tabs} accessibilityRole="tablist">
-              {TABS.map((t) => (
-                <Pressable
-                  key={t.key}
-                  testID={`tab-${t.key}`}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: t.key === tab }}
-                  onPress={() => setTab(t.key)}
-                  style={[styles.tab, t.key === tab && styles.tabActive]}>
-                  <Text style={[styles.tabText, t.key === tab && styles.tabTextActive]}>{t.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Text style={styles.heading}>{current.heading}</Text>
-          </View>
-        }
-        ListEmptyComponent={
-          listed === undefined && !error ? (
-            <ActivityIndicator style={styles.loading} color={colors.primary} />
-          ) : (
-            <View style={styles.empty}>
-              <CalendarX2 size={36} color={colors.text25} />
-              <Text style={styles.emptyText}>
-                {error ? 'Não foi possível carregar os eventos. Puxe para tentar de novo.' : current.empty}
-              </Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => (
-          <EventCard
-            event={item}
-            badge={participationBadge(item.participationStatus)}
-            onPress={() => router.push({ pathname: '/events/[id]', params: { id: item.id } })}
-          />
+        }>
+        <View>
+          <Text testID="home-greeting" style={styles.greeting}>
+            {greeting()}
+            {firstName ? `, ${firstName}` : ''}
+          </Text>
+          <Text style={styles.subtitle}>
+            {data === undefined
+              ? ' '
+              : events.length === 0
+                ? 'Explore eventos e inscreva-se'
+                : events.length === 1
+                  ? 'Você tem 1 evento por vir'
+                  : `Seus próximos ${events.length} eventos`}
+          </Text>
+        </View>
+
+        {data?.balance != null && (
+          <Card style={styles.balance}>
+            <Text style={styles.label}>Saldo disponível</Text>
+            <Text testID="home-balance" style={styles.balanceValue}>
+              {formatMoney(data.balance)}
+            </Text>
+            <Text style={styles.balanceHint}>Vale como pagamento nas inscrições.</Text>
+          </Card>
         )}
-      />
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.label}>Seus eventos</Text>
+            <Pressable testID="home-all-events" accessibilityRole="button" onPress={() => router.push('/events')} hitSlop={10}>
+              <Text style={styles.link}>Ver todos</Text>
+            </Pressable>
+          </View>
+          {data !== undefined && events.length === 0 ? (
+            <Card style={styles.empty}>
+              <CalendarDays size={28} color={colors.text25} />
+              <Text testID="home-no-events" style={styles.emptyText}>
+                Nenhum evento próximo.
+              </Text>
+            </Card>
+          ) : (
+            events.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                badge={badge(event.participationStatus)}
+                onPress={() => router.push({ pathname: '/events/[id]', params: { id: event.id } })}
+              />
+            ))
+          )}
+        </View>
+
+        {data && data.activity.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.label}>Atividade nos grupos</Text>
+            <Card style={styles.activity}>
+              {data.activity.map((item, index) => (
+                <ActivityRow key={item.id} item={item} divider={index > 0} />
+              ))}
+            </Card>
+          </View>
+        )}
+
+        <View style={styles.section}>
+          <Card>
+            <Shortcut
+              testID="home-explore"
+              icon={<CalendarDays size={19} color={colors.primary} />}
+              title="Explorar eventos"
+              detail="Descubra eventos perto de você"
+              onPress={() => router.push('/events')}
+            />
+            <Shortcut
+              testID="home-groups"
+              icon={<UsersRound size={19} color={colors.primary} />}
+              title="Meus grupos"
+              detail="Veja e crie grupos"
+              onPress={() => router.push('/groups')}
+              divider
+            />
+          </Card>
+        </View>
+      </ScrollView>
     </Screen>
   )
 }
 
+function ActivityRow({ item, divider }: { item: GroupActivity; divider: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/events/[id]', params: { id: item.eventId } })}
+      style={[styles.activityRow, divider && styles.divider]}>
+      <Avatar name={item.userName} url={item.avatarUrl} size={36} />
+      <View style={styles.activityBody}>
+        <Text style={styles.activityText}>
+          <Text style={styles.activityStrong}>{item.userName}</Text> se inscreveu em{' '}
+          <Text style={styles.activityStrong}>{item.eventTitle}</Text>
+        </Text>
+        <Text style={styles.activityMeta}>
+          {item.groupName ? `${item.groupName} · ` : ''}
+          {formatRelative(item.at)}
+        </Text>
+      </View>
+    </Pressable>
+  )
+}
+
+function Shortcut(props: {
+  testID: string
+  icon: ReactNode
+  title: string
+  detail: string
+  onPress: () => void
+  divider?: boolean
+}) {
+  return (
+    <Pressable
+      testID={props.testID}
+      accessibilityRole="button"
+      accessibilityLabel={`${props.title}. ${props.detail}`}
+      onPress={props.onPress}
+      style={({ pressed }) => [styles.shortcut, props.divider && styles.divider, pressed && styles.dim]}>
+      {props.icon}
+      <View style={styles.activityBody}>
+        <Text style={styles.shortcutTitle}>{props.title}</Text>
+        <Text style={styles.activityMeta}>{props.detail}</Text>
+      </View>
+      <ChevronRight size={18} color={colors.text35} />
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
-  list: { padding: 16, gap: 12 },
-  header: { gap: 16, marginBottom: 4 },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: colors.input,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.pill,
-    padding: 4,
-  },
-  tab: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
-  tabActive: { backgroundColor: 'rgba(74,222,128,0.12)' },
-  tabText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.text50 },
-  tabTextActive: { fontFamily: fonts.bodyBold, color: colors.primary },
-  heading: { fontFamily: fonts.headingBlack, fontSize: 24, color: colors.foreground, letterSpacing: -0.5 },
-  loading: { marginTop: 64 },
-  empty: { alignItems: 'center', gap: 12, marginTop: 64, paddingHorizontal: 24 },
-  emptyText: { fontFamily: fonts.body, fontSize: 15, color: colors.muted, textAlign: 'center' },
+  content: { padding: 16, gap: 20, paddingBottom: 32 },
+  greeting: { fontFamily: fonts.headingBlack, fontSize: 24, letterSpacing: -0.5, color: colors.text },
+  subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.text50, marginTop: 2 },
+  balance: { padding: 18, gap: 4 },
+  balanceValue: { fontFamily: fonts.headingBlack, fontSize: 28, color: colors.primary },
+  balanceHint: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
+  section: { gap: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
+  link: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.primary },
+  empty: { alignItems: 'center', gap: 10, paddingVertical: 28 },
+  emptyText: { fontFamily: fonts.body, fontSize: 14, color: colors.muted },
+  activity: { paddingHorizontal: 14 },
+  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  divider: { borderTopWidth: 1, borderTopColor: colors.cardBorder },
+  activityBody: { flex: 1, gap: 2 },
+  activityText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 19, color: colors.text70 },
+  activityStrong: { fontFamily: fonts.bodySemi, color: colors.text },
+  activityMeta: { fontFamily: fonts.body, fontSize: 12, color: colors.text50 },
+  shortcut: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  shortcutTitle: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
+  dim: { opacity: 0.6 },
 })

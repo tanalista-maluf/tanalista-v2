@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { Link2, Lock, LogOut, MapPin, Share2, Users } from 'lucide-react-native'
+import { Flag, Link2, Lock, LogOut, MapPin, Share2, Users } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { EventCard, type EventCardData } from '@/components/event-card'
@@ -355,6 +355,15 @@ export default function GroupScreen() {
             </Card>
           </View>
         )}
+        <Pressable
+          testID="report"
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: '/report', params: { type: 'GROUP', id, name: group.name } })}
+          hitSlop={8}
+          style={styles.report}>
+          <Flag size={14} color={colors.text35} />
+          <Text style={styles.reportText}>Denunciar grupo</Text>
+        </Pressable>
       </ScrollView>
     </Screen>
   )
@@ -392,6 +401,8 @@ const styles = StyleSheet.create({
   inviteText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
   dim: { opacity: 0.6 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
+  report: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40 },
+  reportText: { fontFamily: fonts.body, fontSize: 13, color: colors.text35 },
   section: { gap: 10 },
   sectionLabel: {
     fontFamily: fonts.bodyBold,

@@ -17,7 +17,7 @@ appId: ${APP_ID}
 # uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
 # depois de o app carregar, então espera por ele ou pelo app antes de decidir.
 - extendedWaitUntil:
-    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    visible: "Abrir|Open|Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
     timeout: 40000
 # O iOS às vezes confirma antes de abrir um link no app
 - runFlow:
@@ -26,7 +26,7 @@ appId: ${APP_ID}
     commands:
       - tapOn: "Abrir|Open"
 - extendedWaitUntil:
-    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
     timeout: 40000
 - waitForAnimationToEnd
 - runFlow:
@@ -42,7 +42,7 @@ appId: ${APP_ID}
           start: "50%, 50%"
           end: "50%, 98%"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Entrar na sua conta|Complete seu perfil|Criar senha nova"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil|Criar senha nova"
     timeout: 30000
 - runFlow:
     when:
@@ -74,6 +74,10 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
       - tapOn:
           id: "sign-out"
 - runFlow:
@@ -100,13 +104,16 @@ appId: ${APP_ID}
 - tapOn:
     id: "submit"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Agora Não|Not Now"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
     timeout: 15000
 - runFlow:
     when:
       visible: "Agora Não|Not Now"
     commands:
       - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- tapOn:
+    id: "tab-events"
 - assertVisible: "Próximos eventos"
 
 # ── Dados pessoais ───────────────────────────────────────────────────────────
@@ -251,6 +258,12 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
+# No Android o primeiro "voltar" pode só fechar o teclado
+- runFlow:
+    when:
+      visible: "Alterar e-mail"
+    commands:
+      - back
 # A senha nova vale: sai e entra com ela
 - scrollUntilVisible:
     element:
@@ -268,13 +281,16 @@ appId: ${APP_ID}
 - tapOn:
     id: "submit"
 - extendedWaitUntil:
-    visible: "Próximos eventos|Agora Não|Not Now"
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
     timeout: 15000
 - runFlow:
     when:
       visible: "Agora Não|Not Now"
     commands:
       - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- tapOn:
+    id: "tab-events"
 - assertVisible: "Próximos eventos"
 # Membro de grupo abre o perfil público
 - tapOn:

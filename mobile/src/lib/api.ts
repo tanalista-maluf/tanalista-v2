@@ -230,3 +230,88 @@ export type PublicProfile = {
 export function fetchPublicProfile(username: string) {
   return apiGet<PublicProfile | { error: string }>(`/api/v1/profiles/${encodeURIComponent(username)}`)
 }
+
+export type GroupActivity = {
+  id: string
+  userName: string
+  username: string
+  avatarUrl: string | null
+  eventId: string
+  eventTitle: string
+  groupName: string
+  at: string
+}
+
+// Atividade recente nos grupos da pessoa, para a tela inicial
+export function fetchHome() {
+  return apiGet<{ activity: GroupActivity[] } | { error: string }>('/api/v1/me/home')
+}
+
+export type Person = { full_name: string | null; username: string | null; avatar_url: string | null } | null
+
+export type PollOption = { id: string; text: string; position: number; vote_count: number }
+export type Poll = {
+  id: string
+  question: string
+  options: PollOption[]
+  total_votes: number
+  user_vote_option_id: string | null
+}
+
+// O que a página do evento mostra além dos dados do próprio evento. Mural,
+// enquetes e fotos só vêm para o organizador e para inscritos confirmados (isMember).
+export type EventExtras = {
+  isOrganizer: boolean
+  isMember: boolean
+  participants: { id: string; status: string; team_id: string | null; profile: Person }[]
+  comments: { id: string; content: string; created_at: string; canDelete: boolean; profile: Person }[]
+  polls: Poll[]
+  photos: { id: string; url: string; created_at: string; profile: Person }[]
+  ratings: {
+    average: number
+    count: number
+    items: { rating: number; comment: string | null; created_at: string; profile: Person }[]
+    mine: number | null
+  }
+  photoUpload: boolean
+  checkedInAt: string | null
+  joinRequest: 'PENDING' | 'APPROVED' | 'REJECTED' | null
+}
+
+export function fetchEventExtras(eventId: string) {
+  return apiGet<EventExtras | { error: string }>(`/api/v1/events/${eventId}/extras`)
+}
+
+type Done = { success: true } | { error: string }
+
+export function postComment(eventId: string, content: string) {
+  return apiPost<Done>(`/api/v1/events/${eventId}/comments`, { content })
+}
+
+export function deleteComment(commentId: string) {
+  return apiRequest<Done>('DELETE', `/api/v1/comments/${commentId}`)
+}
+
+export function votePoll(pollId: string, optionId: string) {
+  return apiPost<Done>(`/api/v1/polls/${pollId}/vote`, { optionId })
+}
+
+// Só para quem participou de um evento já concluído
+export function submitRating(eventId: string, rating: number, comment: string) {
+  return apiPost<Done>(`/api/v1/events/${eventId}/rating`, { rating, comment })
+}
+
+// Pedido de entrada em evento privado; o organizador aprova pelo site
+export function requestEventJoin(eventId: string) {
+  return apiPost<Done>(`/api/v1/events/${eventId}/join-request`)
+}
+
+export function uploadEventPhoto(eventId: string, image: { base64: string; mimeType: string }) {
+  return apiPost<Done>(`/api/v1/events/${eventId}/photos`, { image: image.base64, mimeType: image.mimeType })
+}
+
+export type ReportReason = 'SPAM' | 'INAPPROPRIATE' | 'FAKE' | 'DANGEROUS' | 'OTHER'
+
+export function submitReport(target: { type: 'EVENT' | 'GROUP'; id: string }, reason: ReportReason, description: string) {
+  return apiPost<Done>('/api/v1/reports', { targetType: target.type, targetId: target.id, reason, description })
+}

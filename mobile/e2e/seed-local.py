@@ -112,4 +112,35 @@ call(
     ],
 )
 
+# Para e2e/event-flow.yaml: categoria, regras do organizador e capa no futebol,
+# uma enquete no mural dele, e um evento já concluído de que o Bruno participou
+futebol = next(e for e in events if e["slug"] == "futebol-de-quinta")
+request = urllib.request.Request(
+    API + "/rest/v1/events?id=eq." + futebol["id"],
+    data=json.dumps(
+        {
+            "category": "Futebol",
+            "custom_rules": "Chuteira society. Sem carrinho.",
+            "cover_url": "http://127.0.0.1:3000/icon-512.png",
+        }
+    ).encode(),
+    headers=HEADERS,
+    method="PATCH",
+)
+urllib.request.urlopen(request, timeout=20).read()
+
+poll = call("/rest/v1/event_polls", {"event_id": futebol["id"], "user_id": ana, "question": "Quem leva a bola?"})[0]
+call(
+    "/rest/v1/event_poll_options",
+    [
+        {"poll_id": poll["id"], "text": "Eu levo", "position": 0},
+        {"poll_id": poll["id"], "text": "Alguém leva", "position": 1},
+    ],
+)
+
+done = event(group["id"], ana, "Pelada concluída", "pelada-concluida", -3, 0, 10)
+done["status"] = "COMPLETED"
+done = call("/rest/v1/events", done)[0]
+call("/rest/v1/participations", {"event_id": done["id"], "user_id": bruno, "status": "CONFIRMED"})
+
 print("Dados de teste criados:", ", ".join(e["title"] for e in events))

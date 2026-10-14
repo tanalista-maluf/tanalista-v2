@@ -1,8 +1,38 @@
+import * as Calendar from 'expo-calendar'
+import { Image } from 'expo-image'
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { Calendar, CheckCircle2, Clock, Lock, MapPin, Share2, Users, X } from 'lucide-react-native'
+import {
+  Calendar as CalendarIcon,
+  CalendarPlus,
+  CheckCircle2,
+  Clock,
+  Flag,
+  Lock,
+  MapPin,
+  Share2,
+  Users,
+  X,
+} from 'lucide-react-native'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import {
+  MuralSection,
+  ParticipantsSection,
+  PhotosSection,
+  RatingsSection,
+  RulesSection,
+  TicketSection,
+} from '@/components/event-sections'
 import { TeamPicker } from '@/components/team-picker'
 import { Button, Card, OccupancyBar, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
@@ -11,11 +41,14 @@ import {
   changeTeam,
   changeWaitlistTeam,
   confirmWaitlistSpot,
+  fetchEventExtras,
   fetchEventTeams,
   fetchOpenPayment,
   joinEvent,
   joinWaitlist,
   leaveWaitlist,
+  requestEventJoin,
+  type EventExtras,
   type EventTeam,
 } from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
@@ -43,6 +76,9 @@ type EventDetail = {
   organizer_id: string
   cancel_before_hours: number | null
   organizer_exempt: boolean
+  cover_url: string | null
+  min_participants: number
+  custom_rules: string | null
   groups: { name: string } | null
   profiles: { full_name: string } | null
 }
@@ -59,11 +95,11 @@ type WaitlistEntry = {
 }
 
 async function fetchEvent(eventId: string, userId: string) {
-  const [{ data: event }, { data: participation }, { data: entry }, teams] = await Promise.all([
+  const [{ data: event }, { data: participation }, { data: entry }, teams, extras] = await Promise.all([
     supabase
       .from('events')
       .select(
-        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, organizer_exempt, groups(name), profiles!events_organizer_id_fkey(full_name)'
+        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, groups(name), profiles!events_organizer_id_fkey(full_name)'
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -81,6 +117,7 @@ async function fetchEvent(eventId: string, userId: string) {
       .in('status', ['WAITING', 'NOTIFIED'])
       .maybeSingle(),
     fetchEventTeams(eventId),
+    fetchEventExtras(eventId),
   ])
 
   // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
@@ -90,6 +127,8 @@ async function fetchEvent(eventId: string, userId: string) {
     participation: active as Participation | null,
     entry: entry as WaitlistEntry | null,
     teams: 'teams' in teams ? teams.teams : [],
+    // null quando o servidor não respondeu: as seções extras ficam de fora
+    extras: 'error' in extras ? null : extras,
   }
 }
 
@@ -104,6 +143,8 @@ export default function EventScreen() {
   const [participation, setParticipation] = useState<Participation | null>(null)
   const [entry, setEntry] = useState<WaitlistEntry | null>(null)
   const [teams, setTeams] = useState<EventTeam[]>([])
+  const [extras, setExtras] = useState<EventExtras | null>(null)
+  const [section, setSection] = useState<Section>('details')
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
   // Trocando de time (inscrito) ou de fila (aguardando)
   const [changingTeam, setChangingTeam] = useState(false)
@@ -116,6 +157,7 @@ export default function EventScreen() {
     setParticipation(result.participation)
     setEntry(result.entry)
     setTeams(result.teams)
+    setExtras(result.extras)
   }, [])
 
   // Relê tudo depois de uma ação: vagas, times e a situação da pessoa mudaram
@@ -190,6 +232,38 @@ export default function EventScreen() {
     if ('error' in joined) setMessage(joined.error)
     await reload()
     setJoining(false)
+  }
+
+  // Depois de publicar no mural, votar, avaliar ou enviar foto: relê sem mexer no time escolhido
+  async function refresh() {
+    apply(await fetchEvent(id, userId))
+  }
+
+  async function handleRequestJoin() {
+    setJoining(true)
+    setMessage(null)
+    const requested = await requestEventJoin(id)
+    if ('error' in requested) setMessage(requested.error)
+    await refresh()
+    setJoining(false)
+  }
+
+  // Abre a tela do sistema de novo evento de calendário, já preenchida
+  async function addToCalendar() {
+    if (!event) return
+    const start = new Date(event.starts_at)
+    try {
+      await Calendar.createEventInCalendarAsync({
+        title: event.title,
+        startDate: start,
+        // Sem horário de término, 2 horas, como no site
+        endDate: event.ends_at ? new Date(event.ends_at) : new Date(start.getTime() + 2 * 60 * 60 * 1000),
+        location: `${event.address}, ${event.city}`,
+        notes: event.description ?? undefined,
+      })
+    } catch {
+      setMessage('Não foi possível abrir o calendário.')
+    }
   }
 
   // Vaga reservada pela fila: evento pago passa pelo checkout, gratuito confirma daqui
@@ -285,7 +359,11 @@ export default function EventScreen() {
   }
 
   const isOrganizer = event.organizer_id === userId
-  const action = resolveAction(event, participation?.status ?? null, entry, isOrganizer)
+  const action = resolveAction(event, participation?.status ?? null, entry, isOrganizer, extras?.joinRequest ?? null)
+  const finished = event.status === 'COMPLETED'
+  const sections = availableSections(extras, finished, action.kind === 'confirmed')
+  // A seção escolhida pode deixar de existir (ex.: o ingresso, ao cancelar a inscrição)
+  const current = sections.some((item) => item.key === section) ? section : 'details'
 
   // Time em que a pessoa está: o da inscrição confirmada ou o da fila em que aguarda
   const currentTeamId =
@@ -315,246 +393,339 @@ export default function EventScreen() {
           ),
         }}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[styles.content, { paddingTop: 16 + headerInset }]}>
-        <View style={styles.hero}>
-          {event.category ? (
-            <View style={styles.category}>
-              <Text style={styles.categoryText}>{event.category}</Text>
-            </View>
-          ) : null}
-          <View style={styles.heroTitleRow}>
-            {event.visibility !== 'PUBLIC' && <Lock size={16} color={colors.text40} />}
-            <Text style={styles.heroTitle}>{event.title}</Text>
-          </View>
-          {event.groups?.name ? <Text style={styles.heroGroup}>{event.groups.name}</Text> : null}
-          {event.profiles?.full_name ? (
-            <Text style={styles.heroOrganizer}>por {event.profiles.full_name}</Text>
-          ) : null}
-        </View>
-
-        <Countdown startsAt={event.starts_at} />
-
-        <Card style={styles.info}>
-          <InfoRow icon={<Calendar size={18} color={colors.primary} />} text={formatLongDate(event.starts_at)} />
-          {event.ends_at ? (
-            <InfoRow
-              icon={<Clock size={18} color={colors.primary} />}
-              text={`Término: ${formatLongDate(event.ends_at)}`}
-              dim
+      {/* O campo do mural fica acima do teclado */}
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={[styles.content, { paddingTop: 16 + headerInset }]}>
+          {event.cover_url ? (
+            <Image
+              testID="event-cover"
+              source={event.cover_url}
+              style={styles.cover}
+              contentFit="cover"
+              accessibilityLabel={`Capa do evento ${event.title}`}
             />
           ) : null}
-          <InfoRow icon={<MapPin size={18} color={colors.primary} />} text={`${event.address} — ${event.city}`} />
-          <InfoRow
-            icon={<Users size={18} color={colors.primary} />}
-            text={`${event.confirmed_count}/${event.capacity} confirmados`}
-          />
-          <View style={styles.occupancy}>
-            <OccupancyBar confirmed={event.confirmed_count} capacity={event.capacity} />
-            <Text style={styles.spots}>
-              {spotsLeft === 0 ? 'Sem vagas' : spotsLeft === 1 ? '1 vaga disponível' : `${spotsLeft} vagas disponíveis`}
-            </Text>
-          </View>
-        </Card>
-
-        {event.description ? (
-          <Card style={styles.about}>
-            <Text style={styles.sectionLabel}>Sobre o evento</Text>
-            <Text style={styles.description}>{event.description}</Text>
-          </Card>
-        ) : null}
-
-        {choosingTeam && (
-          <View style={styles.teams}>
-            <Text style={styles.sectionLabel}>
-              {action.kind === 'waitlist' ? 'Fila de qual time?' : 'Escolha seu time'}
-            </Text>
-            <TeamPicker
-              teams={teams}
-              selectedId={selectedTeam}
-              onSelect={setSelectedTeam}
-              allowFull={action.kind === 'waitlist'}
-              disabled={joining}
-            />
-          </View>
-        )}
-
-        {currentTeam && (
-          <Card style={styles.team}>
-            <View style={styles.teamRow}>
-              <View style={styles.teamBody}>
-                <Text style={styles.sectionLabel}>{action.kind === 'waiting' ? 'Fila do time' : 'Seu time'}</Text>
-                <Text testID="current-team" style={styles.teamName}>
-                  {currentTeam.name}
-                </Text>
+          <View style={styles.hero}>
+            {event.category ? (
+              <View style={styles.category}>
+                <Text style={styles.categoryText}>{event.category}</Text>
               </View>
-              {canChangeTeam && !changingTeam && (
-                <Pressable
-                  testID="change-team"
-                  accessibilityRole="button"
-                  onPress={() => setChangingTeam(true)}
-                  hitSlop={10}>
-                  <Text style={styles.teamLink}>{action.kind === 'waiting' ? 'Mudar fila' : 'Trocar time'}</Text>
-                </Pressable>
-              )}
-              {!canChangeTeam && action.kind === 'confirmed' && teams.length > 1 && (
-                <Text style={styles.teamUsed}>Troca usada</Text>
-              )}
+            ) : null}
+            <View style={styles.heroTitleRow}>
+              {event.visibility !== 'PUBLIC' && <Lock size={16} color={colors.text40} />}
+              <Text style={styles.heroTitle}>{event.title}</Text>
             </View>
-            {changingTeam && (
-              <>
-                {action.kind === 'confirmed' && (
-                  <Text style={styles.teamHint}>Você pode trocar de time uma única vez.</Text>
-                )}
-                <TeamPicker
-                  teams={teams.filter((team) => team.id !== currentTeam.id)}
-                  selectedId={selectedTeam}
-                  onSelect={setSelectedTeam}
-                  allowFull={action.kind === 'waiting'}
-                  disabled={joining}
-                />
-                <Button
-                  testID="change-team-confirm"
-                  label="Confirmar troca"
-                  onPress={handleChangeTeam}
-                  loading={joining}
-                  disabled={!selectedTeam}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setChangingTeam(false)
-                    setSelectedTeam(null)
-                  }}
-                  hitSlop={8}
-                  style={styles.teamCancel}>
-                  <Text style={styles.teamCancelText}>Deixar como está</Text>
-                </Pressable>
-              </>
-            )}
+            {event.groups?.name ? <Text style={styles.heroGroup}>{event.groups.name}</Text> : null}
+            {event.profiles?.full_name ? (
+              <Text style={styles.heroOrganizer}>por {event.profiles.full_name}</Text>
+            ) : null}
+          </View>
+
+          <Countdown startsAt={event.starts_at} />
+
+          <Card style={styles.info}>
+            <InfoRow icon={<CalendarIcon size={18} color={colors.primary} />} text={formatLongDate(event.starts_at)} />
+            {event.ends_at ? (
+              <InfoRow
+                icon={<Clock size={18} color={colors.primary} />}
+                text={`Término: ${formatLongDate(event.ends_at)}`}
+                dim
+              />
+            ) : null}
+            <InfoRow icon={<MapPin size={18} color={colors.primary} />} text={`${event.address} — ${event.city}`} />
+            <InfoRow
+              icon={<Users size={18} color={colors.primary} />}
+              text={`${event.confirmed_count}/${event.capacity} confirmados`}
+            />
+            <Pressable
+              testID="add-to-calendar"
+              accessibilityRole="button"
+              onPress={addToCalendar}
+              hitSlop={6}
+              style={styles.calendar}>
+              <CalendarPlus size={18} color={colors.primary} />
+              <Text style={styles.calendarText}>Adicionar ao calendário</Text>
+            </Pressable>
+            <View style={styles.occupancy}>
+              <OccupancyBar confirmed={event.confirmed_count} capacity={event.capacity} />
+              <Text style={styles.spots}>
+                {spotsLeft === 0 ? 'Sem vagas' : spotsLeft === 1 ? '1 vaga disponível' : `${spotsLeft} vagas disponíveis`}
+              </Text>
+            </View>
           </Card>
-        )}
 
-        {action.kind === 'notice' && (
-          <Text testID="notice" style={styles.notice}>
-            {action.text}
-          </Text>
-        )}
-        {action.kind === 'waitlist' && (
-          <Text testID="notice" style={styles.notice}>
-            Evento lotado. Entre na fila de espera: avisamos você se abrir uma vaga.
-          </Text>
-        )}
-        {action.kind === 'waiting' && (
-          <Text testID="notice" style={styles.notice}>
-            Você está na fila de espera, na posição #{action.position}. Avisamos você se abrir uma vaga.
-          </Text>
-        )}
-        {action.kind === 'spot' && (
-          <Text testID="notice" style={styles.spot}>
-            Abriu uma vaga para você!
-            {action.expiresAt ? ` Confirme até ${formatLongDate(action.expiresAt)}.` : ' Confirme sua inscrição.'}
-          </Text>
-        )}
-        {(action.kind === 'waiting' || action.kind === 'spot') && (
-          <Pressable
-            testID="leave-waitlist"
-            accessibilityRole="button"
-            onPress={() => confirmLeaveWaitlist(action.kind === 'spot')}
-            disabled={cancelling}
-            hitSlop={8}
-            style={styles.cancel}>
-            {cancelling ? (
-              <ActivityIndicator color={colors.destructive} />
-            ) : (
-              <Text style={styles.cancelText}>{action.kind === 'spot' ? 'Recusar vaga' : 'Sair da fila'}</Text>
-            )}
-          </Pressable>
-        )}
-        {cancellation?.allowed && (
-          <Pressable
-            testID="cancel"
-            accessibilityRole="button"
-            onPress={confirmCancel}
-            disabled={cancelling}
-            hitSlop={8}
-            style={styles.cancel}>
-            {cancelling ? (
-              <ActivityIndicator color={colors.destructive} />
-            ) : (
-              <>
-                <X size={15} color={colors.destructive} />
-                <Text style={styles.cancelText}>Cancelar inscrição</Text>
-              </>
-            )}
-          </Pressable>
-        )}
-        {cancellation && !cancellation.allowed && (
-          <Text testID="cancel-unavailable" style={styles.notice}>
-            {cancellation.reason}
-          </Text>
-        )}
-        {action.kind === 'pay' && (
-          <Text testID="notice" style={styles.notice}>
-            Sua inscrição aguarda o pagamento.
-          </Text>
-        )}
-        {message && <Text style={styles.error}>{message}</Text>}
-      </ScrollView>
+          {sections.length > 1 && (
+            <View style={styles.sections} accessibilityRole="tablist">
+            {sections.map((item) => {
+                const selected = item.key === current
+                return (
+                  <Pressable
+                    key={item.key}
+                    testID={`section-${item.key}`}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected }}
+                    onPress={() => setSection(item.key)}
+                    style={[styles.sectionChip, selected && styles.sectionChipSelected]}>
+                    <Text style={[styles.sectionChipText, selected && styles.sectionChipTextSelected]}>{item.label}</Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          )}
 
-      <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={styles.barPrice}>
-          <Text style={styles.price}>{formatPrice(event.price)}</Text>
-          <Text style={styles.priceCaption}>{event.price === 0 ? 'Sem custo' : 'por pessoa'}</Text>
+          {extras && current === 'participants' && <ParticipantsSection extras={extras} teams={teams} />}
+          {extras && current === 'mural' && <MuralSection eventId={id} extras={extras} onChanged={refresh} />}
+          {current === 'rules' && <RulesSection event={event} />}
+          {extras && current === 'ticket' && participation && (
+            <TicketSection participationId={participation.id} eventTitle={event.title} checkedInAt={extras.checkedInAt} />
+          )}
+          {extras && current === 'photos' && <PhotosSection eventId={id} extras={extras} onChanged={refresh} />}
+          {extras && current === 'ratings' && (
+            <RatingsSection
+              eventId={id}
+              extras={extras}
+              canRate={finished && participation?.status === 'CONFIRMED'}
+              onChanged={refresh}
+            />
+          )}
+
+          {current === 'details' && (
+            <>
+              {event.description ? (
+                <Card style={styles.about}>
+                  <Text style={styles.sectionLabel}>Sobre o evento</Text>
+                  <Text style={styles.description}>{event.description}</Text>
+                </Card>
+              ) : null}
+
+              {choosingTeam && (
+                <View style={styles.teams}>
+                  <Text style={styles.sectionLabel}>
+                    {action.kind === 'waitlist' ? 'Fila de qual time?' : 'Escolha seu time'}
+                  </Text>
+                  <TeamPicker
+                    teams={teams}
+                    selectedId={selectedTeam}
+                    onSelect={setSelectedTeam}
+                    allowFull={action.kind === 'waitlist'}
+                    disabled={joining}
+                  />
+                </View>
+              )}
+
+              {currentTeam && (
+                <Card style={styles.team}>
+                  <View style={styles.teamRow}>
+                    <View style={styles.teamBody}>
+                      <Text style={styles.sectionLabel}>{action.kind === 'waiting' ? 'Fila do time' : 'Seu time'}</Text>
+                      <Text testID="current-team" style={styles.teamName}>
+                        {currentTeam.name}
+                      </Text>
+                    </View>
+                    {canChangeTeam && !changingTeam && (
+                      <Pressable
+                        testID="change-team"
+                        accessibilityRole="button"
+                        onPress={() => setChangingTeam(true)}
+                        hitSlop={10}>
+                        <Text style={styles.teamLink}>{action.kind === 'waiting' ? 'Mudar fila' : 'Trocar time'}</Text>
+                      </Pressable>
+                    )}
+                    {!canChangeTeam && action.kind === 'confirmed' && teams.length > 1 && (
+                      <Text style={styles.teamUsed}>Troca usada</Text>
+                    )}
+                  </View>
+                  {changingTeam && (
+                    <>
+                      {action.kind === 'confirmed' && (
+                        <Text style={styles.teamHint}>Você pode trocar de time uma única vez.</Text>
+                      )}
+                      <TeamPicker
+                        teams={teams.filter((team) => team.id !== currentTeam.id)}
+                        selectedId={selectedTeam}
+                        onSelect={setSelectedTeam}
+                        allowFull={action.kind === 'waiting'}
+                        disabled={joining}
+                      />
+                      <Button
+                        testID="change-team-confirm"
+                        label="Confirmar troca"
+                        onPress={handleChangeTeam}
+                        loading={joining}
+                        disabled={!selectedTeam}
+                      />
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => {
+                          setChangingTeam(false)
+                          setSelectedTeam(null)
+                        }}
+                        hitSlop={8}
+                        style={styles.teamCancel}>
+                        <Text style={styles.teamCancelText}>Deixar como está</Text>
+                      </Pressable>
+                    </>
+                  )}
+                </Card>
+              )}
+
+              {action.kind === 'notice' && (
+                <Text testID="notice" style={styles.notice}>
+                  {action.text}
+                </Text>
+              )}
+              {action.kind === 'waitlist' && (
+                <Text testID="notice" style={styles.notice}>
+                  Evento lotado. Entre na fila de espera: avisamos você se abrir uma vaga.
+                </Text>
+              )}
+              {action.kind === 'waiting' && (
+                <Text testID="notice" style={styles.notice}>
+                  Você está na fila de espera, na posição #{action.position}. Avisamos você se abrir uma vaga.
+                </Text>
+              )}
+              {action.kind === 'spot' && (
+                <Text testID="notice" style={styles.spot}>
+                  Abriu uma vaga para você!
+                  {action.expiresAt ? ` Confirme até ${formatLongDate(action.expiresAt)}.` : ' Confirme sua inscrição.'}
+                </Text>
+              )}
+              {(action.kind === 'waiting' || action.kind === 'spot') && (
+                <Pressable
+                  testID="leave-waitlist"
+                  accessibilityRole="button"
+                  onPress={() => confirmLeaveWaitlist(action.kind === 'spot')}
+                  disabled={cancelling}
+                  hitSlop={8}
+                  style={styles.cancel}>
+                  {cancelling ? (
+                    <ActivityIndicator color={colors.destructive} />
+                  ) : (
+                    <Text style={styles.cancelText}>{action.kind === 'spot' ? 'Recusar vaga' : 'Sair da fila'}</Text>
+                  )}
+                </Pressable>
+              )}
+              {cancellation?.allowed && (
+                <Pressable
+                  testID="cancel"
+                  accessibilityRole="button"
+                  onPress={confirmCancel}
+                  disabled={cancelling}
+                  hitSlop={8}
+                  style={styles.cancel}>
+                  {cancelling ? (
+                    <ActivityIndicator color={colors.destructive} />
+                  ) : (
+                    <>
+                      <X size={15} color={colors.destructive} />
+                      <Text style={styles.cancelText}>Cancelar inscrição</Text>
+                    </>
+                  )}
+                </Pressable>
+              )}
+              {cancellation && !cancellation.allowed && (
+                <Text testID="cancel-unavailable" style={styles.notice}>
+                  {cancellation.reason}
+                </Text>
+              )}
+              {action.kind === 'pay' && (
+                <Text testID="notice" style={styles.notice}>
+                  Sua inscrição aguarda o pagamento.
+                </Text>
+              )}
+              {action.kind === 'request' && (
+                <Text testID="notice" style={styles.notice}>
+                  {action.status === 'PENDING'
+                    ? 'Seu pedido de entrada foi enviado. O organizador ainda não respondeu.'
+                    : action.status === 'REJECTED'
+                      ? 'O organizador recusou seu pedido de entrada. Você pode pedir de novo.'
+                      : 'Evento privado: peça a entrada ao organizador.'}
+                </Text>
+              )}
+              <Pressable
+                testID="report"
+                accessibilityRole="button"
+                onPress={() => router.push({ pathname: '/report', params: { type: 'EVENT', id, name: event.title } })}
+                hitSlop={8}
+                style={styles.report}>
+                <Flag size={14} color={colors.text35} />
+                <Text style={styles.reportText}>Denunciar evento</Text>
+              </Pressable>
+            </>
+          )}
+          {message && <Text style={styles.error}>{message}</Text>}
+        </ScrollView>
+
+        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={styles.barPrice}>
+            <Text style={styles.price}>{formatPrice(event.price)}</Text>
+            <Text style={styles.priceCaption}>{event.price === 0 ? 'Sem custo' : 'por pessoa'}</Text>
+          </View>
+          {action.kind === 'join' && (
+            <Button testID="join" label="Inscrever-se" onPress={handleJoin} loading={joining} style={styles.barButton} />
+          )}
+          {action.kind === 'waitlist' && (
+            <Button
+              testID="join-waitlist"
+              label="Entrar na fila"
+              onPress={handleJoinWaitlist}
+              loading={joining}
+              style={styles.barButton}
+            />
+          )}
+          {action.kind === 'spot' && (
+            <Button
+              testID="confirm-spot"
+              label="Confirmar vaga"
+              onPress={handleConfirmSpot}
+              loading={joining}
+              style={styles.barButton}
+            />
+          )}
+          {action.kind === 'waiting' && (
+            <View testID="status-waiting" style={styles.unavailable}>
+              <Text style={styles.unavailableText}>Na fila</Text>
+            </View>
+          )}
+          {action.kind === 'request' && action.status !== 'PENDING' && (
+            <Button
+              testID="request-join"
+              label="Pedir entrada"
+              onPress={handleRequestJoin}
+              loading={joining}
+              style={styles.barButton}
+            />
+          )}
+          {action.kind === 'request' && action.status === 'PENDING' && (
+            <View testID="status-requested" style={styles.unavailable}>
+              <Text style={styles.unavailableText}>Pedido enviado</Text>
+            </View>
+          )}
+          {action.kind === 'pay' && participation && (
+            <Button
+              testID="pay"
+              label="Pagar"
+              onPress={() => openPayment(participation.id)}
+              loading={joining}
+              style={styles.barButton}
+            />
+          )}
+          {action.kind === 'confirmed' && (
+            <View testID="status-confirmed" style={styles.confirmed} accessible accessibilityLabel="Você está inscrito">
+              <CheckCircle2 size={18} color={colors.primary} />
+              <Text style={styles.confirmedText}>Inscrito</Text>
+            </View>
+          )}
+          {action.kind === 'notice' && (
+            <View style={styles.unavailable}>
+              <Text style={styles.unavailableText}>{action.label}</Text>
+            </View>
+          )}
         </View>
-        {action.kind === 'join' && (
-          <Button testID="join" label="Inscrever-se" onPress={handleJoin} loading={joining} style={styles.barButton} />
-        )}
-        {action.kind === 'waitlist' && (
-          <Button
-            testID="join-waitlist"
-            label="Entrar na fila"
-            onPress={handleJoinWaitlist}
-            loading={joining}
-            style={styles.barButton}
-          />
-        )}
-        {action.kind === 'spot' && (
-          <Button
-            testID="confirm-spot"
-            label="Confirmar vaga"
-            onPress={handleConfirmSpot}
-            loading={joining}
-            style={styles.barButton}
-          />
-        )}
-        {action.kind === 'waiting' && (
-          <View testID="status-waiting" style={styles.unavailable}>
-            <Text style={styles.unavailableText}>Na fila</Text>
-          </View>
-        )}
-        {action.kind === 'pay' && participation && (
-          <Button
-            testID="pay"
-            label="Pagar"
-            onPress={() => openPayment(participation.id)}
-            loading={joining}
-            style={styles.barButton}
-          />
-        )}
-        {action.kind === 'confirmed' && (
-          <View testID="status-confirmed" style={styles.confirmed} accessible accessibilityLabel="Você está inscrito">
-            <CheckCircle2 size={18} color={colors.primary} />
-            <Text style={styles.confirmedText}>Inscrito</Text>
-          </View>
-        )}
-        {action.kind === 'notice' && (
-          <View style={styles.unavailable}>
-            <Text style={styles.unavailableText}>{action.label}</Text>
-          </View>
-        )}
-      </View>
+      </KeyboardAvoidingView>
     </Screen>
   )
 }
@@ -567,6 +738,8 @@ type Action =
   | { kind: 'waitlist' }
   | { kind: 'waiting'; position: number }
   | { kind: 'spot'; expiresAt: string | null }
+  // Evento privado: a pessoa pede a entrada e espera o organizador
+  | { kind: 'request'; status: 'PENDING' | 'REJECTED' | null }
   // label vai no botão desativado da barra; text explica o motivo acima dela
   | { kind: 'notice'; label: string; text: string }
 
@@ -574,7 +747,8 @@ function resolveAction(
   event: EventDetail,
   participationStatus: string | null,
   entry: WaitlistEntry | null,
-  isOrganizer: boolean
+  isOrganizer: boolean,
+  joinRequest: EventExtras['joinRequest']
 ): Action {
   if (participationStatus === 'CONFIRMED') return { kind: 'confirmed' }
   if (participationStatus === 'PENDING') return { kind: 'pay' }
@@ -583,11 +757,27 @@ function resolveAction(
   }
   if (entry?.status === 'NOTIFIED') return { kind: 'spot', expiresAt: entry.expires_at }
   if (entry) return { kind: 'waiting', position: entry.position }
-  if (event.visibility === 'PRIVATE' && !isOrganizer) {
-    return { kind: 'notice', label: 'Privado', text: 'Evento privado. Peça a entrada ao organizador pelo site.' }
+  // Pedido aprovado libera a inscrição, como no servidor (canJoinPrivateEvent)
+  if (event.visibility === 'PRIVATE' && !isOrganizer && joinRequest !== 'APPROVED') {
+    return { kind: 'request', status: joinRequest }
   }
   if (event.confirmed_count >= event.capacity) return { kind: 'waitlist' }
   return { kind: 'join' }
+}
+
+type Section = 'details' | 'participants' | 'mural' | 'rules' | 'ticket' | 'photos' | 'ratings'
+
+// Seções da página, como as abas do site. Sem os extras (servidor fora do ar),
+// ficam só os detalhes e as regras, que vêm do próprio evento.
+function availableSections(extras: EventExtras | null, finished: boolean, confirmed: boolean) {
+  const sections: { key: Section; label: string }[] = [{ key: 'details', label: 'Detalhes' }]
+  if (extras) sections.push({ key: 'participants', label: `Participantes (${extras.participants.length})` })
+  if (extras && confirmed && !finished) sections.push({ key: 'ticket', label: 'Ingresso' })
+  if (extras) sections.push({ key: 'mural', label: 'Mural' })
+  sections.push({ key: 'rules', label: 'Regras' })
+  if (extras?.isMember) sections.push({ key: 'photos', label: 'Fotos' })
+  if (extras && finished) sections.push({ key: 'ratings', label: 'Avaliações' })
+  return sections
 }
 
 // Mesma política que o servidor aplica (cancel-participation.ts no site); aqui
@@ -657,9 +847,29 @@ function CountdownUnit({ value, label }: { value: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   centered: { flex: 1 },
   notFound: { fontFamily: fonts.body, color: colors.muted, textAlign: 'center', marginTop: 140, fontSize: 15 },
   content: { padding: 16, gap: 12, paddingBottom: 24 },
+  cover: { height: 180, borderRadius: 24, backgroundColor: colors.input },
+  calendar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  calendarText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.primary },
+  // As seções quebram linha em vez de rolar para o lado: todas ficam à vista
+  sections: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  sectionChip: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+  },
+  sectionChipSelected: { borderColor: 'rgba(74,222,128,0.45)', backgroundColor: 'rgba(74,222,128,0.1)' },
+  sectionChipText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.text70 },
+  sectionChipTextSelected: { fontFamily: fonts.bodyBold, color: colors.primary },
+  report: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 40, marginTop: 8 },
+  reportText: { fontFamily: fonts.body, fontSize: 13, color: colors.text35 },
   hero: {
     backgroundColor: colors.hero,
     borderRadius: 24,
