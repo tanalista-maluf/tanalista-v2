@@ -41,6 +41,8 @@ export const eventSchema = z.object({
   as_draft: z.boolean().optional(),
   // Edição de rascunho pelo app: refaz times e série recorrente
   draft_series: z.boolean().optional(),
+  // Edição de rascunho: salva e publica de uma vez
+  publish_draft: z.boolean().optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
   cancel_before_hours: z.number().int().min(0).max(720).nullable().optional(),
 }).superRefine((d, ctx) => {

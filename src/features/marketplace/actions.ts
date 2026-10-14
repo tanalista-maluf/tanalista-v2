@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ListingSchema } from './schemas'
-import { ownListingPhotos } from './photos'
+import { createListingPhotoUpload, ownListingPhotos } from './photos'
 
 const LISTING_COST_CENTS = 100  // R$ 1,00
 const MAX_LISTINGS_PER_MEMBER = 5
@@ -14,6 +14,14 @@ function parsePriceToCents(price?: string): number | null {
   if (!price || price.trim() === '') return null
   const n = parseFloat(price.replace(',', '.'))
   return isNaN(n) ? null : Math.round(n * 100)
+}
+
+// Link de envio assinado para uma foto de anúncio (o navegador envia direto ao Storage)
+export async function createListingPhotoUploadAction(input: { mimeType: string; size: number }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+  return createListingPhotoUpload(user.id, input)
 }
 
 export async function createListingAction(groupId: string, data: ListingSchema) {

@@ -3,6 +3,7 @@ import { formatPrice } from '@/utils/format'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Constants } from '@/types/database'
+import { PurgeCancelledButton } from '@/features/admin/components/PurgeCancelledButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +54,7 @@ export default async function AdminEventosPage({
           <h1 className="text-xl font-bold text-white">Eventos</h1>
           <p className="text-sm text-white/40 mt-0.5">{count?.toLocaleString('pt-BR') ?? 0} no total</p>
         </div>
+        <PurgeCancelledButton />
         <form method="get" className="flex gap-2">
           <input
             name="q"

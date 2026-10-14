@@ -408,6 +408,11 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
     await createRecurringChildren(eventId, user.id, data, 'DRAFT')
   }
 
+  if (data.publish_draft) {
+    const published = await publishEventAction(eventId)
+    if ('error' in published) return { error: published.error }
+  }
+
   // Notifica participantes se data ou endereço mudaram
   if (current) {
     const dateChanged = data.starts_at !== current.starts_at

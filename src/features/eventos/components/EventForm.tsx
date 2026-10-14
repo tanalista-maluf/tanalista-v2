@@ -12,30 +12,33 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Repeat2, Plus, Trash2, Users, Globe, UserCheck } from 'lucide-react'
+import { Loader2, Repeat2, Users, Globe, UserCheck } from 'lucide-react'
 
 const CATEGORIES = [
   'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
   'Gastronomia', 'Negócios', 'Ensino', 'Música', 'Social', 'Outros',
 ]
 
-const SPORTS_CATEGORIES = new Set(['Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball'])
 
 interface EventFormProps {
   eventId?: string
   groupId?: string
   defaultValues?: Partial<EventSchema>
   isLocked?: boolean // campos críticos travados (status != DRAFT)
+  // Editando um rascunho: times e repetição também mudam, e dá para publicar
+  isDraft?: boolean
   onSuccess?: () => void
 }
 
-export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess }: EventFormProps) {
+export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, onSuccess }: EventFormProps) {
   const [serverError, setServerError] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
     control,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<EventSchema>({
     resolver: zodResolver(eventSchema),
@@ -53,18 +56,41 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
   const category = useWatch({ control, name: 'category' })
   const useTeams = useWatch({ control, name: 'use_teams' })
   const priceRaw = useWatch({ control, name: 'price' })
-  const isSports = SPORTS_CATEGORIES.has(category ?? '')
+  // Times e repetição: ao criar e num rascunho
+  const canShape = !eventId || !!isDraft
 
-  const { fields: teamFields, append: appendTeam, remove: removeTeam } = useFieldArray({
+  const { fields: teamFields, replace: replaceTeams } = useFieldArray({
     control,
     name: 'teams',
   })
 
-  async function onSubmit(data: EventSchema) {
+  // Muda o número de times mantendo o que já foi preenchido nos primeiros
+  function changeTeamCount(value: string) {
+    const count = Number(value)
+    if (count < 2) {
+      setValue('use_teams', false)
+      replaceTeams([])
+      return
+    }
+    setValue('use_teams', true)
+    const capacity = Number(getValues('capacity')) || 20
+    const current = getValues('teams') ?? []
+    replaceTeams(
+      Array.from({ length: count }, (_, i) =>
+        current[i] ?? { name: `Time ${String.fromCharCode(65 + i)}`, capacity: Math.max(1, Math.floor(capacity / count)) }
+      )
+    )
+  }
+
+  // asDraft: salva sem publicar (só você vê, em Meus eventos > Organizando)
+  async function onSubmit(data: EventSchema, asDraft = false) {
     setServerError(null)
-    const result = eventId
-      ? await updateEventAction(eventId, data)
-      : await createEventAction(data)
+    const payload: EventSchema = eventId
+      ? isDraft
+        ? { ...data, draft_series: true, publish_draft: !asDraft }
+        : data
+      : { ...data, as_draft: asDraft }
+    const result = eventId ? await updateEventAction(eventId, payload) : await createEventAction(payload)
 
     if (result?.error) {
       setServerError(result.error)
@@ -74,7 +100,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit((data) => onSubmit(data))} className="space-y-6">
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
 
       {isLocked && (
@@ -372,8 +398,8 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
         />
       </section>
 
-      {/* Times — só para Esportes e só ao criar */}
-      {isSports && !eventId && (
+      {/* Times: de 2 a 10, em qualquer categoria; ao criar e num rascunho */}
+      {canShape && (
         <>
           <Separator />
           <section className="space-y-4">
@@ -381,40 +407,29 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
               <Users className="size-4" />
               Times
             </h3>
-
-            <Controller
-              name="use_teams"
-              control={control}
-              render={({ field }) => (
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="use_teams"
-                    checked={!!field.value}
-                    onCheckedChange={(v) => {
-                      field.onChange(v)
-                      if (v && teamFields.length === 0) {
-                        appendTeam({ name: '', capacity: 10 })
-                        appendTeam({ name: '', capacity: 10 })
-                      }
-                    }}
-                  />
-                  <Label htmlFor="use_teams" className="font-normal cursor-pointer">
-                    Dividir participantes em times
-                  </Label>
-                </div>
-              )}
-            />
+            <div className="space-y-1.5">
+              <Label>Número de times</Label>
+              <Select value={useTeams ? String(teamFields.length) : '0'} onValueChange={(v) => changeTeamCount(v ?? '0')}>
+                <SelectTrigger>
+                  <SelectValue>{useTeams ? `${teamFields.length} times` : 'Sem times'}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Sem times</SelectItem>
+                  {Array.from({ length: 9 }, (_, i) => i + 2).map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n} times</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-white/50">Cada pessoa escolhe o time ao se inscrever.</p>
+            </div>
 
             {useTeams && (
               <div className="space-y-3">
-                <p className="text-xs text-white/50">
-                  A capacidade total do evento será a soma das vagas de cada time.
-                </p>
                 {teamFields.map((field, index) => (
                   <div key={field.id} className="flex items-center gap-2">
                     <div className="flex-1">
                       <Input
-                        placeholder={`Ex: Time A, Grêmio, PMC...`}
+                        placeholder={`Time ${index + 1}`}
                         {...register(`teams.${index}.name`)}
                       />
                     </div>
@@ -426,33 +441,16 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
                         {...register(`teams.${index}.capacity`, { valueAsNumber: true })}
                       />
                     </div>
-                    {teamFields.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeTeam(index)}
-                        className="text-white/30 hover:text-destructive transition-colors"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    )}
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() => appendTeam({ name: '', capacity: 10 })}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
-                >
-                  <Plus className="size-3.5" />
-                  Adicionar time
-                </button>
               </div>
             )}
           </section>
         </>
       )}
 
-      {/* Recorrência — só ao criar */}
-      {!eventId && (
+      {/* Recorrência — ao criar e num rascunho */}
+      {canShape && (
         <>
           <Separator />
           <section className="space-y-4">
@@ -504,7 +502,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
                   <p className="text-xs text-destructive">{errors.recurrence_count.message}</p>
                 )}
                 <p className="text-xs text-white/50">
-                  Serão criados {(recurrence === 'weekly' ? 'semanalmente' : recurrence === 'biweekly' ? 'a cada 2 semanas' : 'mensalmente')} como rascunho para você revisar.
+                  Os próximos eventos são criados {(recurrence === 'weekly' ? 'semanalmente' : recurrence === 'biweekly' ? 'a cada 2 semanas' : 'mensalmente')}, junto com este: publicados ou como rascunho, conforme o botão que você usar.
                 </p>
               </div>
             )}
@@ -512,10 +510,27 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, onSuccess
         </>
       )}
 
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-        {eventId ? 'Salvar alterações' : 'Criar evento'}
-      </Button>
+      {eventId && !isDraft ? (
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+          Salvar alterações
+        </Button>
+      ) : (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            disabled={isSubmitting}
+            onClick={handleSubmit((data) => onSubmit(data, true))}>
+            Salvar rascunho
+          </Button>
+          <Button type="submit" className="flex-1" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+            Publicar evento
+          </Button>
+        </div>
+      )}
     </form>
   )
 }
