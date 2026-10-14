@@ -1,25 +1,12 @@
+import { Image } from 'expo-image'
 import { StyleSheet, Text, View } from 'react-native'
-import Svg, { Circle, Path, Rect } from 'react-native-svg'
 import { colors, fonts } from '@/lib/theme'
 
-// Mesmo desenho de public/favicon.svg e do cabeçalho do site
+// Monograma T e L (assets/brand/monograma.png, ícones gerados por
+// assets/brand/gerar-icones.py); o site usa o mesmo arquivo
+// em public/logo-mark.png
 export function LogoMark({ size = 32 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 56 56" fill="none">
-      <Rect width="56" height="56" rx="14" fill={colors.primary} fillOpacity={0.09} />
-      <Rect x="16" y="18" width="20" height="2.5" rx="1.25" fill={colors.primary} />
-      <Rect x="16" y="24.5" width="14" height="2.5" rx="1.25" fill={colors.primary} fillOpacity={0.4} />
-      <Rect x="16" y="31" width="16" height="2.5" rx="1.25" fill={colors.primary} fillOpacity={0.4} />
-      <Circle cx="39" cy="36" r="9" fill={colors.primary} />
-      <Path
-        d="M34.5 36.2l3 3 5-5.5"
-        stroke={colors.primaryForeground}
-        strokeWidth={2.2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  )
+  return <Image source={require('@/assets/images/logo-mark.png')} style={{ width: size, height: size }} />
 }
 
 export function Logo({ size = 24 }: { size?: number }) {
