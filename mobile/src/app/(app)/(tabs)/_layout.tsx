@@ -1,7 +1,8 @@
 import { Tabs } from 'expo-router/js-tabs'
-import { CalendarDays, CircleUserRound, House, UsersRound } from 'lucide-react-native'
+import { CalendarDays, CircleUserRound, House, UsersRound, Wallet } from 'lucide-react-native'
 import { StyleSheet, View } from 'react-native'
 import { Logo } from '@/components/logo'
+import { NotificationBell } from '@/components/notification-bell'
 import { colors, fonts } from '@/lib/theme'
 
 // Barra inferior da área logada, como a do site no celular. As telas abertas a
@@ -18,6 +19,7 @@ export default function TabsLayout() {
         headerTitleStyle: { fontFamily: fonts.heading },
         headerShadowVisible: false,
         headerTitleAlign: 'center',
+        headerRight: () => <NotificationBell />,
         sceneStyle: { backgroundColor: colors.background },
         tabBarStyle: styles.bar,
         tabBarActiveTintColor: colors.primary,
@@ -53,6 +55,14 @@ export default function TabsLayout() {
           title: 'Grupos',
           tabBarButtonTestID: 'tab-groups',
           tabBarIcon: ({ color, size }) => <UsersRound size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: 'Carteira',
+          tabBarButtonTestID: 'tab-wallet',
+          tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
         }}
       />
       <Tabs.Screen

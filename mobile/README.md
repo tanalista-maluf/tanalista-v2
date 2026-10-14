@@ -11,13 +11,15 @@ Os tipos do banco são os do site: `../src/types/database.ts`.
 
 ## O que existe hoje
 
-Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, recuperação de senha. Barra de abas com Início (saudação, saldo, próximos eventos, atividade nos grupos), Eventos, Grupos e Perfil.
+Cadastro (com onboarding: username, cidade e WhatsApp), login por e-mail e senha ou com Google, recuperação de senha. Barra de abas com Início (saudação, saldo, próximos eventos, atividade nos grupos), Eventos, Grupos, Carteira e Perfil, e o sino de notificações no topo das abas.
 
 - **Eventos:** busca por nome e filtro por categoria, "Meus eventos" (próximos e concluídos), página do evento com capa, adicionar ao calendário, compartilhar, participantes, mural com enquetes, regras, ingresso com QR code para o check-in, fotos, avaliação de evento concluído e denúncia. Inscrição gratuita ou paga (cupom, PIX, cartão ou carteira), times, fila de espera, cancelamento e pedido de entrada em evento privado.
 - **Grupos:** meus grupos, busca de grupos públicos, página do grupo (eventos e membros), entrar e sair, criar grupo, convite de grupo privado, aprovar pedidos de entrada e denúncia.
+- **Carteira:** saldo, histórico, recarga por PIX, saque por PIX e cupom de crédito.
+- **Notificações:** central com não lidas (abre o evento ou o grupo de que a notificação fala), marcar todas como lidas e preferências (e-mail e aviso de novos eventos do grupo).
 - **Perfil:** foto, dados pessoais, senha e e-mail, atividade da conta, perfil público (o próprio e o de outras pessoas), termos, política de privacidade e exclusão de conta.
 
-Só no site: criar e gerenciar eventos (organizador), editar e excluir grupo, marketplace, carteira (depósito, saque, cupom de crédito), financeiro, notificações e o painel de admin. O envio de fotos de evento depende das variáveis do Cloudinary no servidor (`NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` e `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`); sem elas o botão não aparece.
+Só no site: criar e gerenciar eventos (organizador), editar e excluir grupo, marketplace, financeiro e o painel de admin. Notificações no celular (push) ainda não existem no app: dependem das credenciais da Apple (APNs) e do Firebase (FCM). O envio de fotos de evento depende das variáveis do Cloudinary no servidor (`NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` e `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`); sem elas o botão não aparece.
 
 ## Configuração fora do código
 
@@ -50,4 +52,5 @@ maestro test -e APP_ID=app.tanalista \
 #   -e MAILPIT_URL=http://127.0.0.1:54324 e2e/extras-flow.yaml (banco zerado antes: supabase db reset + seed)
 # abas, grupos e compartilhar: e2e/groups-flow.yaml, também com o banco zerado
 # conta: e2e/account-flow.yaml; início e seções do evento: e2e/event-flow.yaml (banco zerado antes de cada um)
+# carteira e notificações: e2e/wallet-flow.yaml (banco zerado antes)
 ```

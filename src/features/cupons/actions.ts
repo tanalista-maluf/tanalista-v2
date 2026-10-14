@@ -1,5 +1,6 @@
 'use server'
 
+import { redeemCreditCoupon } from '@/features/carteira/wallet'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
@@ -17,74 +18,11 @@ async function assertAdmin() {
 
 // ── Resgatar cupom (usuário) ─────────────────────────────────────────────────
 export async function redeemCouponAction(code: string) {
-  if (!code?.trim()) return { error: 'Informe o código do cupom.' }
-
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Exige e-mail verificado para evitar contas descartáveis
-  if (!user.email_confirmed_at) {
-    return { error: 'Confirme seu e-mail antes de resgatar cupons.' }
-  }
-
-  const admin = createAdminClient()
-  const normalizedCode = code.trim().toUpperCase()
-
-  // Buscar cupom (apenas cupons de plataforma, não cupons de evento/grupo)
-  const { data: coupon } = await admin
-    .from('coupons')
-    .select('*')
-    .eq('code', normalizedCode)
-    .eq('active', true)
-    .is('event_id', null)
-    .is('group_id', null)
-    .maybeSingle()
-
-  if (!coupon) return { error: 'Cupom inválido ou expirado.' }
-
-  // Verificar expiração
-  if (coupon.expires_at && new Date(coupon.expires_at) < new Date()) {
-    return { error: 'Este cupom está expirado.' }
-  }
-
-  // Verificar limite de usos
-  if (coupon.max_uses !== null && coupon.uses_count >= coupon.max_uses) {
-    return { error: 'Este cupom já atingiu o limite de usos.' }
-  }
-
-  // Verificar se usuário já usou este cupom
-  const { data: alreadyUsed } = await admin
-    .from('coupon_uses')
-    .select('id')
-    .eq('coupon_id', coupon.id)
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle()
-
-  if (alreadyUsed) return { error: 'Você já utilizou este cupom.' }
-
-  // Creditar na carteira
-  const { error: creditError } = await admin.rpc('wallet_credit', {
-    p_user_id: user.id,
-    p_amount: coupon.amount_cents,
-    p_type: 'BONUS',
-    p_description: `Cupom resgatado: ${normalizedCode}`,
-  })
-
-  if (creditError) {
-    console.error('[COUPON] wallet_credit error:', creditError)
-    return { error: 'Erro ao creditar cupom: ' + creditError.message }
-  }
-
-  // Registrar uso e incrementar contador atomicamente
-  await Promise.all([
-    admin.from('coupon_uses').insert({ coupon_id: coupon.id, user_id: user.id }),
-    admin.from('coupons').update({ uses_count: coupon.uses_count + 1 }).eq('id', coupon.id),
-  ])
-
-  revalidatePath('/carteira')
-  return { success: true, amount_cents: coupon.amount_cents }
+  return redeemCreditCoupon(user, code)
 }
 
 // ── Criar cupom (admin) ──────────────────────────────────────────────────────

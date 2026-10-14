@@ -143,4 +143,29 @@ done["status"] = "COMPLETED"
 done = call("/rest/v1/events", done)[0]
 call("/rest/v1/participations", {"event_id": done["id"], "user_id": bruno, "status": "CONFIRMED"})
 
+# Para e2e/wallet-flow.yaml: duas notificações não lidas do Bruno (uma leva ao
+# evento) e um cupom de crédito da plataforma
+call(
+    "/rest/v1/notifications",
+    [
+        {
+            "user_id": bruno,
+            "type": "EVENT_CONFIRMED",
+            "title": "Evento confirmado!",
+            "body": "Futebol de quinta atingiu o mínimo de participantes.",
+            "data": {"event_id": futebol["id"]},
+            "read": False,
+        },
+        {
+            "user_id": bruno,
+            "type": "EVENT_REMINDER",
+            "title": "Bem-vindo ao TáNaLista",
+            "body": "Explore os eventos perto de você.",
+            "data": {},
+            "read": False,
+        },
+    ],
+)
+call("/rest/v1/coupons", {"code": "BEMVINDO", "amount_cents": 2000, "active": True})
+
 print("Dados de teste criados:", ", ".join(e["title"] for e in events))

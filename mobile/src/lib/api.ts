@@ -315,3 +315,40 @@ export type ReportReason = 'SPAM' | 'INAPPROPRIATE' | 'FAKE' | 'DANGEROUS' | 'OT
 export function submitReport(target: { type: 'EVENT' | 'GROUP'; id: string }, reason: ReportReason, description: string) {
   return apiPost<Done>('/api/v1/reports', { targetType: target.type, targetId: target.id, reason, description })
 }
+
+export function requestWithdrawal(data: {
+  amount_cents: number
+  cpf: string
+  pix_key: string
+  pix_key_type: 'cpf' | 'email' | 'phone' | 'random'
+}) {
+  return apiPost<{ success: true } | { error: string; code?: 'INSUFFICIENT_BALANCE' }>('/api/v1/me/wallet/withdraw', data)
+}
+
+// Gera o PIX de recarga; o saldo entra quando o pagamento é confirmado
+export function createDeposit(amountCents: number) {
+  return apiPost<PixPayment | { error: string }>('/api/v1/me/wallet/deposit', { amount_cents: amountCents })
+}
+
+// Cupom de crédito da plataforma: o valor vira saldo na carteira
+export function redeemCreditCoupon(code: string) {
+  return apiPost<{ success: true; amount_cents: number } | { error: string }>('/api/v1/me/wallet/redeem', { code })
+}
+
+export type NotificationPreferences = {
+  notif_email: boolean
+  notif_new_event_channel: 'EMAIL' | 'WHATSAPP' | 'NONE'
+}
+
+export function fetchNotificationPreferences() {
+  return apiGet<NotificationPreferences | { error: string }>('/api/v1/me/notification-settings')
+}
+
+export function updateNotificationPreferences(data: Partial<NotificationPreferences>) {
+  return apiPost<{ success: true } | { error: string }>('/api/v1/me/notification-settings', data)
+}
+
+// Sem id, marca todas como lidas
+export function markNotificationsRead(id?: string) {
+  return apiPost<{ success: true } | { error: string }>('/api/v1/notifications/read', { id })
+}

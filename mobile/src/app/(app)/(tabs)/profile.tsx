@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { router } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import {
+  BellRing,
   Camera,
   ChevronRight,
   CircleUserRound,
@@ -136,6 +137,14 @@ export default function ProfileScreen() {
               title="Senha e e-mail"
               detail="Alterar senha ou e-mail"
               onPress={() => router.push('/account/security')}
+              divider
+            />
+            <Row
+              testID="go-notification-settings"
+              icon={<BellRing size={19} color={colors.primary} />}
+              title="Notificações"
+              detail="E-mail e avisos de novos eventos"
+              onPress={() => router.push('/account/notifications')}
               divider
             />
             <Row
