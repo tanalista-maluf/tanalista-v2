@@ -1,14 +1,11 @@
 import { Link } from 'expo-router'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { useState } from 'react'
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { AuthShell, authStyles } from '@/components/auth-shell'
 import { Button, Field } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { colors, fonts, radius } from '@/lib/theme'
-
-// Recuperar senha ainda acontece no site
-const SITE_URL = 'https://www.tanalista.app'
 
 export default function SignIn() {
   const { signIn, signInWithGoogle } = useSession()
@@ -68,9 +65,9 @@ export default function SignIn() {
         testID="password"
         label="Senha"
         labelAction={
-          <Pressable onPress={() => Linking.openURL(`${SITE_URL}/recuperar-senha`)} hitSlop={8}>
-            <Text style={authStyles.link}>Esqueceu a senha?</Text>
-          </Pressable>
+          <Link href="/forgot-password" testID="go-forgot-password" style={authStyles.link}>
+            Esqueceu a senha?
+          </Link>
         }
         secureTextEntry={!showPassword}
         textContentType="password"

@@ -249,7 +249,7 @@ appId: ${APP_ID}
       - back
 - assertVisible: "Próximos eventos"
 - tapOn: "Racha lotado.*"
-- assertVisible: "Evento lotado."
+- assertVisible: "Evento lotado.*"
 - runFlow:
     when:
       platform: iOS

@@ -62,7 +62,6 @@ const BRICK_COLORS = {
   successColor: '#4ADE80',
   borderRadiusMedium: '12px',
   borderRadiusLarge: '14px',
-  formPadding: '0px',
 }
 
 function loadSdk(): Promise<void> {

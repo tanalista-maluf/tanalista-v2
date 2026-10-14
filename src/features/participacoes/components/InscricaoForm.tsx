@@ -104,7 +104,7 @@ export function InscricaoForm({
             setLoading(true)
             const result = await joinWaitlistAction(eventId, selectedTeamId ?? undefined)
             setLoading(false)
-            if (result?.error) toast.error(result.error)
+            if ('error' in result) toast.error(result.error)
             else {
               toast.success(`Você está na fila! Posição: #${result.position}`)
               router.push(`/eventos/${eventId}`)

@@ -14,7 +14,14 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Card, Screen } from '@/components/ui'
-import { fetchPaymentMethods, fetchWalletBalance, joinEvent, validateCoupon, type JoinMethod } from '@/lib/api'
+import {
+  confirmWaitlistSpot,
+  fetchPaymentMethods,
+  fetchWalletBalance,
+  joinEvent,
+  validateCoupon,
+  type JoinMethod,
+} from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
@@ -38,8 +45,11 @@ async function fetchCheckout(eventId: string) {
 
 // Inscrição em evento pago: cupom, meio de pagamento e total. O servidor refaz
 // todas as contas na inscrição; o que aparece aqui é só a prévia.
+// teamId: time escolhido na página do evento. waitlist=1: a pessoa confirma a
+// vaga que a fila de espera reservou, que não aceita cupom.
 export default function CheckoutScreen() {
-  const { eventId } = useLocalSearchParams<{ eventId: string }>()
+  const { eventId, teamId, waitlist } = useLocalSearchParams<{ eventId: string; teamId?: string; waitlist?: string }>()
+  const fromWaitlist = waitlist === '1'
   const insets = useSafeAreaInsets()
   const headerInset = useHeaderInset()
 
@@ -90,7 +100,9 @@ export default function CheckoutScreen() {
     setError(null)
     // Com cupom de 100% não há o que cobrar: o servidor confirma pelo caminho da carteira
     const chosen = total === 0 ? 'WALLET' : method
-    const result = await joinEvent(eventId, { method: chosen, couponCode: coupon?.code })
+    const result = fromWaitlist
+      ? await confirmWaitlistSpot(eventId, chosen)
+      : await joinEvent(eventId, { method: chosen, couponCode: coupon?.code, teamId })
     setSubmitting(false)
 
     if ('error' in result) {
@@ -143,56 +155,58 @@ export default function CheckoutScreen() {
           contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}>
           <Text style={styles.title}>{event.title}</Text>
 
-          <Card style={styles.section}>
-            <Text style={styles.label}>Cupom de desconto</Text>
-            {coupon ? (
-              <View style={styles.applied}>
-                <Tag size={16} color={colors.primary} />
-                <Text testID="coupon-applied" style={styles.appliedText}>
-                  {coupon.code} — desconto de {formatMoney(coupon.discount)}
+          {!fromWaitlist && (
+            <Card style={styles.section}>
+              <Text style={styles.label}>Cupom de desconto</Text>
+              {coupon ? (
+                <View style={styles.applied}>
+                  <Tag size={16} color={colors.primary} />
+                  <Text testID="coupon-applied" style={styles.appliedText}>
+                    {coupon.code} — desconto de {formatMoney(coupon.discount)}
+                  </Text>
+                  <Pressable testID="coupon-remove" onPress={removeCoupon} hitSlop={12} accessibilityLabel="Remover cupom">
+                    <X size={18} color={colors.text50} />
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.couponRow}>
+                  <TextInput
+                    testID="coupon-code"
+                    value={code}
+                    onChangeText={(text) => {
+                      setCode(text.toUpperCase())
+                      setCouponError(null)
+                    }}
+                    placeholder="Código"
+                    placeholderTextColor={colors.text35}
+                    selectionColor={colors.primary}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    onSubmitEditing={applyCoupon}
+                    style={styles.couponInput}
+                  />
+                  <Pressable
+                    testID="coupon-apply"
+                    accessibilityRole="button"
+                    onPress={applyCoupon}
+                    disabled={applying || !code.trim()}
+                    style={[styles.couponButton, (applying || !code.trim()) && styles.dim]}>
+                    {applying ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : (
+                      <Text style={styles.couponButtonText}>Aplicar</Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+              {couponError && (
+                <Text testID="coupon-error" style={styles.fieldError}>
+                  {couponError}
                 </Text>
-                <Pressable testID="coupon-remove" onPress={removeCoupon} hitSlop={12} accessibilityLabel="Remover cupom">
-                  <X size={18} color={colors.text50} />
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.couponRow}>
-                <TextInput
-                  testID="coupon-code"
-                  value={code}
-                  onChangeText={(text) => {
-                    setCode(text.toUpperCase())
-                    setCouponError(null)
-                  }}
-                  placeholder="Código"
-                  placeholderTextColor={colors.text35}
-                  selectionColor={colors.primary}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  onSubmitEditing={applyCoupon}
-                  style={styles.couponInput}
-                />
-                <Pressable
-                  testID="coupon-apply"
-                  accessibilityRole="button"
-                  onPress={applyCoupon}
-                  disabled={applying || !code.trim()}
-                  style={[styles.couponButton, (applying || !code.trim()) && styles.dim]}>
-                  {applying ? (
-                    <ActivityIndicator color={colors.primary} />
-                  ) : (
-                    <Text style={styles.couponButtonText}>Aplicar</Text>
-                  )}
-                </Pressable>
-              </View>
-            )}
-            {couponError && (
-              <Text testID="coupon-error" style={styles.fieldError}>
-                {couponError}
-              </Text>
-            )}
-          </Card>
+              )}
+            </Card>
+          )}
 
           {free ? (
             <Card style={styles.section}>
