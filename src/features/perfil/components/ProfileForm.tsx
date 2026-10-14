@@ -42,7 +42,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
 
   async function onSubmit(data: FormData) {
     const result = await updateProfileAction(data)
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       setSaved(true)

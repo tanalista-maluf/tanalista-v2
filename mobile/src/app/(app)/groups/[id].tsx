@@ -335,7 +335,14 @@ export default function GroupScreen() {
             <Text style={styles.sectionLabel}>Membros</Text>
             <Card style={styles.members}>
               {members.map((member, index) => (
-                <View key={member.user_id} style={[styles.member, index > 0 && styles.memberDivider]}>
+                <Pressable
+                  key={member.user_id}
+                  accessibilityRole="button"
+                  disabled={!member.profiles?.username}
+                  onPress={() =>
+                    router.push({ pathname: '/users/[username]', params: { username: member.profiles!.username } })
+                  }
+                  style={[styles.member, index > 0 && styles.memberDivider]}>
                   <View style={styles.personBody}>
                     <Text style={styles.personName}>{member.profiles?.full_name ?? 'Membro'}</Text>
                     {member.profiles?.username ? (
@@ -343,7 +350,7 @@ export default function GroupScreen() {
                     ) : null}
                   </View>
                   {member.role === 'OWNER' && <Badge label="Dono" tone="primary" />}
-                </View>
+                </Pressable>
               ))}
             </Card>
           </View>

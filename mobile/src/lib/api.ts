@@ -168,3 +168,65 @@ export function leaveGroup(groupId: string) {
 export function decideGroupRequest(requestId: string, decision: 'APPROVED' | 'REJECTED') {
   return apiPost<{ success: true } | { error: string }>(`/api/v1/group-requests/${requestId}`, { decision })
 }
+
+export type OwnProfile = {
+  full_name: string
+  username: string
+  phone: string | null
+  city: string | null
+  bio: string | null
+  avatar_url: string | null
+}
+
+// Dados pessoais de quem está logado; o telefone só vem por aqui
+export function fetchOwnProfile() {
+  return apiGet<OwnProfile | { error: string }>('/api/v1/me/profile')
+}
+
+export function updateProfile(data: { full_name: string; phone: string; city: string; bio: string }) {
+  return apiPost<{ success: true } | { error: string }>('/api/v1/me/profile', data)
+}
+
+// Envia a foto de perfil escolhida no aparelho (JPG, PNG ou WebP de até 2MB), em base64
+export function uploadAvatar(image: { base64: string; mimeType: string }) {
+  return apiPost<{ avatarUrl: string } | { error: string }>('/api/v1/me/avatar', {
+    image: image.base64,
+    mimeType: image.mimeType,
+  })
+}
+
+export type PublicProfile = {
+  profile: {
+    full_name: string | null
+    username: string
+    avatar_url: string | null
+    city: string | null
+    bio: string | null
+    created_at: string
+  }
+  stats: { organized: number; participations: number; groups: number; rating: number | null }
+  events: {
+    id: string
+    title: string
+    starts_at: string
+    city: string
+    price: number
+    capacity: number
+    confirmed_count: number
+    visibility: string
+    groups: { name: string } | null
+  }[]
+  groups: {
+    id: string
+    name: string
+    city: string | null
+    category: string | null
+    visibility: string
+    avatar_url: string | null
+    member_count: number
+  }[]
+}
+
+export function fetchPublicProfile(username: string) {
+  return apiGet<PublicProfile | { error: string }>(`/api/v1/profiles/${encodeURIComponent(username)}`)
+}

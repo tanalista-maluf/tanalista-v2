@@ -35,7 +35,20 @@
       ],
       "expo-sqlite",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O TáNaLista usa suas fotos para você escolher a foto de perfil e enviar fotos dos eventos.",
+          "cameraPermission": "O TáNaLista usa a câmera para você tirar a foto de perfil e fotos dos eventos."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "O TáNaLista adiciona ao seu calendário os eventos que você escolher."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
