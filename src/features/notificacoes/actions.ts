@@ -1,11 +1,10 @@
 'use server'
 
-import { sendMobilePush } from '@/lib/mobile-push'
-import { sendPushToUser } from '@/lib/push'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Database, Json } from '@/types/database'
+import { deliverNotificationPush } from './push-delivery'
 
 export async function createNotificationAdmin(params: {
   userId: string
@@ -15,28 +14,22 @@ export async function createNotificationAdmin(params: {
   data?: Record<string, unknown>
 }) {
   const admin = createAdminClient()
-  await admin.from('notifications').insert({
-    user_id: params.userId,
-    type: params.type,
-    title: params.title,
-    body: params.body,
-    data: (params.data ?? {}) as Json,
-    read: false,
-  })
+  const { data: row } = await admin
+    .from('notifications')
+    .insert({
+      user_id: params.userId,
+      type: params.type,
+      title: params.title,
+      body: params.body,
+      data: (params.data ?? {}) as Json,
+      read: false,
+    })
+    .select('id, user_id, title, body, data')
+    .single()
 
-  // E como push, no app do celular e no navegador, para quem deixou ligado
-  const data = params.data ?? {}
-  const url =
-    typeof data.event_id === 'string'
-      ? `/eventos/${data.event_id}`
-      : typeof data.group_id === 'string'
-        ? `/grupos/${data.group_id}`
-        : '/notificacoes'
-  const { data: profile } = await admin.from('profiles').select('notif_push').eq('id', params.userId).maybeSingle()
-  await Promise.allSettled([
-    sendMobilePush(params.userId, { title: params.title, body: params.body, data }),
-    profile?.notif_push === false ? Promise.resolve() : sendPushToUser(params.userId, { title: params.title, body: params.body, url }),
-  ])
+  // E como push, no app do celular e no navegador, para quem deixou ligado. O
+  // banco também pede esse envio (gatilho em notifications); sai uma vez só.
+  if (row) await deliverNotificationPush(row.id, row)
 }
 
 export async function setNotificationPreferenceAction(
