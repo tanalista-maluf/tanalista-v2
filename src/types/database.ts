@@ -866,6 +866,7 @@ export type Database = {
           created_at: string
           data: Json | null
           id: string
+          pushed_at: string | null
           read: boolean
           read_at: string | null
           title: string
@@ -877,6 +878,7 @@ export type Database = {
           created_at?: string
           data?: Json | null
           id?: string
+          pushed_at?: string | null
           read?: boolean
           read_at?: string | null
           title: string
@@ -888,6 +890,7 @@ export type Database = {
           created_at?: string
           data?: Json | null
           id?: string
+          pushed_at?: string | null
           read?: boolean
           read_at?: string | null
           title?: string
