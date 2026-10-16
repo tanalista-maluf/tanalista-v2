@@ -23,20 +23,22 @@ export function AddToCalendar({ title, description, startsAt, endsAt, address, c
   const location = `${address}, ${city}`
   const start = formatICSDate(startsAt)
   const end = endsAt ? formatICSDate(endsAt) : formatICSDate(new Date(new Date(startsAt).getTime() + 2 * 60 * 60 * 1000).toISOString())
-  const url = `${window.location.origin}/e/${eventId}`
+  // Só no navegador: o componente também é renderizado no servidor, onde não há window
+  const eventUrl = () => `${window.location.origin}/e/${eventId}`
 
   function googleCalendarUrl() {
     const params = new URLSearchParams({
       action: 'TEMPLATE',
       text: title,
       dates: `${start}/${end}`,
-      details: `${description}\n\n${url}`,
+      details: `${description}\n\n${eventUrl()}`,
       location,
     })
     return `https://calendar.google.com/calendar/render?${params}`
   }
 
   function downloadICS() {
+    const url = eventUrl()
     const ics = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
