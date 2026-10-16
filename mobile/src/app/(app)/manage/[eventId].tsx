@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native'
 import { Avatar } from '@/components/avatar'
+import { CancelEventDialog } from '@/components/cancel-event-dialog'
 import { OrganizerChecklist } from '@/components/organizer-checklist'
 import { Badge, Button, Card, Screen } from '@/components/ui'
 import { runAction, type Person } from '@/lib/api'
@@ -105,6 +106,7 @@ export default function ManageEventScreen() {
   const [rules, setRules] = useState<string | null>(null)
   const [broadcast, setBroadcast] = useState('')
   const [coupon, setCoupon] = useState({ code: '', percent: '', maxUses: '', groupWide: false })
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   const load = useCallback(async () => {
     const result = await fetchAll(eventId)
@@ -222,20 +224,8 @@ export default function ManageEventScreen() {
     ])
   }
 
-  function confirmCancelEvent() {
-    Alert.alert(
-      'Cancelar o evento?',
-      'Todos os inscritos são avisados e quem pagou recebe o valor de volta. Não dá para desfazer.',
-      [
-        { text: 'Voltar', style: 'cancel' },
-        {
-          text: 'Sim, cancelar',
-          style: 'destructive',
-          onPress: () => act('cancel', 'cancelEvent', [eventId], 'Evento cancelado.'),
-        },
-      ]
-    )
-  }
+  // O valor que volta para a carteira de quem pagou, para a confirmação
+  const refundTotal = confirmed.reduce((sum, p) => sum + (p.payment?.amount ?? 0), 0)
 
   // Lista de inscritos em CSV, pela folha de compartilhamento (e-mail, WhatsApp, arquivos)
   async function exportList() {
@@ -561,12 +551,23 @@ export default function ManageEventScreen() {
           </Section>
 
           {active && (
-            <Pressable testID="manage-cancel" accessibilityRole="button" onPress={confirmCancelEvent} style={styles.danger}>
+            <Pressable testID="manage-cancel" accessibilityRole="button" onPress={() => setCancelOpen(true)} style={styles.danger}>
               <Text style={styles.dangerText}>Cancelar evento</Text>
             </Pressable>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <CancelEventDialog
+        visible={cancelOpen}
+        title={event.title}
+        confirmedCount={confirmed.length}
+        refundLabel={refundTotal > 0 ? formatPrice(refundTotal) : null}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={() => {
+          setCancelOpen(false)
+          act('cancel', 'cancelEvent', [eventId], 'Evento cancelado.')
+        }}
+      />
     </Screen>
   )
 }

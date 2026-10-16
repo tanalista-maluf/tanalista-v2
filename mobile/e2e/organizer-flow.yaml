@@ -178,7 +178,15 @@ appId: ${APP_ID}
     centerElement: true
 - tapOn:
     id: "manage-cancel"
-- tapOn: "Sim, cancelar"
+# O botão só libera depois de digitar CANCELAR
+- assertVisible:
+    id: "cancel-dialog-confirm"
+    enabled: false
+- tapOn:
+    id: "cancel-dialog-input"
+- inputText: "CANCELAR"
+- tapOn:
+    id: "cancel-dialog-confirm"
 - scrollUntilVisible:
     element: "Evento cancelado."
     direction: UP

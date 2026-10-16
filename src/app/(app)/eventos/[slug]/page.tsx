@@ -356,6 +356,7 @@ export default async function EventDetailPage({
                   price: event.price,
                   capacity: event.capacity,
                   min_participants: event.min_participants,
+                  confirmed_count: event.confirmed_count,
                 }} />
                 {/* Organizador também pode se inscrever como participante */}
                 {organizerCanJoin && (
