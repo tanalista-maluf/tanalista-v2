@@ -53,7 +53,7 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
   if (debitError) return { error: 'Erro ao processar saque.' }
 
   // Registrar saque na tabela dedicada (para o painel admin)
-  await admin.from('withdrawals').insert({
+  const { error: insertError } = await admin.from('withdrawals').insert({
     user_id: user.id,
     amount_cents,
     fee_cents,
@@ -63,6 +63,19 @@ export async function requestWithdrawalAction(input: WithdrawalInput) {
     pix_key_type,
     status: 'PENDING',
   })
+
+  if (insertError) {
+    console.error('[WITHDRAWAL] Failed to insert withdrawal request:', insertError.message)
+    // Reverter o débito já aplicado — sem isso o saldo desaparece sem nenhum
+    // registro para o admin processar.
+    await admin.rpc('wallet_credit', {
+      p_user_id: user.id,
+      p_amount: amount_cents,
+      p_type: 'REFUND',
+      p_description: 'Erro ao registrar saque — valor estornado',
+    })
+    return { error: 'Erro ao processar saque. Tente novamente.' }
+  }
 
   // Notificar admin por e-mail para processar o PIX manualmente
   const { data: authUser } = await admin.auth.admin.getUserById(user.id)
