@@ -385,6 +385,12 @@ appId: ${APP_ID}
 - assertVisible:
     id: "admin-users-count"
 - takeScreenshot: 74-admin
+# Usuários: o admin vê e-mail e telefone de cada um
+- tapOn:
+    id: "admin-users"
+- assertVisible: "ana@teste.local"
+- assertVisible: "11999990000"
+- takeScreenshot: 74b-admin-usuarios
 - tapOn:
     id: "admin-coupons"
 - tapOn:
