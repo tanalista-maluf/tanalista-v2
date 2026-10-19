@@ -83,15 +83,26 @@ export async function listAdminWithdrawals() {
   return (withdrawals ?? []).map((row) => ({ ...row, profile: profiles?.find((p) => p.id === row.user_id) ?? null }))
 }
 
-export async function listAdminUsers(q?: string) {
-  let query = createAdminClient()
+// O e-mail fica em auth.users, fora de profiles; o telefone vem do perfil.
+// Só o admin vê esses contatos (quem chama já conferiu).
+export async function listAdminUsers(q?: string, page = 1) {
+  const admin = createAdminClient()
+  const offset = (Math.max(1, page) - 1) * PAGE_SIZE
+  let query = admin
     .from('profiles')
-    .select('id, full_name, username, city, wallet_balance, created_at, onboarding_completed', { count: 'exact' })
+    .select('id, full_name, username, city, phone, wallet_balance, created_at, onboarding_completed', { count: 'exact' })
     .order('created_at', { ascending: false })
-    .range(0, PAGE_SIZE - 1)
-  if (term(q)) query = query.or(`username.ilike.%${term(q)}%,full_name.ilike.%${term(q)}%`)
+    .range(offset, offset + PAGE_SIZE - 1)
+  if (term(q)) query = query.or(`username.ilike.%${term(q)}%,full_name.ilike.%${term(q)}%,phone.ilike.%${term(q)}%`)
   const { data, count } = await query
-  return { users: data ?? [], total: count ?? 0 }
+
+  const users = await Promise.all(
+    (data ?? []).map(async (profile) => {
+      const { data: auth } = await admin.auth.admin.getUserById(profile.id)
+      return { ...profile, email: auth.user?.email ?? null }
+    })
+  )
+  return { users, total: count ?? 0, pageSize: PAGE_SIZE }
 }
 
 export async function listAdminEvents(q?: string, status?: string) {

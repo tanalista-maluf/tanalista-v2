@@ -1,7 +1,8 @@
+import * as Clipboard from 'expo-clipboard'
 import { router, Stack } from 'expo-router'
 import { Search, Trash2 } from 'lucide-react-native'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { Badge, Button, Card, Screen } from '@/components/ui'
 import { runAction } from '@/lib/api'
 import { formatLongDate, formatMoney } from '@/lib/format'
@@ -179,7 +180,7 @@ export default function AdminScreen() {
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={() => load(section, query)}
-              placeholder={section === 'users' ? 'Nome ou @username' : 'Título do evento'}
+              placeholder={section === 'users' ? 'Nome, @username ou telefone' : 'Título do evento'}
               placeholderTextColor={colors.text35}
               autoCorrect={false}
               autoCapitalize="none"
@@ -252,13 +253,19 @@ export default function AdminScreen() {
         ) : section === 'users' ? (
           <Block title={`Usuários (${data.total})`}>
             {data.users.map((user: Data) => (
-              <Row
-                key={user.id}
-                title={user.full_name ?? '—'}
-                detail={`@${user.username ?? '—'} · ${user.city ?? 'sem cidade'} · ${formatMoney(user.wallet_balance ?? 0)}`}
-                onPress={() => user.username && router.push({ pathname: '/users/[username]', params: { username: user.username } })}>
-                {!user.onboarding_completed && <Badge label="Sem perfil" tone="warning" />}
-              </Row>
+              <View key={user.id}>
+                <Row
+                  title={user.full_name ?? '—'}
+                  detail={`@${user.username ?? '—'} · ${user.city ?? 'sem cidade'} · ${formatMoney(user.wallet_balance ?? 0)}`}
+                  onPress={() => user.username && router.push({ pathname: '/users/[username]', params: { username: user.username } })}>
+                  {!user.onboarding_completed && <Badge label="Sem perfil" tone="warning" />}
+                </Row>
+                {/* Contatos (só o admin recebe): tocar abre o e-mail ou o discador; segurar copia */}
+                <View style={styles.contacts}>
+                  <Contact value={user.email} empty="sem e-mail" url={user.email ? `mailto:${user.email}` : null} />
+                  <Contact value={user.phone} empty="sem telefone" url={user.phone ? `tel:${String(user.phone).replace(/[^\d+]/g, '')}` : null} />
+                </View>
+              </View>
             ))}
           </Block>
         ) : section === 'events' ? (
@@ -371,6 +378,23 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
+function Contact({ value, empty, url }: { value?: string | null; empty: string; url: string | null }) {
+  if (!value || !url) return <Text style={styles.contactEmpty}>{empty}</Text>
+  return (
+    <Pressable
+      accessibilityRole="link"
+      onPress={() => Linking.openURL(url).catch(() => {})}
+      onLongPress={async () => {
+        await Clipboard.setStringAsync(value)
+        Alert.alert('Copiado', value)
+      }}>
+      <Text style={styles.contact} selectable>
+        {value}
+      </Text>
+    </Pressable>
+  )
+}
+
 function Row(props: { title: string; detail?: string; onPress?: () => void; children?: ReactNode }) {
   return (
     <Pressable disabled={!props.onPress} onPress={props.onPress} style={styles.row}>
@@ -428,6 +452,9 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, gap: 2 },
   rowTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
   detail: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text50 },
+  contacts: { gap: 2, paddingBottom: 6 },
+  contact: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.primary },
+  contactEmpty: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text25 },
   withdrawal: { gap: 4, paddingVertical: 6, borderTopWidth: 1, borderTopColor: colors.cardBorder },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20, marginTop: 4 },
   link: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
