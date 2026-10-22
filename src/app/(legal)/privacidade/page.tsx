@@ -83,7 +83,7 @@ export default function PrivacidadePage() {
           <li>Revogar consentimento para tratamentos baseados em consentimento.</li>
           <li>Solicitar o encerramento da conta e exclusão dos dados (veja <Link href="/excluir-conta">como excluir sua conta</Link>).</li>
         </ul>
-        <p>Para exercer seus direitos, entre em contato: <a href="mailto:privacidade@tanalista.com.br">privacidade@tanalista.com.br</a></p>
+        <p>Para exercer seus direitos, entre em contato: <a href="mailto:contato@tanalista.app">contato@tanalista.app</a></p>
       </Section>
 
       <Section title="8. Segurança">
@@ -118,7 +118,7 @@ export default function PrivacidadePage() {
       <Section title="12. Contato">
         <p>
           Para questões de privacidade:{' '}
-          <a href="mailto:privacidade@tanalista.com.br">privacidade@tanalista.com.br</a>
+          <a href="mailto:contato@tanalista.app">contato@tanalista.app</a>
         </p>
       </Section>
     </article>

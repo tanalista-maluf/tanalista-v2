@@ -204,6 +204,44 @@ appId: ${APP_ID}
     commands:
       - back
 
+# ── Como funciona ────────────────────────────────────────────────────────────
+- scrollUntilVisible:
+    element:
+      id: "go-how-it-works"
+    centerElement: true
+- assertVisible: ".*contato@tanalista.app.*"
+- tapOn:
+    id: "go-how-it-works"
+- extendedWaitUntil:
+    visible:
+      id: "how-visao-geral"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "how-taxas"
+    centerElement: true
+- tapOn:
+    id: "how-taxas"
+- assertVisible: ".*R\\$ 93,02.*"
+- takeScreenshot: 45-como-funciona
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- scrollUntilVisible:
+    element:
+      id: "go-security"
+    direction: UP
+    centerElement: true
+
 # ── Senha e e-mail ───────────────────────────────────────────────────────────
 - tapOn:
     id: "go-security"

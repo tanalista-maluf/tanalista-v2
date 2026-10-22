@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { LogoMark } from '@/components/logo-mark'
+import { CONTACT_EMAIL } from '@/features/ajuda/como-funciona'
 import {
   CheckCircle2, XCircle, AlertTriangle, Clock,
   CreditCard, QrCode, Bell, ShieldCheck, ArrowRight, Smartphone
@@ -23,6 +24,9 @@ export default function LandingPage() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/como-funciona" className="hidden sm:inline text-sm text-white/60 hover:text-white transition-colors px-2">
+              Como funciona
+            </Link>
             <Link href="/login" className={cn(buttonVariants({ variant: 'ghost' }), 'text-white/60 hover:text-white')}>
               Entrar
             </Link>
@@ -209,7 +213,9 @@ export default function LandingPage() {
       <footer className="border-t border-white/[0.06] py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/30">
           <span>© {new Date().getFullYear()} TáNaLista</span>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <Link href="/como-funciona" className="hover:text-white/60 transition-colors">Como funciona</Link>
+            <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-white/60 transition-colors">Contato</a>
             <Link href="/termos" className="hover:text-white/60 transition-colors">Termos de uso</Link>
             <Link href="/privacidade" className="hover:text-white/60 transition-colors">Privacidade</Link>
           </div>

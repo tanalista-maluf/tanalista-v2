@@ -44,7 +44,7 @@ export function AddToCalendar({ title, description, startsAt, endsAt, address, c
       'VERSION:2.0',
       'PRODID:-//TáNaLista//PT',
       'BEGIN:VEVENT',
-      `UID:${eventId}@tanalista.com.br`,
+      `UID:${eventId}@tanalista.app`,
       `DTSTART:${start}`,
       `DTEND:${end}`,
       `SUMMARY:${title}`,
