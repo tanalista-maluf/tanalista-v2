@@ -13,6 +13,7 @@ import { changeWaitlistTeam } from '@/features/fila/waitlist'
 import type { EventSchema } from './schemas'
 import { requestEventJoin } from './engagement'
 import { changeTeam } from './teams'
+import { minCheckAt } from './min-check'
 
 // Preço em string "R$ xx,xx" → centavos
 function parsePriceToCents(price: string): number {
@@ -100,7 +101,7 @@ async function createRecurringChildren(
     const childStart = new Date(startsAt.getTime() + offsetDays * 86400000)
     const childEnd = endsAt ? new Date(childStart.getTime() + durationMs) : null
     const childDeadline = new Date(childStart.getTime() + deadlineOffsetMs)
-    const childMinCheck = new Date(childStart.getTime() - 12 * 60 * 60 * 1000)
+    const childMinCheck = minCheckAt(childStart)
     const childSlug = await generateUniqueEventSlug(data.title, childStart, undefined, takenSlugs)
     takenSlugs.add(childSlug)
 
@@ -210,7 +211,7 @@ export async function createEventAction(data: EventSchema) {
   }
 
   const starts_at = new Date(data.starts_at)
-  const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
+  const min_check_at = minCheckAt(starts_at)
 
   const slug = await generateUniqueEventSlug(data.title, data.starts_at)
 
@@ -358,7 +359,7 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   }
 
   const starts_at = new Date(data.starts_at)
-  const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
+  const min_check_at = minCheckAt(starts_at)
 
   // Busca valores anteriores para detectar mudanças relevantes
   const { data: current } = await supabase

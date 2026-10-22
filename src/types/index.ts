@@ -102,7 +102,7 @@ export interface Event {
   starts_at: string
   ends_at: string | null
   registration_deadline: string
-  min_check_at: string        // T-12h (calculado)
+  min_check_at: string        // T-12h, ou mais perto do início se o evento já nasceu nessa janela (min-check.ts)
   organizer_exempt: boolean   // organizador isento de pagamento (Adendo 02)
   mp_access_token: string | null
   created_at: string
