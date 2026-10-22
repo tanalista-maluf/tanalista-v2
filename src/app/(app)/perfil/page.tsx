@@ -5,9 +5,10 @@ import { AvatarUpload } from '@/features/perfil/components/AvatarUpload'
 import { NotificationSettings } from '@/features/notificacoes/components/NotificationSettings'
 import { logoutAction } from '@/features/auth/actions'
 import { DeleteAccount } from '@/features/perfil/components/DeleteAccount'
-import { Wallet, BarChart2, Activity, User, KeyRound, LogOut, ChevronRight, FileText, Lock } from 'lucide-react'
+import { Wallet, BarChart2, Activity, User, KeyRound, LogOut, ChevronRight, FileText, Lock, HelpCircle, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { formatBalance } from '@/utils/format'
+import { CONTACT_EMAIL } from '@/features/ajuda/como-funciona'
 
 export default async function PerfilPage() {
   const supabase = await createClient()
@@ -117,6 +118,33 @@ export default async function PerfilPage() {
             initialPush={profile.notif_push ?? true}
             initialNewEventChannel={(profile.notif_new_event_channel as 'EMAIL' | 'WHATSAPP' | 'NONE') ?? 'EMAIL'}
           />
+        </div>
+
+        {/* Ajuda */}
+        <div className="space-y-2 pt-2">
+          <p className="text-xs text-white/35 uppercase tracking-widest px-1">Ajuda</p>
+
+          <Link href="/como-funciona" className="card-dark rounded-2xl p-3.5 flex items-center gap-3 block">
+            <div className="size-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <HelpCircle className="size-4 text-white/40" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">Como funciona</p>
+              <p className="text-xs text-white/40">Eventos, grupos, pagamentos e taxas</p>
+            </div>
+            <ChevronRight className="size-4 text-white/20" />
+          </Link>
+
+          <a href={`mailto:${CONTACT_EMAIL}`} className="card-dark rounded-2xl p-3.5 flex items-center gap-3 block">
+            <div className="size-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <Mail className="size-4 text-white/40" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">Fale conosco</p>
+              <p className="text-xs text-white/40">{CONTACT_EMAIL}</p>
+            </div>
+            <ChevronRight className="size-4 text-white/20" />
+          </a>
         </div>
 
         {/* Legal */}

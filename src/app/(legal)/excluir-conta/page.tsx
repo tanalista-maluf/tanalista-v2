@@ -35,7 +35,7 @@ export default function ExcluirContaPage() {
       <Section title="Sem acesso à conta">
         <p>
           Se você não consegue entrar, peça a exclusão por e-mail para{' '}
-          <a href="mailto:privacidade@tanalista.com.br">privacidade@tanalista.com.br</a>, a partir do endereço
+          <a href="mailto:contato@tanalista.app">contato@tanalista.app</a>, a partir do endereço
           cadastrado. Respondemos em até 15 dias.
         </p>
       </Section>

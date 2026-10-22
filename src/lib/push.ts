@@ -3,7 +3,7 @@ import { createAdminClient } from './supabase/admin'
 
 function getWebPush() {
   webpush.setVapidDetails(
-    process.env.VAPID_EMAIL ?? 'mailto:contato@tanalista.com.br',
+    process.env.VAPID_EMAIL ?? 'mailto:contato@tanalista.app',
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '',
     process.env.VAPID_PRIVATE_KEY ?? ''
   )

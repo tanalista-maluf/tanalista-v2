@@ -8,15 +8,17 @@ import {
   ChevronRight,
   CircleUserRound,
   FileText,
+  HelpCircle,
   History,
   KeyRound,
   LogOut,
+  Mail,
   Shield,
   ShieldCheck,
   UserRoundPen,
 } from 'lucide-react-native'
 import { useCallback, useState, type ReactNode } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from '@/components/avatar'
 import { Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
@@ -26,6 +28,7 @@ import { colors, fonts, radius } from '@/lib/theme'
 
 // Termos e política ficam nas páginas do site
 const SITE_URL = 'https://www.tanalista.app'
+const CONTACT_EMAIL = 'contato@tanalista.app'
 
 export default function ProfileScreen() {
   const { session, profile, signOut, forgetSession, refreshProfile } = useSession()
@@ -204,6 +207,27 @@ export default function ProfileScreen() {
                 divider
               />
             )}
+          </Card>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Ajuda</Text>
+          <Card>
+            <Row
+              testID="go-how-it-works"
+              icon={<HelpCircle size={19} color={colors.primary} />}
+              title="Como funciona"
+              detail="Eventos, grupos, pagamentos e taxas"
+              onPress={() => router.push('/how-it-works')}
+            />
+            <Row
+              testID="go-contact"
+              icon={<Mail size={19} color={colors.primary} />}
+              title="Fale conosco"
+              detail={CONTACT_EMAIL}
+              onPress={() => Linking.openURL(`mailto:${CONTACT_EMAIL}`).catch(() => {})}
+              divider
+            />
           </Card>
         </View>
 

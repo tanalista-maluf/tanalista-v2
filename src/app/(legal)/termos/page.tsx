@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export const metadata = {
   title: 'Termos de Uso — TáNaLista',
   description: 'Termos e condições de uso da plataforma TáNaLista.',
@@ -41,7 +43,7 @@ export default function TermosPage() {
           <li>Os valores são debitados no momento da inscrição e creditados na carteira do organizador após a conclusão do evento.</li>
           <li>Em caso de cancelamento do evento pelo organizador, os participantes recebem reembolso integral na carteira TáNaLista.</li>
           <li>Cancelamentos por parte do participante estão sujeitos à política de cancelamento definida pelo organizador.</li>
-          <li>A TáNaLista cobra uma taxa de plataforma por transação aprovada, conforme tabela vigente.</li>
+          <li>A TáNaLista cobra uma taxa de plataforma por transação aprovada, conforme a <Link href="/como-funciona#taxas" className="text-primary hover:underline">tabela vigente</Link>.</li>
         </ul>
       </Section>
 
@@ -75,7 +77,7 @@ export default function TermosPage() {
       <Section title="8. Privacidade">
         <p>
           O uso dos seus dados pessoais é regido pela nossa{' '}
-          <a href="/privacidade" className="text-primary hover:underline">Política de Privacidade</a>,
+          <Link href="/privacidade" className="text-primary hover:underline">Política de Privacidade</Link>,
           que é parte integrante destes Termos.
         </p>
       </Section>
@@ -111,7 +113,7 @@ export default function TermosPage() {
 
       <Section title="13. Contato">
         <p>
-          Para dúvidas sobre estes Termos, entre em contato: <a href="mailto:suporte@tanalista.com.br" className="text-primary hover:underline">suporte@tanalista.com.br</a>
+          Para dúvidas sobre estes Termos, entre em contato: <a href="mailto:contato@tanalista.app" className="text-primary hover:underline">contato@tanalista.app</a>
         </p>
       </Section>
     </article>
