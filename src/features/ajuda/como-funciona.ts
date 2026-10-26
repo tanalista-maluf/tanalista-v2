@@ -338,6 +338,7 @@ export const HOW_IT_WORKS: HowItWorksSection[] = [
         type: 'list',
         items: [
           'um evento em que você está inscrito é confirmado, alterado ou cancelado;',
+          'falta cerca de um dia para um evento em que você está inscrito (lembrete na véspera);',
           'sai um evento novo num grupo seu;',
           'abre uma vaga para você na fila de espera;',
           'o organizador ou o dono do grupo manda uma mensagem;',
