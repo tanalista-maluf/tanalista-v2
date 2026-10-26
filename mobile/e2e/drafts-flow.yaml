@@ -5,8 +5,20 @@
 appId: ${APP_ID}
 ---
 # Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
-- launchApp
-- waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
 - openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
@@ -37,7 +49,7 @@ appId: ${APP_ID}
       - tapOn: "Continue"
 - runFlow:
     when:
-      visible: "Fast refresh|Fast Refresh"
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
     commands:
       - swipe:
           start: "50%, 50%"
@@ -99,9 +111,23 @@ appId: ${APP_ID}
 - tapOn:
     id: "email"
 - inputText: "ana@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "senha-teste-123"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "submit"
 # O iOS pode perguntar se quer guardar a senha
@@ -123,6 +149,12 @@ appId: ${APP_ID}
 - tapOn:
     id: "form-title"
 - inputText: "Torneio rascunho"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Informações básicas"
+    commands:
+      - hideKeyboard
 - tapOn: "Informações básicas"
 - tapOn:
     id: "form-category"
@@ -135,6 +167,12 @@ appId: ${APP_ID}
 - tapOn:
     id: "form-address"
 - inputText: "Rua do Torneio 50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Local"
+    commands:
+      - hideKeyboard
 - tapOn: "Local"
 - scrollUntilVisible:
     element:
@@ -167,7 +205,10 @@ appId: ${APP_ID}
     element:
       id: "form-team-name-2"
     centerElement: true
-- assertVisible: ".*3 times.*"
+# O seletor do número de times fica acima dos nomes
+- scrollUntilVisible:
+    element: ".*3 times.*"
+    direction: UP
 - runFlow:
     when:
       platform: iOS

@@ -490,14 +490,14 @@ export default function EventFormScreen() {
               testPrefix="form-cancel"
             />
           </Section>
-
+        </ScrollView>
+        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {/* Junto do botão: no fim do formulário, o teclado escondia o erro */}
           {error && (
             <Text testID="form-error" style={styles.error}>
               {error}
             </Text>
           )}
-        </ScrollView>
-        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           {mode === 'edit' && !editingDraft ? (
             <Button testID="form-submit" label="Salvar alterações" onPress={() => handleSubmit(false)} loading={saving !== null} />
           ) : (
@@ -677,6 +677,7 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.6 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
+    gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,
     backgroundColor: colors.surface,

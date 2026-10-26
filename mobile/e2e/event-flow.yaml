@@ -4,8 +4,20 @@
 appId: ${APP_ID}
 ---
 # Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
-- launchApp
-- waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
 - openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
@@ -36,7 +48,7 @@ appId: ${APP_ID}
       - tapOn: "Continue"
 - runFlow:
     when:
-      visible: "Fast refresh|Fast Refresh"
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
     commands:
       - swipe:
           start: "50%, 50%"
@@ -98,9 +110,23 @@ appId: ${APP_ID}
 - tapOn:
     id: "email"
 - inputText: "bruno@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "senha-teste-123"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "submit"
 - extendedWaitUntil:
@@ -144,7 +170,13 @@ appId: ${APP_ID}
     id: "filter-category"
 - tapOn:
     id: "filter-category-option-0"
-- assertVisible: "Racha lotado.*"
+# O racha volta para a lista, mas pode ficar abaixo da área visível
+- scrollUntilVisible:
+    element: "Racha lotado.*"
+- scrollUntilVisible:
+    element:
+      id: "filter-date"
+    direction: UP
 # Próximos 7 dias: o futebol (daqui a 2 dias) fica, o racha (8 dias) sai
 - tapOn:
     id: "filter-date"
@@ -156,11 +188,15 @@ appId: ${APP_ID}
     id: "filter-date"
 - tapOn:
     id: "filter-date-option-0"
-- assertVisible: "Racha lotado.*"
+- scrollUntilVisible:
+    element: "Racha lotado.*"
 
 # ── Página do evento ─────────────────────────────────────────────────────────
+# O futebol está acima (a lista rolou até o racha): sobe até ele ficar no meio,
+# longe do cabeçalho translúcido
 - scrollUntilVisible:
     element: "Futebol de quinta.*"
+    direction: UP
     centerElement: true
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
@@ -257,7 +293,9 @@ appId: ${APP_ID}
         id: "section-mural"
     commands:
       - back
-- assertVisible: "Próximos eventos"
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
 # Regras, com as do organizador, e denúncia
 - scrollUntilVisible:
     element: "Futebol de quinta.*"
@@ -315,7 +353,9 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Próximos eventos"
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
 
 # ── Evento concluído: avaliação e fotos ──────────────────────────────────────
 - tapOn:

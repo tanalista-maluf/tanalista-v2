@@ -152,6 +152,9 @@ export default function WalletScreen() {
                 selectionColor={colors.primary}
                 autoCapitalize="characters"
                 autoCorrect={false}
+                // Depois de um código errado, tocar no campo seleciona tudo e o
+                // próximo substitui (no Android o cursor caía no meio do texto)
+                selectTextOnFocus
                 returnKeyType="done"
                 onSubmitEditing={handleRedeem}
                 style={styles.couponInput}

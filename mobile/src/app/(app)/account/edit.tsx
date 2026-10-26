@@ -130,14 +130,15 @@ export default function EditProfileScreen() {
             multiline
             style={styles.multiline}
           />
+        </ScrollView>
+
+        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {/* Junto do botão: no fim do formulário, o teclado escondia o erro */}
           {error && (
             <Text testID="edit-error" style={styles.error}>
               {error}
             </Text>
           )}
-        </ScrollView>
-
-        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Button testID="edit-submit" label="Salvar" onPress={handleSubmit} loading={saving} />
         </View>
       </KeyboardAvoidingView>
@@ -152,6 +153,7 @@ const styles = StyleSheet.create({
   multiline: { height: 110, paddingTop: 14, textAlignVertical: 'top', borderRadius: radius.card },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
+    gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,
     backgroundColor: colors.surface,

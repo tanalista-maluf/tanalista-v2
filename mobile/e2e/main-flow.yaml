@@ -13,8 +13,20 @@
 appId: ${APP_ID}
 ---
 # Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
-- launchApp
-- waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
 - openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
@@ -36,7 +48,7 @@ appId: ${APP_ID}
       - tapOn: "Continue"
 - runFlow:
     when:
-      visible: "Fast refresh|Fast Refresh"
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
     commands:
       - swipe:
           start: "50%, 50%"
@@ -92,16 +104,42 @@ appId: ${APP_ID}
 - tapOn:
     id: "email"
 - inputText: "bruno@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "senha-errada"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "submit"
 - assertVisible: "E-mail ou senha incorretos."
 - takeScreenshot: 02-login-erro
 # Reabre o app para os campos voltarem vazios, em vez de apagar o texto
-- launchApp
-- waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
 - openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
@@ -123,7 +161,7 @@ appId: ${APP_ID}
       - tapOn: "Continue"
 - runFlow:
     when:
-      visible: "Fast refresh|Fast Refresh"
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
     commands:
       - swipe:
           start: "50%, 50%"
@@ -134,9 +172,23 @@ appId: ${APP_ID}
 - tapOn:
     id: "email"
 - inputText: "bruno@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "senha-teste-123"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "submit"
 # O iOS pode perguntar se quer guardar a senha
@@ -155,11 +207,14 @@ appId: ${APP_ID}
 - tapOn:
     id: "tab-events"
 - assertVisible: "Futebol de quinta.*0/14 inscritos"
-- assertVisible: "Racha lotado.*Esgotado"
+# Em telas menores (ou com a fonte do sistema maior) o Racha fica abaixo
+- scrollUntilVisible:
+    element: "Racha lotado.*Esgotado"
 - takeScreenshot: 03-lista
 - waitForAnimationToEnd
 - scrollUntilVisible:
     element: "Futebol de quinta.*"
+    direction: UP
     centerElement: true
 - tapOn: "Futebol de quinta.*"
 - assertVisible:
@@ -182,7 +237,9 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Próximos eventos"
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
 - scrollUntilVisible:
     element: "Torneio pago de sábado.*"
     centerElement: true
@@ -194,13 +251,21 @@ appId: ${APP_ID}
 - tapOn:
     id: "coupon-code"
 - inputText: "TESTE50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-apply"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "coupon-apply"
 - assertVisible:
     id: "coupon-applied"
-- assertVisible:
-    id: "checkout-total"
-    text: ".*15,00"
+- scrollUntilVisible:
+    element:
+      id: "checkout-total"
+      text: ".*15,00"
 - takeScreenshot: 05b-checkout
 - tapOn:
     id: "checkout-submit"
@@ -259,7 +324,7 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Próximos eventos"
+# A lista volta na posição em que estava: o título pode ter ficado acima
 - scrollUntilVisible:
     element: ".*Treino fechado.*"
     centerElement: true
@@ -287,7 +352,9 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Próximos eventos"
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
 - scrollUntilVisible:
     element: "Racha lotado.*"
     centerElement: true
@@ -307,7 +374,9 @@ appId: ${APP_ID}
       platform: Android
     commands:
       - back
-- assertVisible: "Próximos eventos"
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
 - swipe:
     direction: DOWN
 - assertVisible: "Futebol de quinta.*1/14 inscritos"
@@ -380,6 +449,13 @@ appId: ${APP_ID}
 - tapOn:
     id: "coupon-code"
 - inputText: "TESTE50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-apply"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "coupon-apply"
 - assertVisible:
@@ -434,9 +510,23 @@ appId: ${APP_ID}
 - tapOn:
     id: "full-name"
 - inputText: "Dani Nova"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "email"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "email"
 - inputText: "dani@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "senhafraca"
@@ -463,9 +553,23 @@ appId: ${APP_ID}
     id: "username"
 # "bruno" não: é o username que o cadastro deu ao Bruno
 - inputText: "bruno"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "phone"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "phone"
 - inputText: "19988887777"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "city"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "city"
 - inputText: "Campinas"
@@ -476,6 +580,10 @@ appId: ${APP_ID}
 - eraseText: 10
 - inputText: "dani_nova"
 - takeScreenshot: 15-onboarding
+# Com o teclado aberto, a cidade pode ficar abaixo
+- scrollUntilVisible:
+    element:
+      id: "city"
 - tapOn:
     id: "city"
 - pressKey: Enter
@@ -532,6 +640,13 @@ appId: ${APP_ID}
 - tapOn:
     id: "coupon-code"
 - inputText: "TESTE50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-apply"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "coupon-apply"
 - assertVisible:
@@ -627,9 +742,23 @@ appId: ${APP_ID}
 - tapOn:
     id: "email"
 - inputText: "dani@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "Senha-teste-1"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "submit"
 - assertVisible: "E-mail ou senha incorretos."
