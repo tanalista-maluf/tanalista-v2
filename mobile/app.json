@@ -22,7 +22,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.tanalista",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
