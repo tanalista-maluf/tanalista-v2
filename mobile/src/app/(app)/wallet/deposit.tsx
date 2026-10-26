@@ -175,17 +175,18 @@ export default function DepositScreen() {
                 />
               </View>
               {method === 'CARD' && <CardFeeNotice amount={parseMoney(amountText)} />}
-              {error && (
-                <Text testID="deposit-error" style={styles.error}>
-                  {error}
-                </Text>
-              )}
             </>
           )}
         </ScrollView>
         {/* Fixo embaixo, acima do teclado: o teclado numérico do iOS não fecha */}
         {!pix && (
           <View style={styles.bar}>
+            {/* Junto do botão: no fim do formulário, o teclado escondia o erro */}
+            {error && (
+              <Text testID="deposit-error" style={styles.error}>
+                {error}
+              </Text>
+            )}
             <Button
               testID="deposit-submit"
               label={method === 'CARD' ? 'Continuar para o cartão' : 'Gerar PIX'}
@@ -244,6 +245,7 @@ function CardFeeNotice({ amount }: { amount: number | null }) {
 
 const styles = StyleSheet.create({
   bar: {
+    gap: 10,
     paddingHorizontal: 18,
     paddingVertical: 12,
     backgroundColor: colors.surface,

@@ -135,15 +135,15 @@ export default function NewGroupScreen() {
               detail="Só entra quem recebe o seu link de convite"
             />
           </View>
+        </ScrollView>
 
+        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {/* Junto do botão: no fim do formulário, o teclado escondia o erro */}
           {error && (
             <Text testID="group-form-error" style={styles.error}>
               {error}
             </Text>
           )}
-        </ScrollView>
-
-        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Button testID="group-submit" label="Criar grupo" onPress={handleSubmit} loading={saving} />
         </View>
       </KeyboardAvoidingView>
@@ -211,6 +211,7 @@ const styles = StyleSheet.create({
   optionDetail: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
+    gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,
     backgroundColor: colors.surface,

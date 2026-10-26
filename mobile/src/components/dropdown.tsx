@@ -71,7 +71,13 @@ export function Dropdown(props: Props) {
         onPress={open}
         disabled={disabled}
         style={({ pressed }) => [styles.trigger, active && styles.triggerActive, (pressed || disabled) && styles.dim, style]}>
-        <Text numberOfLines={1} style={[styles.triggerText, active && styles.triggerTextActive]}>
+        {/* Três lado a lado no filtro de eventos: com a fonte do sistema maior,
+            o texto diminui um pouco antes de cortar */}
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          style={[styles.triggerText, active && styles.triggerTextActive]}>
           {label}
         </Text>
         <ChevronDown size={15} color={active ? colors.primary : colors.text50} />
@@ -110,9 +116,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: 4,
     minHeight: 44,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,

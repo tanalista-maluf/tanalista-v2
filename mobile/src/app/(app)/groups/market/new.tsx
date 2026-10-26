@@ -222,13 +222,14 @@ export default function NewListingScreen() {
             onChangeText={setContact}
             maxLength={200}
           />
+        </ScrollView>
+        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          {/* Junto do botão: no fim do formulário, o teclado escondia o erro */}
           {error && (
             <Text testID="listing-error" style={styles.error}>
               {error}
             </Text>
           )}
-        </ScrollView>
-        <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Button testID="listing-submit" label="Publicar anúncio" onPress={handleSubmit} loading={saving} />
         </View>
       </KeyboardAvoidingView>
@@ -292,6 +293,7 @@ const styles = StyleSheet.create({
   toggleText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
+    gap: 10,
     paddingHorizontal: 18,
     paddingTop: 12,
     backgroundColor: colors.surface,

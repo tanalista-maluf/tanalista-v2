@@ -4,8 +4,20 @@
 appId: ${APP_ID}
 ---
 # Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
-- launchApp
-- waitForAnimationToEnd
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
 - openLink: ${APP_URL}
 # Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
 - runFlow:
@@ -36,7 +48,7 @@ appId: ${APP_ID}
       - tapOn: "Continue"
 - runFlow:
     when:
-      visible: "Fast refresh|Fast Refresh"
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
     commands:
       - swipe:
           start: "50%, 50%"
@@ -98,9 +110,23 @@ appId: ${APP_ID}
 - tapOn:
     id: "email"
 - inputText: "ana@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "password"
 - inputText: "senha-teste-123"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "submit"
 # O iOS pode perguntar se quer guardar a senha
@@ -133,6 +159,12 @@ appId: ${APP_ID}
 - tapOn:
     id: "form-address"
 - inputText: "Rua do Campo 200"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Local"
+    commands:
+      - hideKeyboard
 - tapOn: "Local"
 - scrollUntilVisible:
     element:
@@ -142,6 +174,12 @@ appId: ${APP_ID}
 - tapOn:
     id: "form-title"
 - inputText: "Pelada nova"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Informações básicas"
+    commands:
+      - hideKeyboard
 - tapOn: "Informações básicas"
 - takeScreenshot: 70-criar-evento
 - tapOn:
@@ -164,6 +202,13 @@ appId: ${APP_ID}
 - tapOn:
     id: "form-description"
 - inputText: "Traga chuteira"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "form-submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "form-submit"
     retryTapIfNoChange: false
@@ -185,6 +230,13 @@ appId: ${APP_ID}
 - tapOn:
     id: "cancel-dialog-input"
 - inputText: "CANCELAR"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "cancel-dialog-confirm"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "cancel-dialog-confirm"
 - scrollUntilVisible:
@@ -241,6 +293,12 @@ appId: ${APP_ID}
     id: "manage-rules"
 - inputText: "Chegar cedo"
 # hideKeyboard não fecha campo de várias linhas no iOS: toque no título da seção
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Regras e diretrizes"
+    commands:
+      - hideKeyboard
 - tapOn: "Regras e diretrizes"
 - scrollUntilVisible:
     element:
@@ -258,6 +316,12 @@ appId: ${APP_ID}
 - tapOn:
     id: "manage-broadcast"
 - inputText: "Tragam agua"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Mensagem aos confirmados"
+    commands:
+      - hideKeyboard
 - tapOn: "Mensagem aos confirmados"
 - scrollUntilVisible:
     element:
@@ -309,13 +373,33 @@ appId: ${APP_ID}
 - tapOn:
     id: "coupon-new-code"
 - inputText: "AMIGO10"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-new-percent"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "coupon-new-percent"
 - inputText: "10"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-new-uses"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "coupon-new-uses"
 - inputText: "5"
 # O teclado numérico do iOS não tem tecla de fechar: um toque fora fecha
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Cupons de desconto"
+    commands:
+      - hideKeyboard
 - tapOn: "Cupons de desconto"
 - scrollUntilVisible:
     element:
@@ -396,9 +480,22 @@ appId: ${APP_ID}
 - tapOn:
     id: "admin-coupon-code"
 - inputText: "PRESENTE"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "admin-coupon-value"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "admin-coupon-value"
 - inputText: "15"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Novo cupom de crédito"
+    commands:
+      - hideKeyboard
 - tapOn: "Novo cupom de crédito"
 - tapOn:
     id: "admin-coupon-create"
@@ -430,6 +527,13 @@ appId: ${APP_ID}
 - tapOn:
     id: "settings-city"
 - inputText: "São Paulo"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-description"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "settings-description"
 - inputText: "Toda quinta"
@@ -470,11 +574,24 @@ appId: ${APP_ID}
     id: "listing-title"
 - inputText: "Bola oficial"
 # Fecha o teclado: com ele aberto, a descrição fica escondida atrás dele
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible: "Fotos.*"
+    commands:
+      - hideKeyboard
 - tapOn: "Fotos.*"
 - tapOn:
     id: "listing-description"
 - inputText: "Bola de futsal pouco usada"
 # O botão fica na barra acima do teclado
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "listing-submit"
+    commands:
+      - hideKeyboard
 - tapOn:
     id: "listing-submit"
 - assertVisible:
