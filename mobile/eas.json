@@ -34,5 +34,12 @@
         "EXPO_PUBLIC_APPLE_SIGN_IN": "1"
       }
     }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6828052257"
+      }
+    }
   }
 }
