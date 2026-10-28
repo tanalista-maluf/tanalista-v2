@@ -20,7 +20,8 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://ekisdxnhovruhhvdvefh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVraXNkeG5ob3ZydWhodmR2ZWZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjkyNzgsImV4cCI6MjA5NzEwNTI3OH0.nCDhqdq05o2ibx8T3j_pc6w6bPanspERFI8YPZPgUqk",
         "EXPO_PUBLIC_API_URL": "https://www.tanalista.app",
-        "EXPO_PUBLIC_CAPTCHA": "1"
+        "EXPO_PUBLIC_CAPTCHA": "1",
+        "EXPO_PUBLIC_APPLE_SIGN_IN": "1"
       }
     },
     "production": {
@@ -29,7 +30,8 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://ekisdxnhovruhhvdvefh.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVraXNkeG5ob3ZydWhodmR2ZWZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjkyNzgsImV4cCI6MjA5NzEwNTI3OH0.nCDhqdq05o2ibx8T3j_pc6w6bPanspERFI8YPZPgUqk",
         "EXPO_PUBLIC_API_URL": "https://www.tanalista.app",
-        "EXPO_PUBLIC_CAPTCHA": "1"
+        "EXPO_PUBLIC_CAPTCHA": "1",
+        "EXPO_PUBLIC_APPLE_SIGN_IN": "1"
       }
     }
   }
