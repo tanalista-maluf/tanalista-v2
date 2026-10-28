@@ -21,8 +21,13 @@ Notifications.setNotificationHandler({
 // Token deste aparelho, para tirar do servidor ao sair da conta
 let registeredToken: string | null = null
 
-// Para onde a notificação leva: o evento ou o grupo de que ela fala
+// Para onde a notificação leva: o evento ou o grupo de que ela fala. Pedido
+// de entrada em evento (tem requester_id) vai para o Gerenciar, onde o
+// organizador aprova ou recusa; o de grupo já aparece na página do grupo.
 export function notificationTarget(data: Record<string, unknown> | null | undefined) {
+  if (typeof data?.event_id === 'string' && typeof data.requester_id === 'string') {
+    return { pathname: '/manage/[eventId]' as const, params: { eventId: data.event_id } }
+  }
   if (typeof data?.event_id === 'string') return { pathname: '/events/[id]' as const, params: { id: data.event_id } }
   if (typeof data?.group_id === 'string') return { pathname: '/groups/[id]' as const, params: { id: data.group_id } }
   return null

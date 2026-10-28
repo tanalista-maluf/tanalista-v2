@@ -320,6 +320,34 @@ export default function ManageEventScreen() {
             />
           </View>
 
+          {/* Antes dos inscritos: com a lista longa, os pedidos ficavam escondidos no fim */}
+          {organizer.joinRequests.length > 0 && (
+            <Section title="Pedidos de entrada">
+              {organizer.joinRequests.map((request, index) => (
+                <View key={request.id} style={[styles.row, index > 0 && styles.divider]}>
+                  <Avatar name={personName(request.profile)} url={request.profile?.avatar_url} size={34} />
+                  <Text style={[styles.rowTitle, styles.rowBody]}>{personName(request.profile)}</Text>
+                  <Pressable
+                    testID={`join-reject-${index}`}
+                    accessibilityRole="button"
+                    onPress={() => act(request.id, 'rejectEventJoinRequest', [request.id])}
+                    disabled={busy !== null}
+                    hitSlop={8}>
+                    <Text style={styles.muted}>Recusar</Text>
+                  </Pressable>
+                  <Pressable
+                    testID={`join-approve-${index}`}
+                    accessibilityRole="button"
+                    onPress={() => act(request.id, 'approveEventJoinRequest', [request.id])}
+                    disabled={busy !== null}
+                    style={styles.approve}>
+                    <Text style={styles.approveText}>Aprovar</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </Section>
+          )}
+
           <Section title={`Inscritos (${organizer.participants.length})`}>
             {organizer.participants.length === 0 ? (
               <Text style={styles.empty}>Ninguém se inscreveu ainda.</Text>
@@ -364,33 +392,6 @@ export default function ManageEventScreen() {
               </>
             )}
           </Section>
-
-          {organizer.joinRequests.length > 0 && (
-            <Section title="Pedidos de entrada">
-              {organizer.joinRequests.map((request, index) => (
-                <View key={request.id} style={[styles.row, index > 0 && styles.divider]}>
-                  <Avatar name={personName(request.profile)} url={request.profile?.avatar_url} size={34} />
-                  <Text style={[styles.rowTitle, styles.rowBody]}>{personName(request.profile)}</Text>
-                  <Pressable
-                    testID={`join-reject-${index}`}
-                    accessibilityRole="button"
-                    onPress={() => act(request.id, 'rejectEventJoinRequest', [request.id])}
-                    disabled={busy !== null}
-                    hitSlop={8}>
-                    <Text style={styles.muted}>Recusar</Text>
-                  </Pressable>
-                  <Pressable
-                    testID={`join-approve-${index}`}
-                    accessibilityRole="button"
-                    onPress={() => act(request.id, 'approveEventJoinRequest', [request.id])}
-                    disabled={busy !== null}
-                    style={styles.approve}>
-                    <Text style={styles.approveText}>Aprovar</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </Section>
-          )}
 
           {organizer.waitlist.length > 0 && (
             <Section title="Fila de espera">

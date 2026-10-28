@@ -2,6 +2,7 @@
 
 import { Bell, CheckCheck, Calendar, Users, Wallet, AlertCircle } from 'lucide-react'
 import { markNotificationReadAction } from '@/features/notificacoes/actions'
+import { notificationHref } from '@/features/notificacoes/link'
 import { formatDateTime } from '@/utils/format'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -25,16 +26,9 @@ const TYPE_ICON: Record<string, typeof Bell> = {
   PAYMENT_RECEIVED:       Wallet,
 }
 
-function getLink(notification: Notification): string | null {
-  const d = notification.data
-  if (!d) return null
-  if (d.event_id) return `/eventos/${d.event_id}`
-  return null
-}
-
 export function NotificationItem({ notification }: { notification: Notification }) {
   const Icon = TYPE_ICON[notification.type] ?? Bell
-  const href = getLink(notification)
+  const href = notificationHref(notification.data)
 
   async function handleRead() {
     if (!notification.read) {

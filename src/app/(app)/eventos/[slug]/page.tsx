@@ -48,10 +48,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ invite?: string }>
+  searchParams: Promise<{ invite?: string; aba?: string }>
 }) {
   const { slug } = await params
-  const { invite: inviteToken } = await searchParams
+  const { invite: inviteToken, aba } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -65,7 +65,9 @@ export default async function EventDetailPage({
 
   // Canonical redirect: se veio com UUID e existe slug, redireciona
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i
-  if (UUID_RE.test(slug) && event.slug && event.slug !== slug) redirect(`/eventos/${event.slug}`)
+  if (UUID_RE.test(slug) && event.slug && event.slug !== slug) {
+    redirect(`/eventos/${event.slug}${aba ? `?aba=${encodeURIComponent(aba)}` : ''}`)
+  }
 
   const id = event.id // UUID para queries
   const eventSlug = event.slug ?? event.id // slug para URLs
@@ -180,6 +182,8 @@ export default async function EventDetailPage({
   const canRate = isConfirmedParticipant && isFinished
   const canUploadPhoto = isConfirmedParticipant || event.is_organizer
   const userRating = canRate ? await getUserRating(id, user.id) : null
+  const showRequests = event.is_organizer && eventVisibilityField !== 'PUBLIC'
+  const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
 
   // Fila de espera
   const isOnWaitlist = !activeParticipationStatus && !event.is_organizer && event.waitlist_position !== null
@@ -468,7 +472,8 @@ export default async function EventDetailPage({
 
       {/* Abas */}
       <div className="px-4 pb-6 space-y-4">
-      <Tabs defaultValue={canRate && !userRating ? 'avaliacoes' : 'detalhes'}>
+      {/* A notificação de pedido de entrada abre direto em Solicitações (?aba=solicitacoes) */}
+      <Tabs key={initialTab} defaultValue={initialTab}>
         <TabsList className="w-full bg-white/[0.03] border border-white/[0.07] overflow-x-auto flex-nowrap rounded-2xl p-1 gap-1">
           <TabsTrigger value="detalhes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Detalhes</TabsTrigger>
 
@@ -479,7 +484,7 @@ export default async function EventDetailPage({
               <QrCode className="size-3" />Check-in
             </TabsTrigger>
           )}
-          {event.is_organizer && eventVisibilityField !== 'PUBLIC' && (
+          {showRequests && (
             <TabsTrigger value="solicitacoes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <Users className="size-3" />Solicitações{joinRequests.length > 0 ? ` (${joinRequests.length})` : ''}
             </TabsTrigger>
@@ -537,6 +542,17 @@ export default async function EventDetailPage({
         </TabsList>
 
         <TabsContent value="detalhes" className="space-y-4 pt-3">
+          {showRequests && joinRequests.length > 0 && (
+            <Link
+              href={`/eventos/${eventSlug}?aba=solicitacoes`}
+              className="flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/[0.07] p-4 text-[13px] text-primary hover:bg-primary/[0.12] transition-colors"
+            >
+              <Users className="size-4 shrink-0" />
+              <span className="flex-1">
+                {joinRequests.length === 1 ? '1 pessoa pediu' : `${joinRequests.length} pessoas pediram`} para participar. Toque para aprovar ou recusar.
+              </span>
+            </Link>
+          )}
           {event.description ? (
             <p className="text-[13px] text-white/60 whitespace-pre-wrap leading-relaxed">{event.description}</p>
           ) : event.is_organizer ? (
@@ -653,7 +669,7 @@ export default async function EventDetailPage({
           </TabsContent>
         )}
 
-        {event.is_organizer && eventVisibilityField !== 'PUBLIC' && (
+        {showRequests && (
           <TabsContent value="solicitacoes" className="pt-4 space-y-3">
             <p className="text-xs text-white/40">{joinRequests.length} solicitação(ões) pendente(s)</p>
             <EventJoinRequests requests={joinRequests} eventId={id} />
