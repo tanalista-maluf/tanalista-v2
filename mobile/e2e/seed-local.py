@@ -88,6 +88,10 @@ events = call(
     ],
 )
 
+# Para e2e/organizer-flow.yaml: pedido de entrada da Carla no evento privado da Ana
+closed = next(e for e in events if e["slug"] == "treino-fechado")
+call("/rest/v1/event_join_requests", {"event_id": closed["id"], "user_id": carla, "status": "PENDING"})
+
 # O evento lotado precisa de inscrições de verdade: o servidor conta as linhas
 full = next(e for e in events if e["slug"] == "racha-lotado")
 call(
