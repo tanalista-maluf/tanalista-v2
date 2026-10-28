@@ -29,8 +29,9 @@ export default function Root() {
   return (
     <SessionProvider>
       <StatusBar style="light" />
-      <SplashScreenController fontsReady={fontsReady} />
       {fontsReady ? <RootNavigator /> : null}
+      {/* Depois do app, para a abertura animada ficar por cima */}
+      <SplashScreenController fontsReady={fontsReady} />
     </SessionProvider>
   )
 }
