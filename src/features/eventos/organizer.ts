@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getWaitlistForEvent } from '@/features/fila/queries'
+import { attachProfiles } from '@/features/perfil/attach-profiles'
 
 // O que o organizador vê na página do próprio evento no app: inscritos com
 // check-in e forma de pagamento, pedidos de entrada, fila de espera e o link
@@ -24,13 +25,16 @@ export async function getOrganizerEventData(userId: string, eventId: string) {
       .order('created_at', { ascending: true }),
     admin
       .from('event_join_requests')
-      .select('id, created_at, profiles(full_name, username, avatar_url)')
+      .select('id, user_id, created_at')
       .eq('event_id', eventId)
       .eq('status', 'PENDING')
       .order('created_at', { ascending: true }),
     getWaitlistForEvent(eventId),
     admin.from('event_teams').select('id, name, capacity').eq('event_id', eventId).order('position', { ascending: true }),
   ])
+
+  // Perfil de quem pediu: a tabela aponta para auth.users, sem embed de profiles
+  const requestsWithProfiles = await attachProfiles(admin, requests ?? [])
 
   return {
     participants: (participants ?? []).map((row) => ({
@@ -42,7 +46,7 @@ export async function getOrganizerEventData(userId: string, eventId: string) {
       // Forma do pagamento aprovado, se houver
       payment: (row.payments ?? []).find((payment) => payment.status === 'APPROVED') ?? null,
     })),
-    joinRequests: (requests ?? []).map((row) => ({ id: row.id, created_at: row.created_at, profile: row.profiles })),
+    joinRequests: requestsWithProfiles.map((row) => ({ id: row.id, created_at: row.created_at, profile: row.profiles })),
     waitlist: waitlist.map((row) => ({
       id: row.id,
       position: row.position,
