@@ -1,6 +1,7 @@
 import { sendMobilePush } from '@/lib/mobile-push'
 import { sendPushToUser } from '@/lib/push'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notificationHref } from './link'
 
 type PushContent = { user_id: string; title: string; body: string; data: unknown }
 
@@ -33,12 +34,7 @@ export async function deliverNotificationPush(notificationId: string, fallback?:
 async function sendPush(claimed: PushContent) {
   const admin = createAdminClient()
   const data = (claimed.data ?? {}) as Record<string, unknown>
-  const url =
-    typeof data.event_id === 'string'
-      ? `/eventos/${data.event_id}`
-      : typeof data.group_id === 'string'
-        ? `/grupos/${data.group_id}`
-        : '/notificacoes'
+  const url = notificationHref(data) ?? '/notificacoes'
 
   // sendMobilePush já respeita a preferência notif_push
   const { data: profile } = await admin.from('profiles').select('notif_push').eq('id', claimed.user_id).maybeSingle()
