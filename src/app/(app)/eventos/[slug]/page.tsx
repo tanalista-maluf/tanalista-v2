@@ -40,6 +40,7 @@ import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload
 import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isGroupOwner } from '@/features/eventos/permissions'
+import { attachProfiles } from '@/features/perfil/attach-profiles'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Suspense } from 'react'
@@ -152,11 +153,12 @@ export default async function EventDetailPage({
   if (event.is_organizer && eventVisibilityField !== 'PUBLIC') {
     const { data } = await admin
       .from('event_join_requests')
-      .select('id, user_id, status, created_at, profiles(full_name, username, avatar_url)')
+      .select('id, user_id, status, created_at')
       .eq('event_id', id)
       .eq('status', 'PENDING')
       .order('created_at', { ascending: true })
-    joinRequests = (data ?? []) as any
+    // A tabela aponta para auth.users: o perfil vem numa consulta à parte
+    joinRequests = await attachProfiles(admin, data ?? [])
   }
 
   // Cupons do evento (apenas organizador) — inclui cupons de grupo (válidos em
