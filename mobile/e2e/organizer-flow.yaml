@@ -360,6 +360,51 @@ appId: ${APP_ID}
     commands:
       - back
 
+# ── Pedido de entrada no evento privado ──────────────────────────────────────
+# A Carla pediu para entrar no Treino fechado (seed): o pedido aparece no
+# Gerenciar com o nome, e aprovar a inscreve
+- scrollUntilVisible:
+    element: "Treino fechado.*"
+    direction: UP
+    centerElement: true
+- tapOn: "Treino fechado.*"
+- tapOn:
+    id: "manage"
+- assertVisible: "Pedidos de entrada"
+- assertVisible: "Carla"
+- takeScreenshot: 73-pedido-de-entrada
+- tapOn:
+    id: "join-approve-0"
+- extendedWaitUntil:
+    notVisible: "Pedidos de entrada"
+    timeout: 10000
+- assertVisible: "Inscritos \\(1\\)"
+- assertVisible: "Carla"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+
 # ── Cupom no evento pago ─────────────────────────────────────────────────────
 - scrollUntilVisible:
     element: "Torneio pago de sábado.*"
