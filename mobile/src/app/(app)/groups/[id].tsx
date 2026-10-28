@@ -274,7 +274,7 @@ export default function GroupScreen() {
               )}
             </Pressable>
           )}
-          {isOwner && (
+          {(isOwner || role === 'MANAGER') && (
             <Button
               testID="group-new-event"
               label="Criar evento no grupo"
@@ -284,7 +284,7 @@ export default function GroupScreen() {
           )}
           {isOwner && (
             <Text testID="group-owner" style={styles.ownerNote}>
-              Você é o dono deste grupo. Dados, foto, membros e comunicados ficam nas configurações (engrenagem no topo).
+              Você é o dono deste grupo. Dados, foto, membros, gestores e comunicados ficam nas configurações (engrenagem no topo).
             </Text>
           )}
           {isOwner && isPrivate && group.invite_token ? (
@@ -403,6 +403,7 @@ export default function GroupScreen() {
                     ) : null}
                   </View>
                   {member.role === 'OWNER' && <Badge label="Dono" tone="primary" />}
+                  {member.role === 'MANAGER' && <Badge label="Gestor" tone="muted" />}
                 </Pressable>
               ))}
             </Card>

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getEventById } from '@/features/eventos/queries'
+import { canEditEvent } from '@/features/eventos/permissions'
 import { EventForm } from '@/features/eventos/components/EventForm'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import Link from 'next/link'
@@ -22,7 +23,8 @@ export default async function EditarEventoPage({
 
   const { slug } = await params
   const event = await getEventById(slug, user.id)
-  if (!event || !event.is_organizer) notFound()
+  // O organizador, ou o dono do grupo do evento
+  if (!event || !(await canEditEvent(supabase, { organizer_id: event.organizer_id, group_id: event.group_id ?? null }, user.id))) notFound()
 
   const eventSlug = event.slug ?? event.id
   const isLocked = event.status !== 'DRAFT'
@@ -89,12 +91,15 @@ export default async function EditarEventoPage({
         }}
       />
 
-      <div className="card-dark rounded-2xl p-5 space-y-3">
-        <h2 className="font-bold text-white flex items-center gap-2">
-          <Ticket className="size-4 text-primary" />Cupons do evento
-        </h2>
-        <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} groupId={event.group_id} />
-      </div>
+      {/* Cupons ficam com quem criou o evento, não com o dono do grupo */}
+      {event.is_organizer && (
+        <div className="card-dark rounded-2xl p-5 space-y-3">
+          <h2 className="font-bold text-white flex items-center gap-2">
+            <Ticket className="size-4 text-primary" />Cupons do evento
+          </h2>
+          <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} groupId={event.group_id} />
+        </div>
+      )}
     </main>
   )
 }

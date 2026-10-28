@@ -1554,6 +1554,7 @@ export type Database = {
         | "GROUP_JOIN_APPROVED"
         | "GROUP_JOIN_REJECTED"
         | "GROUP_OWNERSHIP_TRANSFERRED"
+        | "GROUP_ROLE_CHANGED"
         | "EVENT_MESSAGE"
         | "WAITLIST_PROMOTED"
       participation_status: "CONFIRMED" | "PENDING" | "CANCELLED" | "WAITLISTED"
@@ -1730,6 +1731,7 @@ export const Constants = {
         "GROUP_JOIN_APPROVED",
         "GROUP_JOIN_REJECTED",
         "GROUP_OWNERSHIP_TRANSFERRED",
+        "GROUP_ROLE_CHANGED",
         "EVENT_MESSAGE",
         "WAITLIST_PROMOTED",
       ],

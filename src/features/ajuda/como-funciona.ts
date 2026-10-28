@@ -178,7 +178,7 @@ export const HOW_IT_WORKS: HowItWorksSection[] = [
       {
         type: 'steps',
         items: [
-          'Toque em "Criar evento". O evento pode ficar dentro de um grupo do qual você é membro ou ser avulso.',
+          'Toque em "Criar evento" e escolha onde ele fica: num grupo em que você é dono ou gestor, ou avulso, sem grupo.',
           'Preencha título, descrição, categoria, endereço, cidade, início, término e prazo de inscrição.',
           'Defina o valor por pessoa (R$ 0 para evento gratuito), a capacidade e o mínimo de participantes.',
           'Escolha a visibilidade (público ou privado), a política de cancelamento e, se quiser, o número de times.',
@@ -222,7 +222,8 @@ export const HOW_IT_WORKS: HowItWorksSection[] = [
         items: [
           'Público: qualquer pessoa encontra o grupo e entra na hora.',
           'Privado: a pessoa pede para entrar e o dono aprova, ou entra pelo link de convite.',
-          'Qualquer membro pode criar eventos no grupo.',
+          'Criam eventos no grupo o dono e os gestores. O dono promove um membro a gestor (e o volta a membro) na lista de membros.',
+          'O gestor edita os próprios eventos. O dono edita e cancela qualquer evento do grupo.',
           'O dono edita o grupo, aprova pedidos, remove membros, transfere a posse e cria cupons que valem para os eventos do grupo.',
           'O dono pode mandar uma mensagem para todos os membros (até 500 caracteres). Ela chega como notificação e por e-mail.',
         ],

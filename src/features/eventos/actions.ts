@@ -14,6 +14,8 @@ import type { EventSchema } from './schemas'
 import { requestEventJoin } from './engagement'
 import { changeTeam } from './teams'
 import { minCheckAt } from './min-check'
+import { canEditEvent } from './permissions'
+import { canCreateGroupEvents } from '@/features/grupos/roles'
 
 // Preço em string "R$ xx,xx" → centavos
 function parsePriceToCents(price: string): number {
@@ -198,7 +200,7 @@ export async function createEventAction(data: EventSchema) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verificar que é membro do grupo (eventos avulsos, sem grupo, pulam essa checagem)
+  // No grupo, só o dono e os Gestores criam eventos (avulso, sem grupo, é livre)
   if (data.group_id) {
     const { data: membership } = await supabase
       .from('group_members')
@@ -208,6 +210,9 @@ export async function createEventAction(data: EventSchema) {
       .maybeSingle()
 
     if (!membership) return { error: 'Você precisa ser membro do grupo para criar eventos.' }
+    if (!canCreateGroupEvents(membership.role)) {
+      return { error: 'Só o dono e os gestores do grupo criam eventos nele.' }
+    }
   }
 
   const starts_at = new Date(data.starts_at)
@@ -267,14 +272,14 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verificar que é o organizador
+  // O organizador, ou o dono do grupo do evento
   const { data: event } = await supabase
     .from('events')
-    .select('status, organizer_id')
+    .select('status, organizer_id, group_id')
     .eq('id', eventId)
     .single()
 
-  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+  if (!event || !(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
 
   const admin = createAdminClient()
 
@@ -520,12 +525,12 @@ export async function cancelEventAction(eventId: string, reason?: string) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('status, organizer_id, title, price')
+    .select('status, organizer_id, group_id, title, price')
     .eq('id', eventId)
     .single()
 
   if (!event) return { error: 'Evento não encontrado.' }
-  if (event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+  if (!(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
   if (['COMPLETED', 'CANCELLED'].includes(event.status)) {
     return { error: 'Este evento não pode ser cancelado.' }
   }
