@@ -92,6 +92,8 @@ export default function EventFormScreen() {
   const [isDraft, setIsDraft] = useState(false)
   const [groups, setGroups] = useState<Group[]>([])
   const [groupId, setGroupId] = useState<string | null>(params.groupId ?? null)
+  // Nome do grupo do evento em edição, que pode não estar entre os da lista
+  const [groupName, setGroupName] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [address, setAddress] = useState('')
@@ -116,18 +118,20 @@ export default function EventFormScreen() {
   const canShape = mode !== 'edit' || editingDraft
 
   useEffect(() => {
-    // Grupos de que a pessoa participa: o evento pode ser de um deles ou avulso
+    // Grupos em que a pessoa pode criar eventos (dona ou gestora): o evento
+    // pode ser de um deles ou avulso
     supabase
       .from('group_members')
       .select('groups(id, name)')
       .eq('user_id', session!.user.id)
+      .in('role', ['OWNER', 'MANAGER'])
       .then(({ data }) => setGroups((data ?? []).flatMap((row) => (row.groups ? [row.groups] : []))))
 
     if (mode === 'create' || !params.eventId) return
     supabase
       .from('events')
       .select(
-        'title, description, address, city, category, price, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id, recurrence_rule, event_teams(name, capacity, position)'
+        'title, description, address, city, category, price, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
       )
       .eq('id', params.eventId)
       .maybeSingle()
@@ -145,6 +149,7 @@ export default function EventFormScreen() {
           setVisibility(data.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC')
           setCancelPolicy(data.cancel_before_hours)
           setGroupId(data.group_id)
+          setGroupName(data.groups?.name ?? null)
           setTeams(
             [...(data.event_teams ?? [])]
               .sort((a, b) => a.position - b.position)
@@ -302,6 +307,33 @@ export default function EventFormScreen() {
               Este evento já está publicado. Apenas a descrição, o endereço e o valor podem ser editados.
             </Text>
           )}
+
+          {/* Primeira escolha: em qual grupo o evento fica, ou avulso */}
+          <Section title="Onde criar">
+            <Dropdown
+              testID="form-group"
+              placeholder="Grupo"
+              allLabel="Evento avulso (sem grupo)"
+              options={groups.map((group) => ({ key: group.id, label: group.name }))}
+              selected={groupId}
+              selectedLabel={
+                !groupId
+                  ? 'Evento avulso (sem grupo)'
+                  : !groups.some((group) => group.id === groupId)
+                    ? (groupName ?? undefined)
+                    : undefined
+              }
+              onSelect={setGroupId}
+              disabled={mode === 'edit'}
+            />
+            <Text style={styles.hint}>
+              {mode === 'edit'
+                ? 'O grupo não muda depois de criado.'
+                : groupId
+                  ? 'Os membros do grupo são avisados quando o evento for publicado.'
+                  : 'Fica fora de qualquer grupo. Na lista aparecem os grupos em que você é dono ou gestor.'}
+            </Text>
+          </Section>
 
           <Section title="Informações básicas">
             <Field
@@ -461,17 +493,6 @@ export default function EventFormScreen() {
           )}
 
           <Section title="Quem participa">
-            {groups.length > 0 && (
-              <>
-                <Text style={styles.label}>Grupo</Text>
-                <Chips
-                  items={[{ value: '', label: 'Evento avulso' }, ...groups.map((group) => ({ value: group.id, label: group.name }))]}
-                  selected={groupId ?? ''}
-                  onSelect={(value) => mode !== 'edit' && setGroupId(value || null)}
-                  testPrefix="form-group"
-                />
-              </>
-            )}
             <Text style={styles.label}>Visibilidade</Text>
             <Chips
               items={[
@@ -632,6 +653,7 @@ const styles = StyleSheet.create({
   section: { padding: 16, gap: 14 },
   sectionTitle: { fontFamily: fonts.heading, fontSize: 16, color: colors.text },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: 'rgba(74,222,128,0.7)' },
+  hint: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text40 },
   detail: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.text50 },
   multiline: { height: 100, paddingTop: 14, textAlignVertical: 'top', borderRadius: radius.card },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

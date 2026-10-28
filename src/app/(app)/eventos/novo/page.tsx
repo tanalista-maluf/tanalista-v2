@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { EventForm } from '@/features/eventos/components/EventForm'
 import Link from 'next/link'
+import { canCreateGroupEvents } from '@/features/grupos/roles'
 import { ChevronLeft, Users, Lock, Globe, ChevronRight, Plus } from 'lucide-react'
 
 interface Prefill {
@@ -63,7 +64,7 @@ export default async function NovoEventoPage({
     .eq('user_id', user.id)
     .order('joined_at', { ascending: false })
 
-  const groups = (memberships ?? [])
+  const groups = ((memberships ?? [])
     .map((m: any) => ({ ...m.groups, role: m.role }))
     .filter(Boolean) as {
       id: string
@@ -73,9 +74,11 @@ export default async function NovoEventoPage({
       member_count: number
       category: string | null
       role: string
-    }[]
+    }[])
+    // No grupo, só o dono e os Gestores criam eventos
+    .filter((g) => canCreateGroupEvents(g.role))
 
-  // Se não tem nenhum grupo, vai direto pro evento avulso
+  // Sem grupo em que possa criar, vai direto pro evento avulso
   if (groups.length === 0) {
     redirect('/eventos/novo?group_id=none')
   }

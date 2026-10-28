@@ -195,6 +195,50 @@ export async function removeMemberAction(groupId: string, memberId: string) {
   return { success: true }
 }
 
+// O dono promove um membro a Gestor (cria eventos no grupo) ou o volta a membro
+export async function setGroupMemberRoleAction(groupId: string, memberId: string, role: 'MANAGER' | 'MEMBER') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+  if (role !== 'MANAGER' && role !== 'MEMBER') return { error: 'Papel inválido.' }
+
+  const { data: ownership } = await supabase
+    .from('group_members')
+    .select('role')
+    .eq('group_id', groupId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (ownership?.role !== 'OWNER') return { error: 'Apenas o dono pode promover gestores.' }
+  if (memberId === user.id) return { error: 'O dono já cria e edita eventos no grupo.' }
+
+  // O dono não muda por aqui: para isso há a transferência de liderança
+  const admin = createAdminClient()
+  const { data: updated } = await admin
+    .from('group_members')
+    .update({ role })
+    .eq('group_id', groupId)
+    .eq('user_id', memberId)
+    .neq('role', 'OWNER')
+    .select('role')
+    .maybeSingle()
+  if (!updated) return { error: 'Membro não encontrado.' }
+
+  const { data: group } = await admin.from('groups').select('name, slug').eq('id', groupId).maybeSingle()
+  await createNotificationAdmin({
+    userId: memberId,
+    type: 'GROUP_ROLE_CHANGED',
+    title: role === 'MANAGER' ? 'Você agora é gestor' : 'Você não é mais gestor',
+    body: role === 'MANAGER'
+      ? `Você pode criar e editar seus eventos no grupo "${group?.name ?? ''}".`
+      : `Você voltou a ser membro do grupo "${group?.name ?? ''}".`,
+    data: { group_id: groupId, group_slug: group?.slug ?? null },
+  })
+
+  revalidatePath(`/grupos/${group?.slug ?? groupId}`)
+  revalidatePath(`/grupos/${group?.slug ?? groupId}/configuracoes`)
+  return { success: true }
+}
+
 export async function requestGroupJoinAction(groupId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -39,6 +39,7 @@ import { OrganizerChecklist } from '@/features/eventos/components/OrganizerCheck
 import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload'
 import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isGroupOwner } from '@/features/eventos/permissions'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Suspense } from 'react'
@@ -183,6 +184,8 @@ export default async function EventDetailPage({
   const canUploadPhoto = isConfirmedParticipant || event.is_organizer
   const userRating = canRate ? await getUserRating(id, user.id) : null
   const showRequests = event.is_organizer && eventVisibilityField !== 'PUBLIC'
+  // Dono do grupo edita e cancela os eventos dos gestores do grupo
+  const isGroupOwnerOnly = !event.is_organizer && (await isGroupOwner(supabase, event.group_id ?? null, user.id))
   const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
 
   // Fila de espera
@@ -390,6 +393,20 @@ export default async function EventDetailPage({
                 isFull={isFull}
                 userId={user.id}
               />
+            )}
+            {isGroupOwnerOnly && (
+              <OrganizerActions event={{
+                id: event.id,
+                status: event.status,
+                title: event.title,
+                group_id: event.group_id ?? undefined,
+                address: event.address ?? undefined,
+                city: event.city ?? undefined,
+                price: event.price,
+                capacity: event.capacity,
+                min_participants: event.min_participants,
+                confirmed_count: event.confirmed_count,
+              }} />
             )}
             {!event.is_organizer && event.user_participation_status === 'CONFIRMED' && isOpen &&
               (event as any).cancel_before_hours !== null && (event as any).cancel_before_hours !== undefined && (

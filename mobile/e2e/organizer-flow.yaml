@@ -152,9 +152,11 @@ appId: ${APP_ID}
     element: "O título precisa ter de 3 a 40 caracteres."
 # Endereço primeiro: o título fica no topo e, com o teclado aberto, a rolagem
 # deixaria o endereço atrás do cabeçalho
+# O endereço fica logo abaixo de "Onde criar" e "Informações básicas"
 - scrollUntilVisible:
-    element: "Local"
-    direction: UP
+    element:
+      id: "form-address"
+    direction: DOWN
     centerElement: true
 - tapOn:
     id: "form-address"

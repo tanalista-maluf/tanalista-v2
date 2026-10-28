@@ -6,6 +6,7 @@ import { EventCard } from '@/features/eventos/components/EventCard'
 import { JoinGroupButton } from '@/features/grupos/components/JoinGroupButton'
 import { LeaveGroupButton } from '@/features/grupos/components/LeaveGroupButton'
 import { MemberList } from '@/features/grupos/components/MemberList'
+import { canCreateGroupEvents } from '@/features/grupos/roles'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -86,6 +87,8 @@ export default async function GroupDetailPage({
   }
 
   const isPrivateNonMember = group.visibility === 'PRIVATE' && !group.is_member
+  // Dono e Gestores criam eventos no grupo
+  const canCreateEvents = canCreateGroupEvents(group.user_role)
 
   const [members, upcomingResult, pastResult] = await Promise.all([
     isPrivateNonMember ? Promise.resolve([]) : getGroupMembers(group.id),
@@ -164,7 +167,7 @@ export default async function GroupDetailPage({
             />
           )}
           {group.is_member && !group.is_owner && <LeaveGroupButton groupId={group.id} />}
-          {group.is_owner && (
+          {canCreateEvents && (
             <Link
               href={`/eventos/novo?group_id=${group.id}`}
               className={cn(buttonVariants({ size: 'sm' }))}
@@ -221,7 +224,7 @@ export default async function GroupDetailPage({
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-white">Próximos eventos</h3>
-              {group.is_owner && (
+              {canCreateEvents && (
                 <Link href={`/eventos/novo?group_id=${group.id}`} className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors">
                   <Plus className="size-3.5" />Criar
                 </Link>
@@ -231,7 +234,7 @@ export default async function GroupDetailPage({
               <div className="card-dark rounded-2xl p-6 text-center space-y-3">
                 <Calendar className="size-8 mx-auto text-white/15" />
                 <p className="text-sm text-white/30">Nenhum evento agendado.</p>
-                {group.is_owner && (
+                {canCreateEvents && (
                   <Link
                     href={`/eventos/novo?group_id=${group.id}`}
                     className={cn(buttonVariants({ size: 'sm' }), 'mx-auto')}

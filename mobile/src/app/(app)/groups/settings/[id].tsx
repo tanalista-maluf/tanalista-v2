@@ -122,7 +122,21 @@ export default function GroupSettingsScreen() {
 
   function memberActions(member: Member) {
     const name = member.profiles?.full_name ?? 'Membro'
-    Alert.alert(name, undefined, [
+    const isManager = member.role === 'MANAGER'
+    Alert.alert(name, isManager ? 'Gestor: cria e edita os próprios eventos no grupo.' : undefined, [
+      // Gestor cria e edita os próprios eventos no grupo
+      {
+        text: isManager ? 'Remover gestor' : 'Tornar gestor',
+        onPress: async () => {
+          await act(
+            member.user_id,
+            'setGroupMemberRole',
+            [id, member.user_id, isManager ? 'MEMBER' : 'MANAGER'],
+            isManager ? `${name} voltou a ser membro.` : `${name} agora é gestor.`
+          )
+          await load()
+        },
+      },
       {
         text: 'Tornar dono do grupo',
         onPress: () =>
@@ -241,7 +255,14 @@ export default function GroupSettingsScreen() {
                   <Text style={styles.rowTitle}>{member.profiles?.full_name ?? 'Membro'}</Text>
                   {member.profiles?.username ? <Text style={styles.detail}>@{member.profiles.username}</Text> : null}
                 </View>
-                {member.role === 'OWNER' ? <Badge label="Dono" tone="primary" /> : <Text style={styles.detail}>Opções</Text>}
+                {member.role === 'OWNER' ? (
+                  <Badge label="Dono" tone="primary" />
+                ) : (
+                  <View style={styles.memberEnd}>
+                    {member.role === 'MANAGER' && <Badge label="Gestor" tone="muted" />}
+                    <Text style={styles.detail}>Opções</Text>
+                  </View>
+                )}
               </Pressable>
             ))}
           </Section>
@@ -338,6 +359,7 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, gap: 2 },
   rowTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
   detail: { fontFamily: fonts.body, fontSize: 12, color: colors.text50 },
+  memberEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   area: {
     minHeight: 90,
     padding: 12,

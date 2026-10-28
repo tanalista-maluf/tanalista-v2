@@ -25,6 +25,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { CancelEventDialog } from '@/components/cancel-event-dialog'
 import { headerActions } from '@/components/header-actions'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -50,6 +51,7 @@ import {
   joinWaitlist,
   leaveWaitlist,
   requestEventJoin,
+  runAction,
   type EventExtras,
   type EventTeam,
 } from '@/lib/api'
@@ -76,6 +78,7 @@ type EventDetail = {
   status: string
   visibility: string
   organizer_id: string
+  group_id: string | null
   cancel_before_hours: number | null
   organizer_exempt: boolean
   cover_url: string | null
@@ -101,7 +104,7 @@ async function fetchEvent(eventId: string, userId: string) {
     supabase
       .from('events')
       .select(
-        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, groups(name), profiles!events_organizer_id_fkey(full_name)'
+        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, group_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, groups(name), profiles!events_organizer_id_fkey(full_name)'
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -122,10 +125,23 @@ async function fetchEvent(eventId: string, userId: string) {
     fetchEventExtras(eventId),
   ])
 
+  // O dono do grupo edita e cancela os eventos dos gestores
+  let isGroupOwner = false
+  if (event?.group_id && event.organizer_id !== userId) {
+    const { data: membership } = await supabase
+      .from('group_members')
+      .select('role')
+      .eq('group_id', event.group_id)
+      .eq('user_id', userId)
+      .maybeSingle()
+    isGroupOwner = membership?.role === 'OWNER'
+  }
+
   // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
   const active = participation && participation.status !== 'CANCELLED' ? participation : null
   return {
     event: event as EventDetail | null,
+    isGroupOwner,
     participation: active as Participation | null,
     entry: entry as WaitlistEntry | null,
     teams: 'teams' in teams ? teams.teams : [],
@@ -153,9 +169,12 @@ export default function EventScreen() {
   const [joining, setJoining] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [isGroupOwner, setIsGroupOwner] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   const apply = useCallback((result: Awaited<ReturnType<typeof fetchEvent>>) => {
     setEvent(result.event)
+    setIsGroupOwner(result.isGroupOwner)
     setParticipation(result.participation)
     setEntry(result.entry)
     setTeams(result.teams)
@@ -282,6 +301,23 @@ export default function EventScreen() {
     setJoining(false)
   }
 
+  // Dono do grupo, em evento de um gestor: edita ou cancela
+  function ownerOptions() {
+    Alert.alert('Evento do grupo', 'Como dono do grupo, você pode editar ou cancelar este evento.', [
+      { text: 'Editar evento', onPress: () => router.push({ pathname: '/event-form', params: { mode: 'edit', eventId: id } }) },
+      { text: 'Cancelar evento', style: 'destructive', onPress: () => setCancelOpen(true) },
+      { text: 'Voltar', style: 'cancel' },
+    ])
+  }
+
+  async function cancelAsOwner() {
+    setCancelOpen(false)
+    setMessage(null)
+    const result = await runAction('cancelEvent', id)
+    if ('error' in result) setMessage(result.error)
+    await reload()
+  }
+
   function confirmLeaveWaitlist(reserved: boolean) {
     Alert.alert(
       reserved ? 'Recusar a vaga?' : 'Sair da fila?',
@@ -393,7 +429,16 @@ export default function EventScreen() {
                     onPress: () => router.push({ pathname: '/manage/[eventId]', params: { eventId: id } }),
                   },
                 ]
-              : []),
+              : isGroupOwner && !['COMPLETED', 'CANCELLED'].includes(event.status)
+                ? [
+                    {
+                      testID: 'group-owner-options',
+                      label: 'Opções do dono do grupo',
+                      icon: <Settings2 size={20} color={colors.text70} />,
+                      onPress: ownerOptions,
+                    },
+                  ]
+                : []),
             {
               testID: 'share',
               label: 'Compartilhar evento',
@@ -736,6 +781,16 @@ export default function EventScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+      {isGroupOwner && (
+        <CancelEventDialog
+          visible={cancelOpen}
+          title={event.title}
+          confirmedCount={event.confirmed_count}
+          refundLabel={null}
+          onClose={() => setCancelOpen(false)}
+          onConfirm={cancelAsOwner}
+        />
+      )}
     </Screen>
   )
 }

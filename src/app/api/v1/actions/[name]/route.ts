@@ -34,6 +34,7 @@ import {
   joinGroupByInviteAction,
   regenerateInviteTokenAction,
   removeMemberAction,
+  setGroupMemberRoleAction,
   requestGroupJoinAction,
   sendGroupBroadcastAction,
   transferGroupOwnershipAction,
@@ -117,6 +118,8 @@ const HANDLERS: Record<string, Handler> = {
   joinGroupByInvite: ([token]) => joinGroupByInviteAction(text(token)),
   regenerateGroupInvite: ([groupId]) => regenerateInviteTokenAction(text(groupId)),
   removeGroupMember: ([groupId, memberId]) => removeMemberAction(text(groupId), text(memberId)),
+  setGroupMemberRole: ([groupId, memberId, role]) =>
+    setGroupMemberRoleAction(text(groupId), text(memberId), text(role) === 'MANAGER' ? 'MANAGER' : 'MEMBER'),
   requestGroupJoin: ([groupId]) => requestGroupJoinAction(text(groupId)),
   deleteEventPhoto: ([photoId, eventId]) => deleteEventPhotoAction(text(photoId), text(eventId)),
   groupPreview: async ([slug], user) => (await getGroupPreview(text(slug), user.id)) ?? { error: 'Grupo não encontrado.' },
