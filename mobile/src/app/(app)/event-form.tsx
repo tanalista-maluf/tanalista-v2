@@ -1,7 +1,9 @@
+import { Image } from 'expo-image'
+import * as ImagePicker from 'expo-image-picker'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import { Minus, Plus } from 'lucide-react-native'
+import { ImagePlus, Minus, Plus } from 'lucide-react-native'
 import { useEffect, useState, type ReactNode } from 'react'
-import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DateTimeField } from '@/components/date-time-field'
 import { Dropdown } from '@/components/dropdown'
@@ -68,14 +70,20 @@ function defaultStart() {
 }
 
 // Evento criado, editado ou duplicado: o site responde com o endereço da
-// página nova (/eventos/<slug>); o app abre o evento pelo id
-async function openEvent(path: string) {
+// página nova (/eventos/<slug>); o app acha o evento pelo id ou pelo slug
+async function eventIdFrom(path: string) {
   const key = path.split('/').pop() ?? ''
   const isId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
   const { data } = await supabase.from('events').select('id').eq(isId ? 'id' : 'slug', key).maybeSingle()
-  if (data) router.replace({ pathname: '/events/[id]', params: { id: data.id } })
+  return data?.id ?? null
+}
+
+function openEvent(id: string | null) {
+  if (id) router.replace({ pathname: '/events/[id]', params: { id } })
   else router.back()
 }
+
+type Cover = { uri: string; base64: string; mimeType: string }
 
 // mode: create (novo, opcionalmente num grupo), edit ou duplicate (a partir de eventId)
 export default function EventFormScreen() {
@@ -111,6 +119,9 @@ export default function EventFormScreen() {
   const [recurrence, setRecurrence] = useState<(typeof RECURRENCES)[number]['value']>('none')
   const [recurrenceCount, setRecurrenceCount] = useState(4)
   const [teams, setTeams] = useState<Team[]>([])
+  // Capa já salva (na edição) e a escolhida agora, enviada depois de salvar
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [cover, setCover] = useState<Cover | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState<'draft' | 'publish' | null>(null)
   // Times e repetição: ao criar, ao duplicar e num rascunho
@@ -131,7 +142,7 @@ export default function EventFormScreen() {
     supabase
       .from('events')
       .select(
-        'title, description, address, city, category, price, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
+        'title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
       )
       .eq('id', params.eventId)
       .maybeSingle()
@@ -159,6 +170,7 @@ export default function EventFormScreen() {
             setStartsAt(new Date(data.starts_at))
             setEndsAt(data.ends_at ? new Date(data.ends_at) : null)
             setDeadline(new Date(data.registration_deadline))
+            setCoverUrl(data.cover_url)
             setLocked(data.status !== 'DRAFT')
             setIsDraft(data.status === 'DRAFT')
             // Rascunho de série: a repetição volta como foi salva
@@ -181,6 +193,29 @@ export default function EventFormScreen() {
   function changeStart(value: Date | null) {
     setStartsAt(value)
     if (value) setDeadline(new Date(value.getTime() - 2 * 60 * 60 * 1000))
+  }
+
+  async function pickCover() {
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      // a capa vai até 1MB no servidor
+      quality: 0.4,
+      base64: true,
+    })
+    if (picked.canceled || !picked.assets[0].base64) return
+    const asset = picked.assets[0]
+    setCover({ uri: asset.uri, base64: asset.base64!, mimeType: asset.mimeType ?? 'image/jpeg' })
+  }
+
+  // O evento já está salvo; se a capa falhar, ela pode ser trocada no painel
+  async function uploadCover(eventId: string | null) {
+    if (!cover || !eventId) return
+    const result = await runAction('uploadEventCover', eventId, { base64: cover.base64, mimeType: cover.mimeType })
+    if ('error' in result) {
+      Alert.alert('Evento salvo, mas a capa não foi enviada', `${result.error} Tente de novo em Gerenciar evento > Capa.`)
+    }
   }
 
   // Mesmas regras do site (src/features/eventos/schemas.ts); o servidor confere de novo
@@ -254,6 +289,9 @@ export default function EventFormScreen() {
       return
     }
 
+    const eventId = mode === 'edit' ? params.eventId! : await eventIdFrom(result.redirect)
+    await uploadCover(eventId)
+
     // Rascunho editado e publicado de uma vez
     if (editingDraft && !asDraft) {
       const published = await runAction('publishEvent', params.eventId)
@@ -262,7 +300,7 @@ export default function EventFormScreen() {
         setError(published.error)
         return
       }
-      await openEvent(params.eventId!)
+      openEvent(eventId)
       return
     }
 
@@ -274,7 +312,7 @@ export default function EventFormScreen() {
 
     // A edição volta para onde foi aberta (o painel do organizador); evento novo abre a página dele
     if (mode === 'edit') router.back()
-    else await openEvent(result.redirect)
+    else openEvent(eventId)
   }
 
   const titleText = editingDraft
@@ -333,6 +371,34 @@ export default function EventFormScreen() {
                   ? 'Os membros do grupo são avisados quando o evento for publicado.'
                   : 'Fica fora de qualquer grupo. Na lista aparecem os grupos em que você é dono ou gestor.'}
             </Text>
+          </Section>
+
+          <Section title="Foto de capa">
+            <Pressable
+              testID="form-cover"
+              accessibilityRole="button"
+              accessibilityLabel={cover || coverUrl ? 'Trocar foto de capa' : 'Adicionar foto de capa'}
+              onPress={pickCover}
+              disabled={saving !== null}>
+              {cover || coverUrl ? (
+                <View>
+                  <Image source={cover?.uri ?? coverUrl} style={styles.cover} contentFit="cover" />
+                  <View style={styles.coverBadge}>
+                    <ImagePlus size={14} color="#FFFFFF" />
+                    <Text style={styles.coverBadgeText}>Trocar</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.cover, styles.coverEmpty]}>
+                  <ImagePlus size={26} color={colors.primary} />
+                  <Text style={styles.coverText}>Adicionar foto de capa</Text>
+                  <Text style={styles.hint}>Opcional. Aparece no topo do evento.</Text>
+                </View>
+              )}
+            </Pressable>
+            {cover && recurrence !== 'none' && canShape && (
+              <Text style={styles.hint}>A mesma capa vale para todos os eventos da série.</Text>
+            )}
           </Section>
 
           <Section title="Informações básicas">
@@ -697,6 +763,29 @@ const styles = StyleSheet.create({
   },
   draftText: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.primary },
   dim: { opacity: 0.6 },
+  cover: { height: 170, borderRadius: 14, backgroundColor: colors.input },
+  coverEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(74,222,128,0.35)',
+  },
+  coverText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
+  coverBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  coverBadgeText: { fontFamily: fonts.bodySemi, fontSize: 12, color: '#FFFFFF' },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
     gap: 10,

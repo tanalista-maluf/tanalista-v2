@@ -793,13 +793,16 @@ export async function uploadEventCoverAction(formData: FormData) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('organizer_id, slug')
+    .select('organizer_id, group_id, slug, cover_url')
     .eq('id', eventId)
     .maybeSingle()
 
-  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+  if (!event || !(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  // O app manda o arquivo sem extensão no nome: usa o tipo da imagem
+  const ext = file.name.includes('.')
+    ? file.name.split('.').pop()!.toLowerCase()
+    : (file.type.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg')
   const path = `event-covers/${eventId}/cover.${ext}`
 
   const admin = createAdminClient()
@@ -818,6 +821,10 @@ export async function uploadEventCoverAction(formData: FormData) {
     .eq('id', eventId)
 
   if (dbError) return { error: 'Erro ao salvar URL da capa.' }
+
+  // Os próximos eventos da série acompanham, salvo os que ganharam capa própria
+  const children = admin.from('events').update({ cover_url: coverUrl }).eq('parent_event_id', eventId)
+  await (event.cover_url ? children.or(`cover_url.is.null,cover_url.eq."${event.cover_url}"`) : children.is('cover_url', null))
 
   revalidatePath(`/eventos/${event.slug ?? eventId}`)
   return { success: true, coverUrl }
