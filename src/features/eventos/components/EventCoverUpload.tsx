@@ -91,7 +91,8 @@ export function EventCoverUpload({ eventId, currentCoverUrl }: Props) {
             <>
               <ImagePlus className="size-7 text-white/25" />
               <p className="text-sm text-white/40">Adicionar foto de capa</p>
-              <p className="text-xs text-white/20">JPG, PNG ou WebP · máx. 1 MB</p>
+              <p className="text-xs text-white/20">JPG, PNG ou WebP · 1600 × 900 px · máx. 1 MB</p>
+              <p className="text-xs text-white/20 px-6 text-center">Deixe textos e rostos no centro: as bordas de cima e de baixo podem ser cortadas.</p>
             </>
           )}
         </div>

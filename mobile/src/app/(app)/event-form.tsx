@@ -396,6 +396,10 @@ export default function EventFormScreen() {
                 </View>
               )}
             </Pressable>
+            <Text style={styles.hint}>
+              Tamanho ideal: 1600 × 900 pixels, até 1 MB. Cada tela recorta a capa de um jeito: deixe textos, logos e
+              rostos no centro da imagem, longe das bordas de cima e de baixo, para não serem cortados.
+            </Text>
             {cover && recurrence !== 'none' && canShape && (
               <Text style={styles.hint}>A mesma capa vale para todos os eventos da série.</Text>
             )}
