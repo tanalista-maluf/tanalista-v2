@@ -41,8 +41,7 @@ import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isGroupOwner } from '@/features/eventos/permissions'
 import { attachProfiles } from '@/features/perfil/attach-profiles'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { getBRDateShort, getBRWeekday, getBRTime, getBRDateTimeLong } from '@/utils/datetime'
 import { Suspense } from 'react'
 
 export default async function EventDetailPage({
@@ -288,13 +287,13 @@ export default async function EventDetailPage({
         <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.02]">
           <div className="px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Data</p>
-            <p className="text-[12px] font-bold text-white mt-0.5">{format(new Date(event.starts_at), "dd/MM", { locale: ptBR })}</p>
-            <p className="text-[10px] text-white/40">{format(new Date(event.starts_at), "EEEE", { locale: ptBR })}</p>
+            <p className="text-[12px] font-bold text-white mt-0.5">{getBRDateShort(event.starts_at)}</p>
+            <p className="text-[10px] text-white/40">{getBRWeekday(event.starts_at)}</p>
           </div>
           <div className="px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Horário</p>
-            <p className="text-[12px] font-bold text-white mt-0.5">{format(new Date(event.starts_at), "HH:mm")}</p>
-            {event.ends_at && <p className="text-[10px] text-white/40">até {format(new Date(event.ends_at), "HH:mm")}</p>}
+            <p className="text-[12px] font-bold text-white mt-0.5">{getBRTime(event.starts_at)}</p>
+            {event.ends_at && <p className="text-[10px] text-white/40">até {getBRTime(event.ends_at)}</p>}
           </div>
           <div className="px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Vagas</p>
@@ -426,7 +425,7 @@ export default async function EventDetailPage({
         {isOpen && (
           <p className="text-[11px] text-white/25 mt-3">
             Inscrições até{' '}
-            <span className="text-white/40">{format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            <span className="text-white/40">{getBRDateTimeLong(event.registration_deadline)}</span>
           </p>
         )}
 

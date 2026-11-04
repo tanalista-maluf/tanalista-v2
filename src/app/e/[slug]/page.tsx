@@ -2,9 +2,8 @@ import { notFound } from 'next/navigation'
 import { getPublicEvent } from '@/features/eventos/queries-public'
 import { EventCountdown } from '@/features/eventos/components/EventCountdown'
 import { formatPrice, formatDateTime } from '@/utils/format'
+import { getBRDateTimeLong } from '@/utils/datetime'
 import { MapPin, Calendar, Users, Clock, Share2 } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
@@ -190,7 +189,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       {isOpen && !isPast && (
         <p className="text-xs text-white/30 text-center">
           Inscrições até{' '}
-          {format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          {getBRDateTimeLong(event.registration_deadline)}
         </p>
       )}
 

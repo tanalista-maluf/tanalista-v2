@@ -64,7 +64,7 @@ export function DraftEvents({ drafts }: { drafts: DraftEvent[] }) {
           <div className="space-y-1">
             <p className="font-semibold text-white truncate">{draft.title}</p>
             <p className="text-xs text-white/50">
-              {new Date(draft.starts_at).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' })} · {draft.city}
+              {new Date(draft.starts_at).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })} · {draft.city}
             </p>
             {draft.seriesSize > 1 && (
               <p className="flex items-center gap-1.5 text-xs text-primary">

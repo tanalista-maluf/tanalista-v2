@@ -1,7 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatPrice } from '@/utils/format'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { getBRDateShortYear2 } from '@/utils/datetime'
 import { Constants } from '@/types/database'
 import { PurgeCancelledButton } from '@/features/admin/components/PurgeCancelledButton'
 
@@ -105,7 +104,7 @@ export default async function AdminEventosPage({
                     @{ev.profiles?.username ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-right text-white/40 text-xs">
-                    {format(new Date(ev.starts_at), 'dd/MM/yy', { locale: ptBR })}
+                    {getBRDateShortYear2(ev.starts_at)}
                   </td>
                   <td className="px-4 py-3 text-right text-white/50 text-xs">
                     {ev.confirmed_count}/{ev.capacity}

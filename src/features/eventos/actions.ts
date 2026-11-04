@@ -429,7 +429,12 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
         `Data e local de "${data.title}" foram alterados. Confira os novos detalhes.`
       )
     } else if (dateChanged) {
-      const newDate = new Date(data.starts_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+      // data.starts_at vem do input datetime-local ("AAAA-MM-DDTHH:mm"), já no
+      // horário de Brasília digitado pelo organizador — só reordena os dígitos,
+      // sem passar por Date (que o interpretaria como UTC e voltaria errado).
+      const [datePart, timePart] = data.starts_at.split('T')
+      const [y, m, d] = datePart.split('-')
+      const newDate = `${d}/${m}/${y} ${timePart}`
       await notifyParticipants(
         'Data do evento alterada',
         `"${data.title}" foi reagendado para ${newDate}.`
