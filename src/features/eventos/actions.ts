@@ -16,8 +16,20 @@ import { changeTeam } from './teams'
 import { minCheckAt } from './min-check'
 import { canEditEvent } from './permissions'
 import { canCreateGroupEvents } from '@/features/grupos/roles'
+import { fromLocalInput } from '@/lib/timezone'
 
 // Preço em string "R$ xx,xx" → centavos
+// Datas do formulário do site chegam sem fuso ("2026-11-08T07:30"): são
+// horário de Brasília. Sem isto, o banco as gravava como UTC.
+function withUtcDates(data: EventSchema): EventSchema {
+  return {
+    ...data,
+    starts_at: fromLocalInput(data.starts_at),
+    ends_at: data.ends_at ? fromLocalInput(data.ends_at) : data.ends_at,
+    registration_deadline: fromLocalInput(data.registration_deadline),
+  }
+}
+
 function parsePriceToCents(price: string): number {
   return Math.round(parseFloat(price.replace(',', '.')) * 100)
 }
@@ -195,7 +207,8 @@ async function notifyGroupNewEvent(params: {
   )
 }
 
-export async function createEventAction(data: EventSchema) {
+export async function createEventAction(input: EventSchema) {
+  const data = withUtcDates(input)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
@@ -267,7 +280,8 @@ export async function createEventAction(data: EventSchema) {
   redirect(`/eventos/${event.slug ?? event.id}`)
 }
 
-export async function updateEventAction(eventId: string, data: EventSchema) {
+export async function updateEventAction(eventId: string, input: EventSchema) {
+  const data = withUtcDates(input)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
