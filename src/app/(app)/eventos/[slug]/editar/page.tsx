@@ -6,6 +6,7 @@ import { canEditEvent } from '@/features/eventos/permissions'
 import { EventForm } from '@/features/eventos/components/EventForm'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import Link from 'next/link'
+import { toLocalInput } from '@/lib/timezone'
 import { ChevronLeft, Ticket } from 'lucide-react'
 
 function centsToPriceString(cents: number): string {
@@ -77,9 +78,9 @@ export default async function EditarEventoPage({
           price: centsToPriceString(event.price),
           capacity: event.capacity,
           min_participants: event.min_participants,
-          starts_at: event.starts_at.slice(0, 16),
-          ends_at: event.ends_at?.slice(0, 16) ?? '',
-          registration_deadline: event.registration_deadline.slice(0, 16),
+          starts_at: toLocalInput(event.starts_at),
+          ends_at: event.ends_at ? toLocalInput(event.ends_at) : '',
+          registration_deadline: toLocalInput(event.registration_deadline),
           organizer_exempt: event.organizer_exempt,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
