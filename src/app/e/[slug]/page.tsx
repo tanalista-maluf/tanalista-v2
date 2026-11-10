@@ -178,20 +178,20 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       </div>
 
       {/* Participantes confirmados */}
-      {event.confirmed_participants.length > 0 && (
-        <div className="card-dark rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Quem vai</p>
-            <a
-              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              <UserPlus className="size-3.5" />
-              Convide alguém
-            </a>
-          </div>
+      <div className="card-dark rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Quem vai</p>
+          <a
+            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            <UserPlus className="size-3.5" />
+            Convide alguém
+          </a>
+        </div>
+        {event.confirmed_participants.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {event.confirmed_participants.map((p, i) => (
               <div key={i} className="flex items-center gap-1.5">
@@ -219,8 +219,10 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
               </div>
             )}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-white/40">Ainda ninguém confirmado — seja o primeiro a convidar!</p>
+        )}
+      </div>
 
       {/* Descrição */}
       {event.description && (
