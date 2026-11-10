@@ -11,6 +11,7 @@ import {
   MapPin,
   Settings2,
   Share2,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react-native'
@@ -57,7 +58,8 @@ import {
 } from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
-import { shareLink } from '@/lib/share'
+import { buildInviteMessage } from '@/lib/invite-message'
+import { shareLink, shareText } from '@/lib/share'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -444,6 +446,20 @@ export default function EventScreen() {
               label: 'Compartilhar evento',
               icon: <Share2 size={20} color={colors.text70} />,
               onPress: () => shareLink(event.title, `/e/${event.slug ?? event.id}`),
+            },
+            {
+              testID: 'invite',
+              label: 'Convide alguém',
+              icon: <UserPlus size={20} color={colors.primary} />,
+              onPress: () =>
+                shareText(
+                  buildInviteMessage(
+                    event,
+                    extras?.participants ?? [],
+                    teams,
+                    `https://www.tanalista.app/e/${event.slug ?? event.id}`,
+                  ),
+                ),
             },
           ]),
         }}

@@ -13,3 +13,13 @@ export async function shareLink(title: string, path: string) {
     // A pessoa fechou a folha de compartilhamento, ou o sistema não tem uma
   }
 }
+
+// Mensagem já pronta (ex.: convite com a lista de participantes), com o link
+// incluído no próprio texto — por isso não usa o campo `url` separado do iOS.
+export async function shareText(message: string) {
+  try {
+    await Share.share({ message })
+  } catch {
+    // A pessoa fechou a folha de compartilhamento, ou o sistema não tem uma
+  }
+}
