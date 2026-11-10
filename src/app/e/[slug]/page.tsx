@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { getPublicEvent } from '@/features/eventos/queries-public'
 import { EventCountdown } from '@/features/eventos/components/EventCountdown'
 import { formatPrice, formatDateTime } from '@/utils/format'
-import { MapPin, Calendar, Users, Clock, Share2 } from 'lucide-react'
+import { MapPin, Calendar, Users, Clock, Share2, UserPlus } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -13,6 +13,36 @@ const AVATAR_COLORS = ['bg-emerald-600', 'bg-blue-600', 'bg-purple-600', 'bg-ora
 function colorFor(name: string) {
   let h = 0; for (const c of name) h = c.charCodeAt(0) + ((h << 5) - h)
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
+}
+
+function buildParticipantsListText(event: {
+  confirmed_all: Array<{ name: string; teamId: string | null }>
+  teams: Array<{ id: string; name: string }>
+}) {
+  const firstName = (full: string) => full.split(' ')[0]
+  const byTeam = new Map<string, string[]>()
+  const noTeam: string[] = []
+
+  for (const p of event.confirmed_all) {
+    const n = firstName(p.name)
+    if (p.teamId) {
+      if (!byTeam.has(p.teamId)) byTeam.set(p.teamId, [])
+      byTeam.get(p.teamId)!.push(n)
+    } else {
+      noTeam.push(n)
+    }
+  }
+
+  if (event.teams.length > 0) {
+    const lines = event.teams
+      .map(t => ({ name: t.name, names: byTeam.get(t.id) ?? [] }))
+      .filter(t => t.names.length > 0)
+      .map(t => `${t.name}: ${t.names.join(', ')}`)
+    if (noTeam.length > 0) lines.push(`Sem time: ${noTeam.join(', ')}`)
+    return lines.join('\n')
+  }
+
+  return noTeam.join(', ')
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -62,6 +92,16 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
   const occupancyPct = Math.round((event.confirmed_count / event.capacity) * 100)
 
   const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${event.slug ?? id}`
+
+  const participantsListText = buildParticipantsListText(event)
+  const inviteMessage = [
+    `Quem já confirmou no "${event.title}":`,
+    '',
+    participantsListText || 'Ainda ninguém confirmado — seja o primeiro!',
+    '',
+    `📅 ${formatDateTime(event.starts_at)} · 📍 ${event.city}`,
+    `👉 Inscreva-se: ${shareUrl}`,
+  ].join('\n')
 
   return (
     <main className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-24">
@@ -140,7 +180,18 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       {/* Participantes confirmados */}
       {event.confirmed_participants.length > 0 && (
         <div className="card-dark rounded-2xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Quem vai</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Quem vai</p>
+            <a
+              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              <UserPlus className="size-3.5" />
+              Convide alguém
+            </a>
+          </div>
           <div className="flex flex-wrap gap-2">
             {event.confirmed_participants.map((p, i) => (
               <div key={i} className="flex items-center gap-1.5">
