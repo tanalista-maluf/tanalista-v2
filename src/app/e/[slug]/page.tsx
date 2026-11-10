@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getPublicEvent } from '@/features/eventos/queries-public'
+import { buildInviteMessage } from '@/features/eventos/invite-message'
 import { EventCountdown } from '@/features/eventos/components/EventCountdown'
 import { formatPrice, formatDateTime } from '@/utils/format'
 import { MapPin, Calendar, Users, Clock, Share2, UserPlus } from 'lucide-react'
@@ -13,36 +14,6 @@ const AVATAR_COLORS = ['bg-emerald-600', 'bg-blue-600', 'bg-purple-600', 'bg-ora
 function colorFor(name: string) {
   let h = 0; for (const c of name) h = c.charCodeAt(0) + ((h << 5) - h)
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
-}
-
-function buildParticipantsListText(event: {
-  confirmed_all: Array<{ name: string; teamId: string | null }>
-  teams: Array<{ id: string; name: string }>
-}) {
-  const firstName = (full: string) => full.split(' ')[0]
-  const byTeam = new Map<string, string[]>()
-  const noTeam: string[] = []
-
-  for (const p of event.confirmed_all) {
-    const n = firstName(p.name)
-    if (p.teamId) {
-      if (!byTeam.has(p.teamId)) byTeam.set(p.teamId, [])
-      byTeam.get(p.teamId)!.push(n)
-    } else {
-      noTeam.push(n)
-    }
-  }
-
-  if (event.teams.length > 0) {
-    const lines = event.teams
-      .map(t => ({ name: t.name, names: byTeam.get(t.id) ?? [] }))
-      .filter(t => t.names.length > 0)
-      .map(t => `${t.name}: ${t.names.join(', ')}`)
-    if (noTeam.length > 0) lines.push(`Sem time: ${noTeam.join(', ')}`)
-    return lines.join('\n')
-  }
-
-  return noTeam.join(', ')
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -93,15 +64,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
 
   const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${event.slug ?? id}`
 
-  const participantsListText = buildParticipantsListText(event)
-  const inviteMessage = [
-    `Quem já confirmou no "${event.title}":`,
-    '',
-    participantsListText || 'Ainda ninguém confirmado — seja o primeiro!',
-    '',
-    `📅 ${formatDateTime(event.starts_at)} · 📍 ${event.city}`,
-    `👉 Inscreva-se: ${shareUrl}`,
-  ].join('\n')
+  const inviteMessage = buildInviteMessage(event, shareUrl)
 
   return (
     <main className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-24">

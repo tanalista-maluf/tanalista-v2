@@ -22,7 +22,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
-import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket, UserPlus } from 'lucide-react'
+import { buildInviteMessage } from '@/features/eventos/invite-message'
+import { getParticipants } from '@/features/participacoes/queries'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import { EventBroadcastForm } from '@/features/eventos/components/EventBroadcastForm'
 import { EventInviteButton } from '@/features/eventos/components/EventInviteButton'
@@ -74,14 +76,26 @@ export default async function EventDetailPage({
   const id = event.id // UUID para queries
   const eventSlug = event.slug ?? event.id // slug para URLs
 
-  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
+  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }, participants] = await Promise.all([
     getEventComments(id),
     getEventPolls(id, user.id),
     getEventRatingSummary(id),
     getEventPhotos(id),
     getEventStorageUsage(id),
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
+    getParticipants(id),
   ])
+
+  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${eventSlug}`
+  const inviteMessage = buildInviteMessage({
+    title: event.title,
+    city: event.city,
+    starts_at: event.starts_at,
+    confirmed_all: participants
+      .filter(p => p.status === 'CONFIRMED')
+      .map(p => ({ name: p.profiles?.full_name ?? '?', teamId: p.team_id })),
+    teams: (teamsRaw ?? []).map(t => ({ id: t.id, name: t.name })),
+  }, shareUrl)
 
   // Bloquear acesso a eventos restritos sem permissão
   const eventVisibility = (event as any).visibility ?? 'PUBLIC'
@@ -343,6 +357,15 @@ export default async function EventDetailPage({
               eventId={id}
             />
             <ShareEventButton eventId={eventSlug} />
+            <a
+              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-white/60 hover:text-primary hover:border-primary/30 hover:bg-primary/8 transition-colors"
+            >
+              <UserPlus className="size-3.5" />
+              Convide alguém
+            </a>
           </div>
         </div>
 
