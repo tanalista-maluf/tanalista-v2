@@ -1,4 +1,5 @@
-import { formatDateTime } from '@/utils/format'
+import { format as dateFnsFormat } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 type InviteEvent = {
   title: string
@@ -23,26 +24,33 @@ export function buildParticipantsListText(event: Pick<InviteEvent, 'confirmed_al
     }
   }
 
+  const numbered = (names: string[]) => names.map((n, i) => `${i + 1}- ${n}`).join('\n')
+
   if (event.teams.length > 0) {
-    const lines = event.teams
+    const blocks = event.teams
       .map(t => ({ name: t.name, names: byTeam.get(t.id) ?? [] }))
       .filter(t => t.names.length > 0)
-      .map(t => `${t.name}: ${t.names.join(', ')}`)
-    if (noTeam.length > 0) lines.push(`Sem time: ${noTeam.join(', ')}`)
-    return lines.join('\n')
+      .map(t => `${t.name}:\n${numbered(t.names)}`)
+    if (noTeam.length > 0) blocks.push(`Sem time:\n${numbered(noTeam)}`)
+    return blocks.join('\n\n')
   }
 
-  return noTeam.join(', ')
+  return numbered(noTeam)
 }
 
 export function buildInviteMessage(event: InviteEvent, shareUrl: string) {
   const participantsListText = buildParticipantsListText(event)
+  const startsAt = new Date(event.starts_at)
+  const dayLabel = dateFnsFormat(startsAt, "EEE, dd 'de' MMMM", { locale: ptBR })
+  const timeLabel = dateFnsFormat(startsAt, 'HH:mm', { locale: ptBR })
   return [
     `Quem já confirmou no "${event.title}":`,
     '',
     participantsListText || 'Ainda ninguém confirmado — seja o primeiro!',
     '',
-    `📅 ${formatDateTime(event.starts_at)} · 📍 ${event.city}`,
+    `📅 ${dayLabel}`,
+    `🕒 ${timeLabel}`,
+    `📍 ${event.city}`,
     `👉 Inscreva-se: ${shareUrl}`,
   ].join('\n')
 }

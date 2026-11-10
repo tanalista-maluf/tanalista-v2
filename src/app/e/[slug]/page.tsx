@@ -148,7 +148,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
             href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary/80 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/15 border border-primary/30 text-[11px] font-semibold text-primary hover:bg-primary/25 transition-colors"
           >
             <UserPlus className="size-3.5" />
             Convide alguém

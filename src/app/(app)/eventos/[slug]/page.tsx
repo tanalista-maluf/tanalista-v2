@@ -361,7 +361,7 @@ export default async function EventDetailPage({
               href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-white/60 hover:text-primary hover:border-primary/30 hover:bg-primary/8 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/15 border border-primary/30 text-xs font-semibold text-primary hover:bg-primary/25 transition-colors"
             >
               <UserPlus className="size-3.5" />
               Convide alguém
