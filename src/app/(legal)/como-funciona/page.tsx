@@ -19,6 +19,16 @@ export default function ComoFuncionaPage() {
         </p>
       </div>
 
+      <div className="rounded-2xl border border-white/10 overflow-hidden bg-black shadow-2xl max-w-xl mx-auto">
+        <video
+          src="/videos/tanalista-demo.mp4"
+          controls
+          playsInline
+          preload="metadata"
+          className="w-full aspect-[9/16] sm:aspect-video object-contain bg-black"
+        />
+      </div>
+
       <nav aria-label="Seções" className="card-dark rounded-2xl p-4">
         <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/35 mb-2">Nesta página</p>
         <ol className="grid gap-1.5 sm:grid-cols-2 text-sm">
