@@ -14,7 +14,7 @@ interface Member {
   role: string
   profiles: {
     full_name: string
-    username: string
+    username: string | null
     city: string | null
     avatar_url?: string | null
   } | null

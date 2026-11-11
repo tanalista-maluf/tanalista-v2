@@ -7,7 +7,7 @@ export interface Comment {
   user_id: string
   profiles: {
     full_name: string
-    username: string
+    username: string | null
     avatar_url: string | null
   } | null
 }
