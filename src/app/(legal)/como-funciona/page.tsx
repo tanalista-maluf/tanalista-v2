@@ -19,13 +19,13 @@ export default function ComoFuncionaPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-white/10 overflow-hidden bg-black shadow-2xl max-w-xl mx-auto">
+      <div className="w-full max-w-[320px] mx-auto rounded-2xl border border-white/10 overflow-hidden bg-black shadow-2xl">
         <video
           src="/videos/tanalista-demo.mp4"
           controls
           playsInline
           preload="metadata"
-          className="w-full aspect-[9/16] sm:aspect-video object-contain bg-black"
+          className="w-full aspect-[9/16] object-contain bg-black"
         />
       </div>
 

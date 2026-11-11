@@ -61,13 +61,13 @@ export default function TestarIOSPage() {
         </section>
 
         <section className="mx-auto max-w-xl px-4 sm:px-6 pb-14">
-          <div className="rounded-3xl border border-white/10 overflow-hidden bg-black shadow-2xl">
+          <div className="w-full max-w-[320px] mx-auto rounded-3xl border border-white/10 overflow-hidden bg-black shadow-2xl">
             <video
               src="/videos/tanalista-demo.mp4"
               controls
               playsInline
               preload="metadata"
-              className="w-full aspect-[9/16] sm:aspect-video object-contain bg-black"
+              className="w-full aspect-[9/16] object-contain bg-black"
             />
           </div>
           <p className="text-center text-xs text-white/30 mt-3">Veja o app em ação antes de instalar</p>
