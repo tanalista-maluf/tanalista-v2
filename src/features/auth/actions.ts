@@ -22,6 +22,18 @@ function isCaptchaError(error: { code?: string; message: string }) {
   return error.code === 'captcha_failed' || /captcha/i.test(error.message)
 }
 
+// Esgotou o limite de e-mails/tentativas do GoTrue — não é um erro de conta,
+// é só "espera um pouco". Ver códigos em supabase.com/docs/guides/auth/debugging/error-codes
+function rateLimitError(error: { code?: string }): string | null {
+  if (error.code === 'over_email_send_rate_limit') {
+    return 'Você já pediu isso há pouco tempo. Aguarde alguns minutos antes de tentar de novo.'
+  }
+  if (error.code === 'over_request_rate_limit') {
+    return 'Muitas tentativas seguidas. Aguarde um instante e tente de novo.'
+  }
+  return null
+}
+
 export async function loginAction(data: LoginSchema, redirectTo?: string, captchaToken?: string) {
   const supabase = await createClient()
 
@@ -33,6 +45,17 @@ export async function loginAction(data: LoginSchema, redirectTo?: string, captch
 
   if (error) {
     if (isCaptchaError(error)) return { error: CAPTCHA_ERROR }
+    const rateLimit = rateLimitError(error)
+    if (rateLimit) return { error: rateLimit }
+    if (error.code === 'email_not_confirmed') {
+      return { error: `Confirme seu e-mail antes de entrar — veja a caixa de entrada (e o spam) de ${data.email}.` }
+    }
+    if (error.code === 'user_banned') {
+      return { error: 'Esta conta está suspensa. Fale com o suporte para mais informações.' }
+    }
+    if (error.code !== 'invalid_credentials') {
+      console.error('[LOGIN]', error.code, error.message)
+    }
     return { error: 'E-mail ou senha incorretos.' }
   }
 
@@ -57,10 +80,24 @@ export async function registerAction(data: RegisterSchema, redirectTo?: string, 
 
   if (error) {
     if (isCaptchaError(error)) return { error: CAPTCHA_ERROR }
-    if (error.message.includes('already registered')) {
-      return { error: 'Este e-mail já está cadastrado.' }
+    const rateLimit = rateLimitError(error)
+    if (rateLimit) return { error: rateLimit }
+    if (error.code === 'user_already_exists' || error.code === 'email_exists' || error.message.includes('already registered')) {
+      return { error: 'Este e-mail já está cadastrado. Tente entrar ou recuperar sua senha.' }
     }
-    return { error: 'Erro ao criar conta. Tente novamente.' }
+    if (error.code === 'weak_password') {
+      // O zod já barra senha curta/sem maiúscula/sem número antes daqui; chegar
+      // neste ponto é o checklist de senha vazada do Supabase (HaveIBeenPwned)
+      return { error: 'Esta senha já apareceu em vazamentos de dados conhecidos. Escolha outra senha.' }
+    }
+    if (error.code === 'email_address_invalid') {
+      return { error: 'Este endereço de e-mail não é válido.' }
+    }
+    if (error.code === 'signup_disabled' || error.code === 'email_provider_disabled') {
+      return { error: 'Novos cadastros estão temporariamente desativados.' }
+    }
+    console.error('[REGISTER]', error.code, error.message)
+    return { error: 'Erro ao criar conta. Tente novamente em instantes.' }
   }
 
   // Em desenvolvimento local, confirma o e-mail automaticamente
@@ -82,7 +119,10 @@ export async function recoverAction(data: RecoverSchema, captchaToken?: string) 
 
   if (error) {
     if (isCaptchaError(error)) return { error: CAPTCHA_ERROR }
-    return { error: 'Erro ao enviar e-mail. Tente novamente.' }
+    const rateLimit = rateLimitError(error)
+    if (rateLimit) return { error: rateLimit }
+    console.error('[RECOVER]', error.code, error.message)
+    return { error: 'Erro ao enviar e-mail. Tente novamente em instantes.' }
   }
 
   return { success: true }
@@ -106,6 +146,7 @@ export async function googleOAuthAction(mode: 'login' | 'cadastro' = 'login', re
   })
 
   if (error || !data.url) {
+    if (error) console.error('[OAUTH GOOGLE]', error.code, error.message)
     return { error: 'Não foi possível conectar ao Google. Tente novamente.' }
   }
 
@@ -127,6 +168,7 @@ export async function appleOAuthAction(redirectTo?: string) {
   })
 
   if (error || !data.url) {
+    if (error) console.error('[OAUTH APPLE]', error.code, error.message)
     return { error: 'Não foi possível conectar à Apple. Tente novamente.' }
   }
 
@@ -177,8 +219,10 @@ export async function onboardingStep1Action(data: OnboardingStep1) {
     .eq('id', user.id)
 
   if (error) {
-    console.error('[ONBOARDING STEP1]', JSON.stringify(error))
-    return { error: 'Erro ao salvar. Tente novamente.' }
+    // Corrida: alguém pegou esse @username entre o SELECT acima e este UPDATE
+    if (error.code === '23505') return { error: 'Este @username já está em uso.' }
+    console.error('[ONBOARDING STEP1]', error.code, error.message)
+    return { error: 'Erro ao salvar. Tente novamente em instantes.' }
   }
 
   return { success: true }
@@ -202,7 +246,10 @@ export async function onboardingStep2Action(data: OnboardingStep2) {
     })
     .eq('id', user.id)
 
-  if (error) return { error: 'Erro ao salvar. Tente novamente.' }
+  if (error) {
+    console.error('[ONBOARDING STEP2]', error.code, error.message)
+    return { error: 'Erro ao salvar. Tente novamente em instantes.' }
+  }
 
   return { success: true }
 }
