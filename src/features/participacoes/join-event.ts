@@ -55,7 +55,9 @@ export async function joinEvent(
     .single()
 
   if (!event) return { error: 'Evento não encontrado.' }
-  if (event.status !== 'OPEN') return { error: 'Inscrições encerradas.' }
+  // Confirmado (mínimo atingido em T-12h) não fecha inscrição — só cancelado
+  // ou concluído. Quem decide o fechamento é o prazo de inscrição e a lotação.
+  if (['CANCELLED', 'COMPLETED'].includes(event.status)) return { error: 'Inscrições encerradas.' }
   if (new Date(event.registration_deadline) < new Date()) {
     return { error: 'Prazo de inscrição expirado.' }
   }

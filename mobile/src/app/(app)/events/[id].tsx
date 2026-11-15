@@ -833,7 +833,7 @@ function resolveAction(
 ): Action {
   if (participationStatus === 'CONFIRMED') return { kind: 'confirmed' }
   if (participationStatus === 'PENDING') return { kind: 'pay' }
-  if (event.status !== 'OPEN' || new Date(event.registration_deadline) < new Date()) {
+  if (['CANCELLED', 'COMPLETED'].includes(event.status) || new Date(event.registration_deadline) < new Date()) {
     return { kind: 'notice', label: 'Encerrado', text: 'Inscrições encerradas.' }
   }
   if (entry?.status === 'NOTIFIED') return { kind: 'spot', expiresAt: entry.expires_at }

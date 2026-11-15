@@ -288,6 +288,7 @@ export function RulesSection({ event }: { event: RulesEvent }) {
     `Capacidade máxima: ${event.capacity} pessoas`,
     'Fila de espera: ilimitada',
     'O evento é confirmado automaticamente 12h antes do início, caso o mínimo de participantes seja atingido.',
+    'Confirmado o evento, as inscrições continuam abertas até o prazo de inscrição ou até lotar.',
     ...(event.organizer_exempt ? ['O organizador está isento do pagamento de inscrição.'] : []),
     'Cancelamentos com menos de 12h de antecedência não têm direito a reembolso integral.',
   ]

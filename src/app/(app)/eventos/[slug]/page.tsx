@@ -145,7 +145,9 @@ export default async function EventDetailPage({
 
   const spotsLeft = event.capacity - event.confirmed_count
   const isFull = spotsLeft <= 0
-  const isOpen = event.status === 'OPEN'
+  // Confirmado não fecha inscrição — só cancelado/concluído fecham de vez;
+  // prazo e lotação é que decidem o resto.
+  const isOpen = !['CANCELLED', 'COMPLETED'].includes(event.status)
   const canJoin = isOpen && !isFull && !activeParticipationStatus && !event.is_organizer
 
   // Join request for non-PUBLIC events
