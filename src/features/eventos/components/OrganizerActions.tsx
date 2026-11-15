@@ -20,13 +20,6 @@ interface OrganizerActionsProps {
     id: string
     slug?: string | null
     status: string
-    title?: string
-    group_id?: string
-    address?: string
-    city?: string
-    price?: number
-    capacity?: number
-    min_participants?: number
     confirmed_count?: number
   }
 }
@@ -52,16 +45,10 @@ export function OrganizerActions({ event }: OrganizerActionsProps) {
   const isCancellable = !['COMPLETED', 'CANCELLED'].includes(event.status)
   const isCompleted = event.status === 'COMPLETED'
 
+  // A página de criação busca o evento de origem e copia tudo, menos
+  // datas e capa (ver src/app/(app)/eventos/novo/page.tsx)
   function buildNextEditionUrl() {
-    const params = new URLSearchParams()
-    if (event.title) params.set('title', event.title)
-    if (event.group_id) params.set('group_id', event.group_id)
-    if (event.address) params.set('address', event.address)
-    if (event.city) params.set('city', event.city)
-    if (event.price !== undefined) params.set('price', String(event.price))
-    if (event.capacity !== undefined) params.set('capacity', String(event.capacity))
-    if (event.min_participants !== undefined) params.set('min_participants', String(event.min_participants))
-    return `/eventos/novo?${params.toString()}`
+    return `/eventos/novo?duplicate_from=${event.id}`
   }
 
   return (

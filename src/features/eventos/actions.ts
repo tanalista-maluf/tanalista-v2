@@ -207,6 +207,34 @@ async function notifyGroupNewEvent(params: {
   )
 }
 
+// Duplicar evento: copia o arquivo da capa (mesmo bucket/pasta do upload
+// normal, ver uploadEventCoverAction) direto no storage, sem baixar/reenviar.
+async function duplicateEventCover(sourceEventId: string, newEventId: string, userId: string) {
+  const admin = createAdminClient()
+
+  const { data: source } = await admin
+    .from('events')
+    .select('organizer_id, cover_url')
+    .eq('id', sourceEventId)
+    .maybeSingle()
+
+  // Confere a organização de novo (defesa extra: novo/page.tsx já checa isso)
+  if (!source || source.organizer_id !== userId || !source.cover_url) return
+
+  const marker = '/avatars/'
+  const idx = source.cover_url.indexOf(marker)
+  if (idx === -1) return
+  const sourcePath = source.cover_url.slice(idx + marker.length).split('?')[0]
+  const ext = sourcePath.includes('.') ? sourcePath.split('.').pop() : 'jpg'
+  const destPath = `event-covers/${newEventId}/cover.${ext}`
+
+  const { error: copyError } = await admin.storage.from('avatars').copy(sourcePath, destPath)
+  if (copyError) return
+
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(destPath)
+  await admin.from('events').update({ cover_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', newEventId)
+}
+
 export async function createEventAction(input: EventSchema) {
   const data = withUtcDates(input)
   const supabase = await createClient()
@@ -263,6 +291,11 @@ export async function createEventAction(input: EventSchema) {
   if (error || !event) return { error: 'Erro ao criar evento.' }
 
   await replaceEventTeams(event.id, data)
+
+  // Duplicar: copia o arquivo da capa do evento de origem pro novo
+  if (data.duplicate_from) {
+    await duplicateEventCover(data.duplicate_from, event.id, user.id)
+  }
 
   // Eventos seguintes da série recorrente, no mesmo estado do principal
   await createRecurringChildren(event.id, user.id, data, data.as_draft ? 'DRAFT' : 'OPEN')

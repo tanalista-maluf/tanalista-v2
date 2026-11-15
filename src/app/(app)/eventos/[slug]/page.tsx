@@ -4,6 +4,7 @@ import { getEventById } from '@/features/eventos/queries'
 import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
 import { EventRules } from '@/features/eventos/components/EventRules'
 import { OrganizerActions } from '@/features/eventos/components/OrganizerActions'
+import { EventLocationMap } from '@/features/eventos/components/EventLocationMap'
 import { ParticipantCTA } from '@/features/eventos/components/ParticipantCTA'
 import { formatDateTime, formatPrice } from '@/utils/format'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -383,13 +384,6 @@ export default async function EventDetailPage({
                 <OrganizerActions event={{
                   id: event.id,
                   status: event.status,
-                  title: event.title,
-                  group_id: event.group_id ?? undefined,
-                  address: event.address ?? undefined,
-                  city: event.city ?? undefined,
-                  price: event.price,
-                  capacity: event.capacity,
-                  min_participants: event.min_participants,
                   confirmed_count: event.confirmed_count,
                 }} />
                 {/* Organizador também pode se inscrever como participante */}
@@ -425,13 +419,6 @@ export default async function EventDetailPage({
               <OrganizerActions event={{
                 id: event.id,
                 status: event.status,
-                title: event.title,
-                group_id: event.group_id ?? undefined,
-                address: event.address ?? undefined,
-                city: event.city ?? undefined,
-                price: event.price,
-                capacity: event.capacity,
-                min_participants: event.min_participants,
                 confirmed_count: event.confirmed_count,
               }} />
             )}
@@ -613,6 +600,8 @@ export default async function EventDetailPage({
           ) : (
             <p className="text-[13px] text-white/25 italic">Sem descrição adicional.</p>
           )}
+
+          <EventLocationMap address={event.address} city={event.city} />
 
           {organizer && (
             <div className="text-[11px] text-white/25 border-t border-white/[0.06] pt-3">

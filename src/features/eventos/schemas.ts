@@ -39,6 +39,9 @@ export const eventSchema = z.object({
   teams: z.array(teamSchema).max(10, 'No máximo 10 times').optional(),
   // Salva sem publicar: só o organizador vê, até publicar
   as_draft: z.boolean().optional(),
+  // Preenchido só quando o formulário veio de "Duplicar": createEventAction
+  // copia a capa do evento de origem pro novo (ver src/app/(app)/eventos/novo)
+  duplicate_from: z.string().uuid().optional(),
   // Edição de rascunho pelo app: refaz times e série recorrente
   draft_series: z.boolean().optional(),
   // Edição de rascunho: salva e publica de uma vez

@@ -4,6 +4,7 @@ import { buildInviteMessage } from '@/features/eventos/invite-message'
 import { EventCountdown } from '@/features/eventos/components/EventCountdown'
 import { formatPrice, formatDateTime } from '@/utils/format'
 import { MapPin, Calendar, Users, Clock, Share2, UserPlus } from 'lucide-react'
+import { EventLocationMap } from '@/features/eventos/components/EventLocationMap'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
@@ -195,6 +196,11 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
           <p className="text-sm text-white/80 whitespace-pre-wrap leading-relaxed">{event.description}</p>
         </div>
       )}
+
+      {/* Como chegar */}
+      <div className="card-dark rounded-2xl p-4">
+        <EventLocationMap address={event.address} city={event.city} />
+      </div>
 
       {/* Organizador */}
       {event.organizer && (
