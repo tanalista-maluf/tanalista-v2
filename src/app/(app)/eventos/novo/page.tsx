@@ -62,6 +62,8 @@ export default async function NovoEventoPage({
         cancel_before_hours: (source as any).cancel_before_hours ?? null,
         use_teams: (teams?.length ?? 0) >= 2,
         teams: teams ?? [],
+        // createEventAction confere a organização de novo e copia a capa
+        duplicate_from: source.id,
       }
       duplicateGroupId = source.group_id
     }
