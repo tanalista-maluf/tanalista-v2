@@ -43,7 +43,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 10, color: '#555', marginBottom: 2 },
   sectionTitle: { fontSize: 11, fontFamily: 'Helvetica-Bold', marginTop: 18, marginBottom: 8, color: '#111' },
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  statsRowGap: { marginTop: 10 },
   statBox: { flex: 1, backgroundColor: '#f4f4f4', borderRadius: 4, padding: 8 },
+  statBoxGhost: { flex: 1 },
   statLabel: { fontSize: 8, color: '#666', marginBottom: 3, textTransform: 'uppercase' },
   statValue: { fontSize: 13, fontFamily: 'Helvetica-Bold' },
   table: { borderTop: '1 solid #ddd', borderLeft: '1 solid #ddd' },
@@ -67,6 +69,8 @@ export interface EventReportProps {
 
 export function EventReportDocument({ event, participants, generatedAt }: EventReportProps) {
   const occupancyPct = event.capacity > 0 ? Math.round((event.confirmed_count / event.capacity) * 100) : 0
+  const payingCount = participants.filter((p) => p.payment_amount !== null).length
+  const exemptCount = participants.filter((p) => p.is_exempt).length
 
   return (
     <Document title={`Relatório - ${event.title}`}>
@@ -99,6 +103,19 @@ export function EventReportDocument({ event, participants, generatedAt }: EventR
             <Text style={styles.statLabel}>Líquido</Text>
             <Text style={styles.statValue}>{fmtMoney(event.net_revenue)}</Text>
           </View>
+        </View>
+        <View style={[styles.statsRow, styles.statsRowGap]}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Pagantes</Text>
+            <Text style={styles.statValue}>{payingCount}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>Isentos</Text>
+            <Text style={styles.statValue}>{exemptCount}</Text>
+          </View>
+          {/* Boxes vazios: mantém a mesma largura de coluna da linha de cima (4 colunas) */}
+          <View style={styles.statBoxGhost} />
+          <View style={styles.statBoxGhost} />
         </View>
 
         <Text style={styles.sectionTitle}>Inscritos ({participants.length})</Text>
