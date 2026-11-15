@@ -10,7 +10,7 @@ import { canCreateGroupEvents } from '@/features/grupos/roles'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag, Star } from 'lucide-react'
 import Image from 'next/image'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import { ShareGroupButton } from '@/features/grupos/components/ShareGroupButton'
@@ -108,6 +108,15 @@ export default async function GroupDetailPage({
         <h1 className="text-lg font-bold truncate flex-1" style={{ fontFamily: 'var(--font-heading)' }}>
           {group.name}
         </h1>
+        {canCreateEvents && (
+          <Link
+            href={`/grupos/${groupSlug}/reputacao`}
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+            title="Avaliação de membros"
+          >
+            <Star className="size-4" />
+          </Link>
+        )}
         {group.is_owner && (
           <Link
             href={`/grupos/${groupSlug}/configuracoes`}

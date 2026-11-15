@@ -690,6 +690,113 @@ export type Database = {
           },
         ]
       }
+      group_member_field_entries: {
+        Row: {
+          created_at: string
+          field_id: string
+          group_id: string
+          id: string
+          member_id: string
+          recorded_at: string
+          recorded_by: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          field_id: string
+          group_id: string
+          id?: string
+          member_id: string
+          recorded_at: string
+          recorded_by: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          field_id?: string
+          group_id?: string
+          id?: string
+          member_id?: string
+          recorded_at?: string
+          recorded_by?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_member_field_entries_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "group_member_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_field_entries_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_field_entries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_field_entries_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_member_fields: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          label: string
+          unit: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          label: string
+          unit?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          label?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_member_fields_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_fields_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -725,6 +832,208 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_rating_criteria: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_rating_criteria_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_rating_criteria_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_rating_scores: {
+        Row: {
+          criterion_id: string
+          group_id: string
+          id: string
+          member_id: string
+          rated_by: string
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          criterion_id: string
+          group_id: string
+          id?: string
+          member_id: string
+          rated_by: string
+          score: number
+          updated_at?: string
+        }
+        Update: {
+          criterion_id?: string
+          group_id?: string
+          id?: string
+          member_id?: string
+          rated_by?: string
+          score?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_rating_scores_criterion_id_fkey"
+            columns: ["criterion_id"]
+            isOneToOne: false
+            referencedRelation: "group_rating_criteria"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_rating_scores_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_rating_scores_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_rating_scores_rated_by_fkey"
+            columns: ["rated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_task_completions: {
+        Row: {
+          completed_at: string
+          group_id: string
+          id: string
+          marked_by: string
+          member_id: string
+          task_id: string
+        }
+        Insert: {
+          completed_at?: string
+          group_id: string
+          id?: string
+          marked_by: string
+          member_id: string
+          task_id: string
+        }
+        Update: {
+          completed_at?: string
+          group_id?: string
+          id?: string
+          marked_by?: string
+          member_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_task_completions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_task_completions_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_task_completions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_task_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "group_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_tasks: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          description: string | null
+          group_id: string
+          id: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          description?: string | null
+          group_id: string
+          id?: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          group_id?: string
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_tasks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
         ]
