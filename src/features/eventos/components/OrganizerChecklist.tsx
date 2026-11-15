@@ -8,7 +8,6 @@ interface Props {
     status: string
     description?: string | null
     cover_url?: string | null
-    ends_at?: string | null
     cancel_before_hours?: number | null
     confirmed_count: number
     min_participants: number
@@ -37,11 +36,6 @@ export function OrganizerChecklist({ event }: Props) {
       label: 'Imagem de capa',
       done: !!event.cover_url,
       tip: 'Eventos com foto recebem 3x mais inscrições.',
-    },
-    {
-      label: 'Horário de término',
-      done: !!event.ends_at,
-      tip: 'Ajuda os participantes a planejarem o dia.',
     },
     {
       label: 'Política de cancelamento',

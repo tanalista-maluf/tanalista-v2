@@ -234,7 +234,8 @@ export default function EventFormScreen() {
     if (min > cap) return 'O mínimo não pode ser maior que a capacidade.'
     if (!startsAt || startsAt <= new Date()) return 'A data de início precisa ser no futuro.'
     if (!deadline || deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
-    if (endsAt && endsAt <= startsAt) return 'O término precisa ser depois do início.'
+    if (!endsAt) return 'Informe o horário de término.'
+    if (endsAt <= startsAt) return 'O término precisa ser depois do início.'
     if (canShape && teams.length > 0) {
       if (teams.some((team) => !team.name.trim() || !(Number(team.capacity) >= 1))) return 'Cada time precisa de nome e vagas.'
       const names = new Set(teams.map((team) => team.name.trim().toLowerCase()))
@@ -273,7 +274,7 @@ export default function EventFormScreen() {
       capacity: Number(capacity),
       min_participants: Number(minimum),
       starts_at: startsAt!.toISOString(),
-      ends_at: endsAt ? endsAt.toISOString() : '',
+      ends_at: endsAt!.toISOString(),
       registration_deadline: deadline!.toISOString(),
       organizer_exempt: exempt,
       ...(groupId ? { group_id: groupId } : {}),
@@ -469,7 +470,7 @@ export default function EventFormScreen() {
             ) : (
               <>
                 <DateTimeField testID="form-starts" label="Início" value={startsAt} onChange={changeStart} />
-                <DateTimeField testID="form-ends" label="Término (opcional)" value={endsAt} onChange={setEndsAt} optional />
+                <DateTimeField testID="form-ends" label="Término" value={endsAt} onChange={setEndsAt} />
                 <DateTimeField testID="form-deadline" label="Inscrições até" value={deadline} onChange={setDeadline} />
               </>
             )}

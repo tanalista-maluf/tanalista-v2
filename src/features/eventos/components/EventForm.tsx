@@ -211,11 +211,12 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
           {errors.starts_at && <p className="text-xs text-destructive">{errors.starts_at.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ends_at">Término</Label>
+          <Label htmlFor="ends_at">Término *</Label>
           <Input
             id="ends_at"
             type="datetime-local"
             disabled={isLocked}
+            aria-invalid={!!errors.ends_at}
             {...register('ends_at')}
           />
           {errors.ends_at && <p className="text-xs text-destructive">{errors.ends_at.message}</p>}

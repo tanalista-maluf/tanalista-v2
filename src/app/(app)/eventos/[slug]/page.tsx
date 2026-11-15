@@ -480,7 +480,6 @@ export default async function EventDetailPage({
             status: event.status,
             description: event.description,
             cover_url: (event as any).cover_url,
-            ends_at: (event as any).ends_at,
             cancel_before_hours: (event as any).cancel_before_hours,
             confirmed_count: event.confirmed_count,
             min_participants: event.min_participants,

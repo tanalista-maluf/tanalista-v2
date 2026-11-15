@@ -25,7 +25,7 @@ function withUtcDates(data: EventSchema): EventSchema {
   return {
     ...data,
     starts_at: fromLocalInput(data.starts_at),
-    ends_at: data.ends_at ? fromLocalInput(data.ends_at) : data.ends_at,
+    ends_at: fromLocalInput(data.ends_at),
     registration_deadline: fromLocalInput(data.registration_deadline),
   }
 }
@@ -103,9 +103,9 @@ async function createRecurringChildren(
   const admin = createAdminClient()
   const count = Math.min(data.recurrence_count ?? 4, 52)
   const startsAt = new Date(data.starts_at)
-  const endsAt = data.ends_at ? new Date(data.ends_at) : null
+  const endsAt = new Date(data.ends_at)
   const deadline = new Date(data.registration_deadline)
-  const durationMs = endsAt ? endsAt.getTime() - startsAt.getTime() : 0
+  const durationMs = endsAt.getTime() - startsAt.getTime()
   const deadlineOffsetMs = deadline.getTime() - startsAt.getTime()
 
   const children = []
@@ -113,7 +113,7 @@ async function createRecurringChildren(
   for (let i = 1; i <= count; i++) {
     const offsetDays = freqDays * i
     const childStart = new Date(startsAt.getTime() + offsetDays * 86400000)
-    const childEnd = endsAt ? new Date(childStart.getTime() + durationMs) : null
+    const childEnd = new Date(childStart.getTime() + durationMs)
     const childDeadline = new Date(childStart.getTime() + deadlineOffsetMs)
     const childMinCheck = minCheckAt(childStart)
     const childSlug = await generateUniqueEventSlug(data.title, childStart, undefined, takenSlugs)
@@ -133,7 +133,7 @@ async function createRecurringChildren(
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: childStart.toISOString(),
-      ends_at: childEnd?.toISOString() ?? null,
+      ends_at: childEnd.toISOString(),
       registration_deadline: childDeadline.toISOString(),
       min_check_at: childMinCheck.toISOString(),
       organizer_exempt: data.organizer_exempt,
@@ -277,7 +277,7 @@ export async function createEventAction(input: EventSchema) {
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
-      ends_at: data.ends_at || null,
+      ends_at: data.ends_at,
       registration_deadline: data.registration_deadline,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
@@ -440,7 +440,7 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
-      ends_at: data.ends_at || null,
+      ends_at: data.ends_at,
       registration_deadline: data.registration_deadline,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,

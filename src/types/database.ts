@@ -531,7 +531,7 @@ export type Database = {
           created_at: string
           custom_rules: string | null
           description: string | null
-          ends_at: string | null
+          ends_at: string
           group_id: string | null
           id: string
           invite_token: string | null
@@ -568,7 +568,7 @@ export type Database = {
           created_at?: string
           custom_rules?: string | null
           description?: string | null
-          ends_at?: string | null
+          ends_at: string
           group_id?: string | null
           id?: string
           invite_token?: string | null
@@ -605,7 +605,7 @@ export type Database = {
           created_at?: string
           custom_rules?: string | null
           description?: string | null
-          ends_at?: string | null
+          ends_at?: string
           group_id?: string | null
           id?: string
           invite_token?: string | null
