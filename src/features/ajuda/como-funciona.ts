@@ -155,6 +155,10 @@ export const HOW_IT_WORKS: HowItWorksSection[] = [
       },
       {
         type: 'p',
+        text: 'Evento confirmado não fecha as inscrições: elas continuam abertas até o prazo definido pelo organizador ou até a lotação, o que vier primeiro.',
+      },
+      {
+        type: 'p',
         text: 'Duas horas depois do início, o evento confirmado passa a constar como concluído.',
       },
       {

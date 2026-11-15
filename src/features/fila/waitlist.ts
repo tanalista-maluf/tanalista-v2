@@ -27,7 +27,7 @@ export async function joinWaitlist(
     .eq('id', eventId)
     .single()
 
-  if (!event || event.status !== 'OPEN') return { error: 'Inscrições encerradas.' }
+  if (!event || ['CANCELLED', 'COMPLETED'].includes(event.status)) return { error: 'Inscrições encerradas.' }
   if (!(await canJoinPrivateEvent(event, eventId, userId))) {
     return { error: 'Este evento é privado. Solicite a entrada ao organizador.' }
   }
@@ -155,7 +155,7 @@ export async function confirmWaitlistSpot(
     .eq('id', eventId)
     .single()
 
-  if (!event || event.status !== 'OPEN') return { error: 'Evento não disponível.' }
+  if (!event || ['CANCELLED', 'COMPLETED'].includes(event.status)) return { error: 'Evento não disponível.' }
 
   const isExempt = event.organizer_id === userId && event.organizer_exempt
 

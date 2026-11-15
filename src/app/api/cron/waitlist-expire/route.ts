@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       .eq('id', eventId)
       .single()
 
-    if (!event || event.status !== 'OPEN') continue
+    if (!event || ['CANCELLED', 'COMPLETED'].includes(event.status)) continue
 
     const spotsLeft = event.capacity - (event.confirmed_count ?? 0)
     if (spotsLeft <= 0) continue

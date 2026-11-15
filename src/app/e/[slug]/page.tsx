@@ -56,7 +56,8 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
   }
 
   const id = event.id
-  const isOpen = event.status === 'OPEN'
+  // Confirmado não fecha inscrição — só cancelado/concluído fecham de vez.
+  const isOpen = !['CANCELLED', 'COMPLETED'].includes(event.status)
   const isFull = event.confirmed_count >= event.capacity
   const isPast = new Date(event.starts_at) < new Date()
   const spotsLeft = event.capacity - event.confirmed_count
