@@ -547,7 +547,7 @@ export type Database = {
           rating_count: number | null
           recurrence_index: number | null
           recurrence_rule: string | null
-          registration_deadline: string
+          registration_deadline: string | null
           search_vec: unknown
           slug: string
           starts_at: string
@@ -584,7 +584,7 @@ export type Database = {
           rating_count?: number | null
           recurrence_index?: number | null
           recurrence_rule?: string | null
-          registration_deadline: string
+          registration_deadline?: string | null
           search_vec?: unknown
           slug: string
           starts_at: string
@@ -621,7 +621,7 @@ export type Database = {
           rating_count?: number | null
           recurrence_index?: number | null
           recurrence_rule?: string | null
-          registration_deadline?: string
+          registration_deadline?: string | null
           search_vec?: unknown
           slug?: string
           starts_at?: string

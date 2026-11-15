@@ -80,7 +80,7 @@ export default async function EditarEventoPage({
           min_participants: event.min_participants,
           starts_at: toLocalInput(event.starts_at),
           ends_at: event.ends_at ? toLocalInput(event.ends_at) : '',
-          registration_deadline: toLocalInput(event.registration_deadline),
+          registration_deadline: event.registration_deadline ? toLocalInput(event.registration_deadline) : '',
           organizer_exempt: event.organizer_exempt,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,

@@ -438,7 +438,11 @@ export default async function EventDetailPage({
         {isOpen && (
           <p className="text-[11px] text-white/25 mt-3">
             Inscrições até{' '}
-            <span className="text-white/40">{format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            <span className="text-white/40">
+              {event.registration_deadline
+                ? format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                : 'o início do evento'}
+            </span>
           </p>
         )}
 

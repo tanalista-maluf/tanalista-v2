@@ -50,7 +50,7 @@ export async function joinEvent(
   // Buscar evento
   const { data: event } = await supabase
     .from('events')
-    .select('status, price, capacity, organizer_id, organizer_exempt, registration_deadline, group_id, visibility')
+    .select('status, price, capacity, organizer_id, organizer_exempt, registration_deadline, starts_at, group_id, visibility')
     .eq('id', eventId)
     .single()
 
@@ -58,7 +58,9 @@ export async function joinEvent(
   // Confirmado (mínimo atingido em T-12h) não fecha inscrição — só cancelado
   // ou concluído. Quem decide o fechamento é o prazo de inscrição e a lotação.
   if (['CANCELLED', 'COMPLETED'].includes(event.status)) return { error: 'Inscrições encerradas.' }
-  if (new Date(event.registration_deadline) < new Date()) {
+  // Sem prazo definido, inscrições ficam abertas até o início do evento
+  const deadline = event.registration_deadline ? new Date(event.registration_deadline) : new Date(event.starts_at)
+  if (deadline < new Date()) {
     return { error: 'Prazo de inscrição expirado.' }
   }
   if (!(await canJoinPrivateEvent(event, eventId, userId))) {

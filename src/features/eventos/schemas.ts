@@ -32,7 +32,8 @@ export const eventSchema = z.object({
   // Obrigatório: é o horário usado pelo repasse automático ao organizador
   // (ver migration 20261115000001_automatic_event_payout)
   ends_at: z.string().min(1, 'Informe o horário de término'),
-  registration_deadline: z.string().min(1, 'Informe o prazo de inscrição'),
+  // Opcional: em branco, inscrições ficam abertas até o início do evento
+  registration_deadline: z.string().optional().or(z.literal('')),
   organizer_exempt: z.boolean(),
   group_id: z.string().uuid('Grupo inválido').optional(),
   recurrence: z.enum(['none', 'weekly', 'biweekly', 'monthly']),
@@ -52,13 +53,13 @@ export const eventSchema = z.object({
   cancel_before_hours: z.number().int().min(0).max(720).nullable().optional(),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
-  const deadline = new Date(d.registration_deadline)
+  const deadline = d.registration_deadline ? new Date(d.registration_deadline) : null
   const ends = new Date(d.ends_at)
 
   if (starts <= now()) {
     ctx.addIssue({ code: 'custom', path: ['starts_at'], message: 'Data de início deve ser no futuro' })
   }
-  if (deadline >= starts) {
+  if (deadline && deadline >= starts) {
     ctx.addIssue({ code: 'custom', path: ['registration_deadline'], message: 'Prazo de inscrição deve ser antes do início' })
   }
   if (ends <= starts) {

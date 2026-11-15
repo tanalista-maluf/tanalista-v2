@@ -5,7 +5,7 @@ interface EventRulesProps {
     price: number
     min_participants: number
     capacity: number
-    registration_deadline: string
+    registration_deadline: string | null
     starts_at: string
     organizer_exempt: boolean
   }

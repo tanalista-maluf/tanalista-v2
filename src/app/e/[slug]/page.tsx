@@ -213,7 +213,9 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       {isOpen && !isPast && (
         <p className="text-xs text-white/30 text-center">
           Inscrições até{' '}
-          {format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          {event.registration_deadline
+            ? format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+            : 'o início do evento'}
         </p>
       )}
 

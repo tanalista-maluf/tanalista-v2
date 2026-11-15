@@ -172,7 +172,7 @@ export default function EventFormScreen() {
           if (mode === 'edit') {
             setStartsAt(new Date(data.starts_at))
             setEndsAt(data.ends_at ? new Date(data.ends_at) : null)
-            setDeadline(new Date(data.registration_deadline))
+            setDeadline(data.registration_deadline ? new Date(data.registration_deadline) : null)
             setCoverUrl(data.cover_url)
             setLocked(data.status !== 'DRAFT')
             setIsDraft(data.status === 'DRAFT')
@@ -233,7 +233,7 @@ export default function EventFormScreen() {
     if (!Number.isInteger(min) || min < 1) return 'O mínimo de participantes é 1.'
     if (min > cap) return 'O mínimo não pode ser maior que a capacidade.'
     if (!startsAt || startsAt <= new Date()) return 'A data de início precisa ser no futuro.'
-    if (!deadline || deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
+    if (deadline && deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
     if (!endsAt) return 'Informe o horário de término.'
     if (endsAt <= startsAt) return 'O término precisa ser depois do início.'
     if (canShape && teams.length > 0) {
@@ -275,7 +275,7 @@ export default function EventFormScreen() {
       min_participants: Number(minimum),
       starts_at: startsAt!.toISOString(),
       ends_at: endsAt!.toISOString(),
-      registration_deadline: deadline!.toISOString(),
+      registration_deadline: deadline ? deadline.toISOString() : '',
       organizer_exempt: exempt,
       ...(groupId ? { group_id: groupId } : {}),
       recurrence: canShape ? recurrence : 'none',
@@ -471,7 +471,17 @@ export default function EventFormScreen() {
               <>
                 <DateTimeField testID="form-starts" label="Início" value={startsAt} onChange={changeStart} />
                 <DateTimeField testID="form-ends" label="Término" value={endsAt} onChange={setEndsAt} />
-                <DateTimeField testID="form-deadline" label="Inscrições até" value={deadline} onChange={setDeadline} />
+                <DateTimeField
+                  testID="form-deadline"
+                  label="Inscrições até (opcional)"
+                  value={deadline}
+                  onChange={setDeadline}
+                  optional
+                />
+                <Text style={styles.detail}>
+                  Em branco, as inscrições ficam abertas até o início do evento. Se o mínimo de participantes não for
+                  atingido até 12h antes do início, o evento é cancelado automaticamente e todos são reembolsados.
+                </Text>
               </>
             )}
             {canShape && (

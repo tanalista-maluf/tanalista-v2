@@ -75,7 +75,7 @@ type EventDetail = {
   city: string
   starts_at: string
   ends_at: string | null
-  registration_deadline: string
+  registration_deadline: string | null
   price: number
   capacity: number
   confirmed_count: number
@@ -852,7 +852,9 @@ function resolveAction(
 ): Action {
   if (participationStatus === 'CONFIRMED') return { kind: 'confirmed' }
   if (participationStatus === 'PENDING') return { kind: 'pay' }
-  if (['CANCELLED', 'COMPLETED'].includes(event.status) || new Date(event.registration_deadline) < new Date()) {
+  // Sem prazo definido, inscrições ficam abertas até o início do evento
+  const deadline = event.registration_deadline ? new Date(event.registration_deadline) : new Date(event.starts_at)
+  if (['CANCELLED', 'COMPLETED'].includes(event.status) || deadline < new Date()) {
     return { kind: 'notice', label: 'Encerrado', text: 'Inscrições encerradas.' }
   }
   if (entry?.status === 'NOTIFIED') return { kind: 'spot', expiresAt: entry.expires_at }

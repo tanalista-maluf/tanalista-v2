@@ -26,7 +26,8 @@ function withUtcDates(data: EventSchema): EventSchema {
     ...data,
     starts_at: fromLocalInput(data.starts_at),
     ends_at: fromLocalInput(data.ends_at),
-    registration_deadline: fromLocalInput(data.registration_deadline),
+    // Em branco: inscrições ficam abertas até o início (ver join-event.ts)
+    registration_deadline: data.registration_deadline ? fromLocalInput(data.registration_deadline) : '',
   }
 }
 
@@ -104,9 +105,9 @@ async function createRecurringChildren(
   const count = Math.min(data.recurrence_count ?? 4, 52)
   const startsAt = new Date(data.starts_at)
   const endsAt = new Date(data.ends_at)
-  const deadline = new Date(data.registration_deadline)
+  const deadline = data.registration_deadline ? new Date(data.registration_deadline) : null
   const durationMs = endsAt.getTime() - startsAt.getTime()
-  const deadlineOffsetMs = deadline.getTime() - startsAt.getTime()
+  const deadlineOffsetMs = deadline ? deadline.getTime() - startsAt.getTime() : null
 
   const children = []
   const takenSlugs = new Set<string>()
@@ -114,7 +115,7 @@ async function createRecurringChildren(
     const offsetDays = freqDays * i
     const childStart = new Date(startsAt.getTime() + offsetDays * 86400000)
     const childEnd = new Date(childStart.getTime() + durationMs)
-    const childDeadline = new Date(childStart.getTime() + deadlineOffsetMs)
+    const childDeadline = deadlineOffsetMs !== null ? new Date(childStart.getTime() + deadlineOffsetMs) : null
     const childMinCheck = minCheckAt(childStart)
     const childSlug = await generateUniqueEventSlug(data.title, childStart, undefined, takenSlugs)
     takenSlugs.add(childSlug)
@@ -134,7 +135,7 @@ async function createRecurringChildren(
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: childStart.toISOString(),
       ends_at: childEnd.toISOString(),
-      registration_deadline: childDeadline.toISOString(),
+      registration_deadline: childDeadline?.toISOString() ?? null,
       min_check_at: childMinCheck.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -278,7 +279,7 @@ export async function createEventAction(input: EventSchema) {
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
       ends_at: data.ends_at,
-      registration_deadline: data.registration_deadline,
+      registration_deadline: data.registration_deadline || null,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -441,7 +442,7 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
       ends_at: data.ends_at,
-      registration_deadline: data.registration_deadline,
+      registration_deadline: data.registration_deadline || null,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -508,8 +509,10 @@ export async function publishEventAction(eventId: string) {
 
   if (!event || event.organizer_id !== user.id) return { error: 'Evento não encontrado.' }
   if (event.status !== 'DRAFT') return { error: 'Este evento já foi publicado.' }
-  // Um rascunho antigo pode ter ficado com a data no passado
-  if (new Date(event.registration_deadline) <= new Date()) {
+  // Um rascunho antigo pode ter ficado com a data no passado. Sem prazo de
+  // inscrição definido, inscrições ficam abertas até o início do evento.
+  const deadline = event.registration_deadline ? new Date(event.registration_deadline) : new Date(event.starts_at)
+  if (deadline <= new Date()) {
     return { error: 'O prazo de inscrição deste rascunho já passou. Edite as datas antes de publicar.' }
   }
 
@@ -523,14 +526,16 @@ export async function publishEventAction(eventId: string) {
 
   if (error) return { error: 'Erro ao publicar evento.' }
 
-  // Os eventos seguintes da série, menos os que já ficaram para trás
+  // Os eventos seguintes da série, menos os que já ficaram para trás (sem
+  // prazo definido, vale o início do próprio evento)
+  const nowIso = new Date().toISOString()
   await admin
     .from('events')
     .update({ status: 'OPEN' })
     .eq('parent_event_id', eventId)
     .eq('organizer_id', user.id)
     .eq('status', 'DRAFT')
-    .gt('registration_deadline', new Date().toISOString())
+    .or(`registration_deadline.gt.${nowIso},and(registration_deadline.is.null,starts_at.gt.${nowIso})`)
 
   if (event.group_id) {
     await notifyGroupNewEvent({ groupId: event.group_id, organizerId: user.id, event })
