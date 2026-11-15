@@ -129,7 +129,7 @@ export default function ProfileScreen() {
             <Text testID="profile-name" style={styles.name}>
               {name}
             </Text>
-            {profile ? <Text style={styles.username}>@{profile.username}</Text> : null}
+            {profile?.username ? <Text style={styles.username}>@{profile.username}</Text> : null}
             <Text style={styles.detail}>{session?.user.email ?? '—'}</Text>
             {profile?.city ? <Text style={styles.detail}>{profile.city}</Text> : null}
           </View>
@@ -174,13 +174,13 @@ export default function ProfileScreen() {
               onPress={() => router.push('/account/activity')}
               divider
             />
-            {profile ? (
+            {profile?.username ? (
               <Row
                 testID="go-public-profile"
                 icon={<CircleUserRound size={19} color={colors.primary} />}
                 title="Perfil público"
                 detail="Como as outras pessoas veem você"
-                onPress={() => router.push({ pathname: '/users/[username]', params: { username: profile.username } })}
+                onPress={() => router.push({ pathname: '/users/[username]', params: { username: profile.username! } })}
                 divider
               />
             ) : null}

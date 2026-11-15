@@ -4,6 +4,7 @@ import { getURLFromRedirectError } from 'next/dist/client/components/redirect'
 import type { User } from '@supabase/supabase-js'
 import { getBearerSession } from '@/lib/supabase/bearer'
 import { runWithSupabaseClient } from '@/lib/supabase/request-context'
+import { signReportToken } from '@/lib/report-token'
 import {
   approveEventJoinRequest,
   cancelEventAction,
@@ -111,6 +112,15 @@ const HANDLERS: Record<string, Handler> = {
   organizerFinancials: ([range]) => getOrganizerFinancials((range ?? undefined) as { from?: string; to?: string }),
   eventFinancial: ([eventId]) => getEventFinancialDetail(text(eventId)),
   claimEventPayout: ([eventId]) => claimEventPayoutAction(text(eventId)),
+  // Link de relatório em PDF pra abrir no navegador do sistema (ver
+  // api/v1/events/[id]/relatorio): token próprio porque essa rota não recebe
+  // o Bearer normal (é navegação, não fetch do app).
+  eventReportToken: async ([eventId], user) => {
+    const { event } = await getEventFinancialDetail(text(eventId))
+    if (!event) return { error: 'Evento não encontrado.' }
+    const token = signReportToken(text(eventId), user.id)
+    return { url: `${process.env.NEXT_PUBLIC_APP_URL}/api/v1/events/${text(eventId)}/relatorio?token=${token}` }
+  },
 
   // ── Grupos ─────────────────────────────────────────────────────────────────
   updateGroup: ([groupId, data]) => updateGroupAction(text(groupId), data as never),

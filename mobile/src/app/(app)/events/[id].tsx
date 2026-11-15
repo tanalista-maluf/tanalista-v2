@@ -9,6 +9,7 @@ import {
   Flag,
   Lock,
   MapPin,
+  Navigation,
   Settings2,
   Share2,
   UserPlus,
@@ -20,6 +21,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -289,6 +291,14 @@ export default function EventScreen() {
     }
   }
 
+  // Abre no app de mapas do aparelho (Google Maps, se instalado, senão o
+  // navegador) — mesmo link usado pelo botão "Abrir no Google Maps" do site
+  function openInMaps() {
+    if (!event) return
+    const query = encodeURIComponent(`${event.address}, ${event.city}`)
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`)
+  }
+
   // Vaga reservada pela fila: evento pago passa pelo checkout, gratuito confirma daqui
   async function handleConfirmSpot() {
     if (event && event.price > 0 && !(event.organizer_id === userId && event.organizer_exempt)) {
@@ -507,6 +517,15 @@ export default function EventScreen() {
               />
             ) : null}
             <InfoRow icon={<MapPin size={18} color={colors.primary} />} text={`${event.address} — ${event.city}`} />
+            <Pressable
+              testID="open-in-maps"
+              accessibilityRole="button"
+              onPress={openInMaps}
+              hitSlop={6}
+              style={styles.calendar}>
+              <Navigation size={18} color={colors.primary} />
+              <Text style={styles.calendarText}>Como chegar</Text>
+            </Pressable>
             <InfoRow
               icon={<Users size={18} color={colors.primary} />}
               text={`${event.confirmed_count}/${event.capacity} confirmados`}

@@ -166,6 +166,9 @@ export default function EventFormScreen() {
               .sort((a, b) => a.position - b.position)
               .map((team) => ({ name: team.name, capacity: String(team.capacity) }))
           )
+          // Duplicar também mostra a capa de origem: se a pessoa não trocar,
+          // o servidor copia o arquivo pro novo evento (ver duplicate_from)
+          if (mode === 'duplicate') setCoverUrl(data.cover_url)
           if (mode === 'edit') {
             setStartsAt(new Date(data.starts_at))
             setEndsAt(data.ends_at ? new Date(data.ends_at) : null)
@@ -281,6 +284,9 @@ export default function EventFormScreen() {
       visibility,
       cancel_before_hours: cancelPolicy,
       ...(mode === 'edit' ? (editingDraft ? { draft_series: true } : {}) : { as_draft: asDraft }),
+      // Pede ao servidor pra copiar a capa de origem (duplicateEventCover em
+      // features/eventos/actions.ts); some se a pessoa escolher outra capa
+      ...(mode === 'duplicate' ? { duplicate_from: params.eventId } : {}),
     }
     const result = mode === 'edit' ? await runAction('updateEvent', params.eventId, data) : await runAction('createEvent', data)
     if (!('redirect' in result)) {
