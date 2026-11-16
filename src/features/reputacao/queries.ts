@@ -65,6 +65,29 @@ export async function getGroupReputationOverview(groupId: string): Promise<Membe
   })
 }
 
+export interface GroupReputationConfig {
+  criteria: { id: string; name: string; active: boolean }[]
+  tasks: { id: string; title: string; description: string | null; active: boolean; archived: boolean }[]
+  fields: { id: string; label: string; unit: string | null; active: boolean }[]
+}
+
+// Critérios, mini-missões e campos customizados do grupo — usado pelo
+// painel de gerenciamento (criar/editar/arquivar), tanto no site quanto,
+// via api/v1/actions, no app.
+export async function getGroupReputationConfig(groupId: string): Promise<GroupReputationConfig | null> {
+  const auth = await currentUserRole(groupId)
+  if (!auth || !isGroupManager(auth.role)) return null
+
+  const admin = createAdminClient()
+  const [{ data: criteria }, { data: tasks }, { data: fields }] = await Promise.all([
+    admin.from('group_rating_criteria').select('id, name, active').eq('group_id', groupId).order('created_at'),
+    admin.from('group_tasks').select('id, title, description, active, archived').eq('group_id', groupId).order('created_at'),
+    admin.from('group_member_fields').select('id, label, unit, active').eq('group_id', groupId).order('created_at'),
+  ])
+
+  return { criteria: criteria ?? [], tasks: tasks ?? [], fields: fields ?? [] }
+}
+
 export interface CriterionRow {
   criterion_id: string
   name: string

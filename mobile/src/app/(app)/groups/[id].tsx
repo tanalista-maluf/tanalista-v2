@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { CalendarPlus, Flag, Link2, Lock, LogOut, MapPin, Settings2, Share2, ShoppingBag, Users } from 'lucide-react-native'
+import { CalendarPlus, Flag, Link2, Lock, LogOut, MapPin, Settings2, Share2, ShoppingBag, Star, Users } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { headerActions } from '@/components/header-actions'
@@ -201,6 +201,16 @@ export default function GroupScreen() {
                     label: 'Configurações do grupo',
                     icon: <Settings2 size={20} color={colors.text70} />,
                     onPress: () => router.push({ pathname: '/groups/settings/[id]', params: { id } }),
+                  },
+                ]
+              : []),
+            ...(isOwner || role === 'MANAGER'
+              ? [
+                  {
+                    testID: 'group-reputation',
+                    label: 'Avaliação de membros',
+                    icon: <Star size={20} color={colors.text70} />,
+                    onPress: () => router.push({ pathname: '/groups/reputation/[id]', params: { id } }),
                   },
                 ]
               : []),

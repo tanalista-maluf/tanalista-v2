@@ -1,11 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, Star } from 'lucide-react'
 import { getGroupById } from '@/features/grupos/queries'
 import { isGroupManager } from '@/features/grupos/roles'
-import { getGroupReputationOverview } from '@/features/reputacao/queries'
+import { getGroupReputationConfig, getGroupReputationOverview } from '@/features/reputacao/queries'
 import { CriteriaManager } from '@/features/reputacao/components/CriteriaManager'
 import { TasksManager } from '@/features/reputacao/components/TasksManager'
 import { FieldsManager } from '@/features/reputacao/components/FieldsManager'
@@ -24,14 +23,12 @@ export default async function GroupReputationPage({
   if (!group || !isGroupManager(group.user_role)) notFound()
 
   const groupSlug = group.slug ?? group.id
-  const admin = createAdminClient()
 
-  const [members, { data: criteria }, { data: tasks }, { data: fields }] = await Promise.all([
+  const [members, config] = await Promise.all([
     getGroupReputationOverview(group.id),
-    admin.from('group_rating_criteria').select('id, name, active').eq('group_id', group.id).order('created_at'),
-    admin.from('group_tasks').select('id, title, description, active, archived').eq('group_id', group.id).order('created_at'),
-    admin.from('group_member_fields').select('id, label, unit, active').eq('group_id', group.id).order('created_at'),
+    getGroupReputationConfig(group.id),
   ])
+  const { criteria, tasks, fields } = config ?? { criteria: [], tasks: [], fields: [] }
 
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-8">
@@ -89,12 +86,12 @@ export default async function GroupReputationPage({
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-white/70">Critérios de avaliação</h2>
-        <CriteriaManager groupId={group.id} initialCriteria={criteria ?? []} isOwner={group.is_owner} />
+        <CriteriaManager groupId={group.id} initialCriteria={criteria} isOwner={group.is_owner} />
       </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-white/70">Mini-missões</h2>
-        <TasksManager groupId={group.id} initialTasks={tasks ?? []} />
+        <TasksManager groupId={group.id} initialTasks={tasks} />
       </section>
 
       <section className="space-y-3">
@@ -102,7 +99,7 @@ export default async function GroupReputationPage({
         <p className="text-xs text-white/35">
           Ex.: velocidade de cronagem, com data de cada medição. Deixe sem campos se o grupo não precisar disso.
         </p>
-        <FieldsManager groupId={group.id} initialFields={fields ?? []} isOwner={group.is_owner} />
+        <FieldsManager groupId={group.id} initialFields={fields} isOwner={group.is_owner} />
       </section>
     </main>
   )

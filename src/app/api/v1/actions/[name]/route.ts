@@ -43,6 +43,23 @@ import {
   deleteGroupAction,
   uploadGroupAvatarAction,
 } from '@/features/grupos/actions'
+import {
+  archiveTaskAction,
+  completeTaskAction,
+  createCriterionAction,
+  createMemberFieldAction,
+  createTaskAction,
+  rateMemberAction,
+  toggleCriterionAction,
+  toggleMemberFieldAction,
+  toggleTaskAction,
+  undoTaskCompletionAction,
+  updateCriterionAction,
+  updateTaskAction,
+  addMemberFieldEntryAction,
+  deleteMemberFieldEntryAction,
+} from '@/features/reputacao/actions'
+import { getGroupReputationConfig, getGroupReputationOverview, getMemberReputationDetail } from '@/features/reputacao/queries'
 import { createListingAction, deleteListingAction, publishDraftListingAction } from '@/features/marketplace/actions'
 import { getGroupListings } from '@/features/marketplace/queries'
 import { claimEventPayoutAction } from '@/features/financeiro/actions'
@@ -69,6 +86,7 @@ type Handler = (args: unknown[], user: User) => Promise<unknown>
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '')
 const optionalText = (value: unknown) => (typeof value === 'string' ? value : undefined)
+const num = (value: unknown) => (typeof value === 'number' ? value : Number(value))
 
 // Arquivo enviado pelo app em base64, como as ações de upload do site esperam (FormData)
 function formWithFile(fields: Record<string, string>, fileField: string, file: unknown) {
@@ -136,6 +154,31 @@ const HANDLERS: Record<string, Handler> = {
   transferGroupOwnership: ([groupId, userId]) => transferGroupOwnershipAction(text(groupId), text(userId)),
   deleteGroup: ([groupId]) => deleteGroupAction(text(groupId)),
   sendGroupBroadcast: ([groupId, message]) => sendGroupBroadcastAction(text(groupId), text(message)),
+
+  // ── Avaliação de membros do grupo ───────────────────────────────────────────
+  groupReputationOverview: ([groupId]) =>
+    getGroupReputationOverview(text(groupId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  groupReputationConfig: ([groupId]) =>
+    getGroupReputationConfig(text(groupId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  memberReputationDetail: ([groupId, memberId]) =>
+    getMemberReputationDetail(text(groupId), text(memberId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  createCriterion: ([groupId, name]) => createCriterionAction(text(groupId), text(name)),
+  updateCriterion: ([groupId, criterionId, name]) => updateCriterionAction(text(groupId), text(criterionId), text(name)),
+  toggleCriterion: ([groupId, criterionId, active]) => toggleCriterionAction(text(groupId), text(criterionId), active === true),
+  rateMember: ([groupId, criterionId, memberId, score]) =>
+    rateMemberAction(text(groupId), text(criterionId), text(memberId), num(score)),
+  createTask: ([groupId, title, description]) => createTaskAction(text(groupId), text(title), text(description)),
+  updateTask: ([groupId, taskId, title, description]) =>
+    updateTaskAction(text(groupId), text(taskId), text(title), text(description)),
+  toggleTask: ([groupId, taskId, active]) => toggleTaskAction(text(groupId), text(taskId), active === true),
+  archiveTask: ([groupId, taskId, archived]) => archiveTaskAction(text(groupId), text(taskId), archived === true),
+  completeTask: ([groupId, taskId, memberId]) => completeTaskAction(text(groupId), text(taskId), text(memberId)),
+  undoTaskCompletion: ([groupId, completionId]) => undoTaskCompletionAction(text(groupId), text(completionId)),
+  createMemberField: ([groupId, label, unit]) => createMemberFieldAction(text(groupId), text(label), text(unit)),
+  toggleMemberField: ([groupId, fieldId, active]) => toggleMemberFieldAction(text(groupId), text(fieldId), active === true),
+  addMemberFieldEntry: ([groupId, fieldId, memberId, value, recordedAt]) =>
+    addMemberFieldEntryAction(text(groupId), text(fieldId), text(memberId), text(value), text(recordedAt)),
+  deleteMemberFieldEntry: ([groupId, entryId]) => deleteMemberFieldEntryAction(text(groupId), text(entryId)),
 
   // ── Marketplace do grupo ───────────────────────────────────────────────────
   groupListings: ([groupId], user) => getGroupListings(text(groupId), user.id),
