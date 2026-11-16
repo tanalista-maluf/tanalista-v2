@@ -49,6 +49,23 @@ export async function createCriterionAction(groupId: string, name: string) {
   return { success: true, criterion: data }
 }
 
+export async function updateCriterionAction(groupId: string, criterionId: string, name: string) {
+  const auth = await requireOwner(groupId)
+  if (!auth.ok) return auth
+
+  const trimmed = name.trim()
+  if (trimmed.length < 2 || trimmed.length > 60) return { error: 'Nome deve ter de 2 a 60 caracteres.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('group_rating_criteria')
+    .update({ name: trimmed })
+    .eq('id', criterionId)
+    .eq('group_id', groupId)
+  if (error) return { error: 'Erro ao editar critério.' }
+  return { success: true }
+}
+
 export async function toggleCriterionAction(groupId: string, criterionId: string, active: boolean) {
   const auth = await requireOwner(groupId)
   if (!auth.ok) return auth
@@ -109,6 +126,23 @@ export async function createTaskAction(groupId: string, title: string, descripti
   return { success: true, task: data }
 }
 
+export async function updateTaskAction(groupId: string, taskId: string, title: string, description: string) {
+  const auth = await requireManager(groupId)
+  if (!auth.ok) return auth
+
+  const trimmedTitle = title.trim()
+  if (trimmedTitle.length < 2 || trimmedTitle.length > 80) return { error: 'Título deve ter de 2 a 80 caracteres.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('group_tasks')
+    .update({ title: trimmedTitle, description: description.trim() || null })
+    .eq('id', taskId)
+    .eq('group_id', groupId)
+  if (error) return { error: 'Erro ao editar missão.' }
+  return { success: true }
+}
+
 export async function toggleTaskAction(groupId: string, taskId: string, active: boolean) {
   const auth = await requireManager(groupId)
   if (!auth.ok) return auth
@@ -116,6 +150,23 @@ export async function toggleTaskAction(groupId: string, taskId: string, active: 
   const admin = createAdminClient()
   const { error } = await admin.from('group_tasks').update({ active }).eq('id', taskId).eq('group_id', groupId)
   if (error) return { error: 'Erro ao atualizar missão.' }
+  return { success: true }
+}
+
+// Arquivar esconde a missão da lista principal (sem apagar cumprimentos já
+// registrados, que continuam contando na média) e desativa de uma vez —
+// desarquivar só a traz de volta pra lista, sem reativar sozinho.
+export async function archiveTaskAction(groupId: string, taskId: string, archived: boolean) {
+  const auth = await requireManager(groupId)
+  if (!auth.ok) return auth
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('group_tasks')
+    .update(archived ? { archived: true, active: false } : { archived: false })
+    .eq('id', taskId)
+    .eq('group_id', groupId)
+  if (error) return { error: 'Erro ao arquivar missão.' }
   return { success: true }
 }
 

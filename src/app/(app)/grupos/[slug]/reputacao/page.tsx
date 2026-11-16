@@ -29,7 +29,7 @@ export default async function GroupReputationPage({
   const [members, { data: criteria }, { data: tasks }, { data: fields }] = await Promise.all([
     getGroupReputationOverview(group.id),
     admin.from('group_rating_criteria').select('id, name, active').eq('group_id', group.id).order('created_at'),
-    admin.from('group_tasks').select('id, title, description, active').eq('group_id', group.id).order('created_at'),
+    admin.from('group_tasks').select('id, title, description, active, archived').eq('group_id', group.id).order('created_at'),
     admin.from('group_member_fields').select('id, label, unit, active').eq('group_id', group.id).order('created_at'),
   ])
 

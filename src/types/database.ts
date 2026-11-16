@@ -996,6 +996,7 @@ export type Database = {
       group_tasks: {
         Row: {
           active: boolean
+          archived: boolean
           created_at: string
           created_by: string
           description: string | null
@@ -1005,6 +1006,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          archived?: boolean
           created_at?: string
           created_by: string
           description?: string | null
@@ -1014,6 +1016,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          archived?: boolean
           created_at?: string
           created_by?: string
           description?: string | null

@@ -85,6 +85,7 @@ export interface TaskRow {
   title: string
   description: string | null
   active: boolean
+  archived: boolean
   completions: TaskCompletionRow[]
 }
 
@@ -131,7 +132,7 @@ export async function getMemberReputationDetail(groupId: string, memberId: strin
     admin.from('profiles').select('full_name, username, avatar_url').eq('id', memberId).maybeSingle(),
     admin.from('group_rating_criteria').select('id, name, active').eq('group_id', groupId).order('created_at'),
     admin.from('group_rating_scores').select('criterion_id, rated_by, score').eq('group_id', groupId).eq('member_id', memberId),
-    admin.from('group_tasks').select('id, title, description, active').eq('group_id', groupId).order('created_at'),
+    admin.from('group_tasks').select('id, title, description, active, archived').eq('group_id', groupId).order('created_at'),
     admin.from('group_task_completions').select('id, task_id, completed_at, marked_by').eq('group_id', groupId).eq('member_id', memberId).order('completed_at', { ascending: false }),
     admin.from('group_member_fields').select('id, label, unit, active').eq('group_id', groupId).order('created_at'),
     admin.from('group_member_field_entries').select('id, field_id, value, recorded_at, recorded_by').eq('group_id', groupId).eq('member_id', memberId).order('recorded_at', { ascending: false }),
@@ -165,6 +166,7 @@ export async function getMemberReputationDetail(groupId: string, memberId: strin
     title: t.title,
     description: t.description,
     active: t.active,
+    archived: t.archived,
     completions: (completions ?? [])
       .filter((c) => c.task_id === t.id)
       .map((c) => ({ id: c.id, completed_at: c.completed_at, marked_by_name: raterName(c.marked_by) })),
