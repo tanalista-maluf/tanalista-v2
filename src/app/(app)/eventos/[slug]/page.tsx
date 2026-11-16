@@ -42,7 +42,7 @@ import { OrganizerChecklist } from '@/features/eventos/components/OrganizerCheck
 import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload'
 import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isGroupOwner } from '@/features/eventos/permissions'
+import { isGroupOwner, canCheckInEvent } from '@/features/eventos/permissions'
 import { attachProfiles } from '@/features/perfil/attach-profiles'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -205,6 +205,8 @@ export default async function EventDetailPage({
   const showRequests = event.is_organizer && eventVisibilityField !== 'PUBLIC'
   // Dono do grupo edita e cancela os eventos dos gestores do grupo
   const isGroupOwnerOnly = !event.is_organizer && (await isGroupOwner(supabase, event.group_id ?? null, user.id))
+  // Check-in na entrada: organizador ou qualquer dono/gestor do grupo
+  const canCheckIn = event.is_organizer || (await canCheckInEvent(supabase, { organizer_id: event.organizer_id, group_id: event.group_id ?? null }, user.id))
   const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
 
   // Fila de espera
@@ -513,7 +515,7 @@ export default async function EventDetailPage({
 
           <TabsTrigger value="participantes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Participantes</TabsTrigger>
 
-          {event.is_organizer && (
+          {canCheckIn && (
             <TabsTrigger value="checkin" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <QrCode className="size-3" />Check-in
             </TabsTrigger>
@@ -698,7 +700,7 @@ export default async function EventDetailPage({
           </TabsContent>
         )}
 
-        {event.is_organizer && (
+        {canCheckIn && (
           <TabsContent value="checkin" className="pt-4 space-y-6">
             <CheckInScanner eventId={id} />
             <CheckInList eventId={id} />

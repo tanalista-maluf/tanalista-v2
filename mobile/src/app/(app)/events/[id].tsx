@@ -10,6 +10,7 @@ import {
   Lock,
   MapPin,
   Navigation,
+  QrCode,
   Settings2,
   Share2,
   UserPlus,
@@ -129,8 +130,11 @@ async function fetchEvent(eventId: string, userId: string) {
     fetchEventExtras(eventId),
   ])
 
-  // O dono do grupo edita e cancela os eventos dos gestores
+  // O dono do grupo edita e cancela os eventos dos gestores; check-in na
+  // entrada, porém, qualquer dono OU gestor do grupo pode fazer — não fica
+  // dependente só do organizador estar presente
   let isGroupOwner = false
+  let canCheckIn = event?.organizer_id === userId
   if (event?.group_id && event.organizer_id !== userId) {
     const { data: membership } = await supabase
       .from('group_members')
@@ -139,6 +143,7 @@ async function fetchEvent(eventId: string, userId: string) {
       .eq('user_id', userId)
       .maybeSingle()
     isGroupOwner = membership?.role === 'OWNER'
+    canCheckIn = membership?.role === 'OWNER' || membership?.role === 'MANAGER'
   }
 
   // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
@@ -146,6 +151,7 @@ async function fetchEvent(eventId: string, userId: string) {
   return {
     event: event as EventDetail | null,
     isGroupOwner,
+    canCheckIn,
     participation: active as Participation | null,
     entry: entry as WaitlistEntry | null,
     teams: 'teams' in teams ? teams.teams : [],
@@ -174,11 +180,13 @@ export default function EventScreen() {
   const [cancelling, setCancelling] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isGroupOwner, setIsGroupOwner] = useState(false)
+  const [canCheckIn, setCanCheckIn] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
 
   const apply = useCallback((result: Awaited<ReturnType<typeof fetchEvent>>) => {
     setEvent(result.event)
     setIsGroupOwner(result.isGroupOwner)
+    setCanCheckIn(result.canCheckIn)
     setParticipation(result.participation)
     setEntry(result.entry)
     setTeams(result.teams)
@@ -451,6 +459,18 @@ export default function EventScreen() {
                     },
                   ]
                 : []),
+            // Check-in na entrada: dono ou gestor do grupo, mesmo sem ser o
+            // organizador — não depende só dele estar presente no evento
+            ...(!isOrganizer && canCheckIn
+              ? [
+                  {
+                    testID: 'group-checkin',
+                    label: 'Check-in',
+                    icon: <QrCode size={20} color={colors.text70} />,
+                    onPress: () => router.push({ pathname: '/manage/scan/[eventId]', params: { eventId: id } }),
+                  },
+                ]
+              : []),
             {
               testID: 'share',
               label: 'Compartilhar evento',
