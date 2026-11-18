@@ -1,5 +1,5 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { ChevronDown, ChevronRight } from 'lucide-react-native'
+import { CircleMinus, Star } from 'lucide-react-native'
 import { useCallback, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from '@/components/avatar'
@@ -8,21 +8,28 @@ import { runAction } from '@/lib/api'
 import { useHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
-type CriterionRow = { criterion_id: string; name: string; active: boolean; my_score: number | null; average: number | null; votes: number }
-type TaskCompletion = { id: string; completed_at: string; marked_by_name: string | null }
-type TaskRow = { task_id: string; title: string; description: string | null; active: boolean; archived: boolean; completions: TaskCompletion[] }
+type Indicator = 'positive' | 'negative' | null
+type IncidentRow = { id: string; severity: 'LEVE' | 'MEDIA' | 'GRAVE'; description: string; created_at: string; created_by_name: string | null }
+type ContributionRow = { id: string; size: 'PEQUENA' | 'MEDIA' | 'GRANDE'; description: string; created_at: string; created_by_name: string | null }
 type FieldEntry = { id: string; value: string; recorded_at: string; recorded_by_name: string | null }
 type MemberField = { field_id: string; label: string; unit: string | null; active: boolean; entries: FieldEntry[] }
 type Detail = {
   member: { full_name: string | null; username: string | null; avatar_url: string | null } | null
-  average: number | null
-  criteria: CriterionRow[]
-  tasks: TaskRow[]
+  incident_count: number
+  contribution_count: number
+  indicator: Indicator
+  incidents: IncidentRow[]
+  contributions: ContributionRow[]
   fields: MemberField[]
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR')
+const SEVERITIES = ['LEVE', 'MEDIA', 'GRAVE'] as const
+const SEVERITY_LABELS: Record<string, string> = { LEVE: 'Leve', MEDIA: 'Média', GRAVE: 'Grave' }
+const SIZES = ['PEQUENA', 'MEDIA', 'GRANDE'] as const
+const SIZE_LABELS: Record<string, string> = { PEQUENA: 'Pequena', MEDIA: 'Média', GRANDE: 'Grande' }
+
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function fmtDateOnly(iso: string) {
@@ -34,8 +41,15 @@ function todayInput() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// Detalhe de um membro: nota por critério, mini-missões e campos
-// customizados do grupo — mesma lógica do painel do site (features/reputacao).
+function IndicatorIcon({ indicator }: { indicator: Indicator }) {
+  if (indicator === 'positive') return <Star size={20} color={colors.primary} fill={colors.primary} />
+  if (indicator === 'negative') return <CircleMinus size={20} color={colors.destructive} />
+  return null
+}
+
+// Detalhe de um membro: faltas e contribuições (gravidade/porte +
+// justificativa) e os campos customizados do grupo — mesma lógica do painel
+// do site (features/reputacao).
 export default function MemberReputationScreen() {
   const { groupId, memberId } = useLocalSearchParams<{ groupId: string; memberId: string }>()
   const headerInset = useHeaderInset()
@@ -43,8 +57,11 @@ export default function MemberReputationScreen() {
   const [data, setData] = useState<Detail | null | undefined>(undefined)
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
-  const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({})
-  const [showArchived, setShowArchived] = useState(false)
+
+  const [incidentSeverity, setIncidentSeverity] = useState<typeof SEVERITIES[number]>('LEVE')
+  const [incidentDescription, setIncidentDescription] = useState('')
+  const [contributionSize, setContributionSize] = useState<typeof SIZES[number]>('PEQUENA')
+  const [contributionDescription, setContributionDescription] = useState('')
   const [fieldDrafts, setFieldDrafts] = useState<Record<string, { value: string; date: string }>>({})
 
   const load = useCallback(async () => {
@@ -67,25 +84,34 @@ export default function MemberReputationScreen() {
     return !('error' in result)
   }
 
-  async function saveScore(criterionId: string) {
-    const raw = scoreDrafts[criterionId]
-    const score = Number(raw)
-    if (!Number.isInteger(score) || score < 0 || score > 10) {
-      setMessage('Informe uma nota inteira de 0 a 10.')
+  async function addIncident() {
+    if (incidentDescription.trim().length < 3) {
+      setMessage('Descreva a falta (mínimo 3 caracteres).')
       return
     }
-    if (await act(criterionId, 'rateMember', [groupId, criterionId, memberId, score])) {
-      setScoreDrafts((prev) => ({ ...prev, [criterionId]: '' }))
+    if (await act('new-incident', 'createIncident', [groupId, memberId, incidentSeverity, incidentDescription])) {
+      setIncidentDescription('')
       await load()
     }
   }
 
-  async function completeTask(taskId: string) {
-    if (await act(taskId, 'completeTask', [groupId, taskId, memberId])) await load()
+  async function deleteIncident(incidentId: string) {
+    if (await act(incidentId, 'deleteIncident', [groupId, incidentId])) await load()
   }
 
-  async function undoCompletion(completionId: string) {
-    if (await act(completionId, 'undoTaskCompletion', [groupId, completionId])) await load()
+  async function addContribution() {
+    if (contributionDescription.trim().length < 3) {
+      setMessage('Descreva a contribuição (mínimo 3 caracteres).')
+      return
+    }
+    if (await act('new-contribution', 'createContribution', [groupId, memberId, contributionSize, contributionDescription])) {
+      setContributionDescription('')
+      await load()
+    }
+  }
+
+  async function deleteContribution(contributionId: string) {
+    if (await act(contributionId, 'deleteContribution', [groupId, contributionId])) await load()
   }
 
   function fieldDraft(fieldId: string) {
@@ -127,9 +153,6 @@ export default function MemberReputationScreen() {
   }
 
   const name = data.member?.full_name ?? data.member?.username ?? 'Usuário'
-  const activeCriteria = data.criteria.filter((c) => c.active)
-  const visibleTasks = data.tasks.filter((t) => !t.archived)
-  const archivedTasks = data.tasks.filter((t) => t.archived)
 
   return (
     <Screen>
@@ -139,51 +162,98 @@ export default function MemberReputationScreen() {
 
         <View style={styles.header}>
           <Avatar name={name} url={data.member?.avatar_url} size={44} />
-          <Text style={styles.headerName}>{name}</Text>
-          {data.average !== null ? <Text style={styles.headerScore}>{data.average.toFixed(1)}</Text> : <Text style={styles.empty}>Sem notas</Text>}
+          <View style={styles.flex}>
+            <View style={styles.headerNameRow}>
+              <Text style={styles.headerName}>{name}</Text>
+              <IndicatorIcon indicator={data.indicator} />
+            </View>
+            <Text style={styles.memberDetail}>
+              {data.incident_count} {data.incident_count === 1 ? 'falta' : 'faltas'} · {data.contribution_count} {data.contribution_count === 1 ? 'contribuição' : 'contribuições'}
+            </Text>
+          </View>
         </View>
 
-        <Section title="Critérios de avaliação">
-          {activeCriteria.length === 0 && <Text style={styles.empty}>Nenhum critério ativo no grupo ainda.</Text>}
-          {activeCriteria.map((c) => (
-            <View key={c.criterion_id} style={styles.criterionRow}>
-              <View style={styles.criterionHeader}>
-                <Text style={styles.itemText}>{c.name}</Text>
-                <Text style={styles.memberDetail}>{c.average !== null ? `Média: ${c.average.toFixed(1)} (${c.votes})` : 'Sem notas ainda'}</Text>
+        <Section title="Faltas">
+          <View style={styles.segmented}>
+            {SEVERITIES.map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setIncidentSeverity(s)}
+                style={[styles.segment, incidentSeverity === s && styles.segmentActiveDestructive]}>
+                <Text style={[styles.segmentLabel, incidentSeverity === s && styles.segmentLabelActive]}>{SEVERITY_LABELS[s]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Field
+            label="Justificativa"
+            placeholder="O que aconteceu"
+            value={incidentDescription}
+            onChangeText={setIncidentDescription}
+            multiline
+            numberOfLines={3}
+          />
+          <TextButton
+            label={busy === 'new-incident' ? 'Registrando...' : 'Registrar falta'}
+            onPress={addIncident}
+            disabled={busy === 'new-incident'}
+            destructive
+          />
+          {data.incidents.length === 0 && <Text style={styles.empty}>Nenhuma falta registrada.</Text>}
+          {data.incidents.map((i) => (
+            <View key={i.id} style={styles.entryBlock}>
+              <View style={styles.entryHeader}>
+                <Text style={[styles.badge, styles.badgeDestructive]}>{SEVERITY_LABELS[i.severity]}</Text>
+                <Pressable onPress={() => deleteIncident(i.id)}>
+                  <Text style={styles.deleteLabel}>excluir</Text>
+                </Pressable>
               </View>
-              <View style={styles.rowGap}>
-                <Field
-                  label="Nota"
-                  value={scoreDrafts[c.criterion_id] ?? (c.my_score !== null ? String(c.my_score) : '')}
-                  onChangeText={(v) => setScoreDrafts((prev) => ({ ...prev, [c.criterion_id]: v }))}
-                  placeholder="0-10"
-                  keyboardType="number-pad"
-                  style={styles.scoreInput}
-                />
-                <TextButton
-                  label={busy === c.criterion_id ? '...' : c.my_score !== null ? 'Atualizar' : 'Salvar'}
-                  onPress={() => saveScore(c.criterion_id)}
-                  disabled={busy === c.criterion_id}
-                />
-              </View>
+              <Text style={styles.itemText}>{i.description}</Text>
+              <Text style={styles.memberDetail}>
+                {fmtDateTime(i.created_at)}{i.created_by_name ? ` · ${i.created_by_name}` : ''}
+              </Text>
             </View>
           ))}
         </Section>
 
-        <Section title="Mini-missões">
-          {visibleTasks.length === 0 && <Text style={styles.empty}>Nenhuma mini-missão visível no momento.</Text>}
-          {visibleTasks.map((t) => (
-            <TaskBlock key={t.task_id} task={t} busy={busy} onComplete={() => completeTask(t.task_id)} onUndo={undoCompletion} />
-          ))}
-          {archivedTasks.length > 0 && (
-            <View>
-              <Pressable onPress={() => setShowArchived((v) => !v)} style={styles.archivedToggle}>
-                {showArchived ? <ChevronDown size={14} color={colors.text40} /> : <ChevronRight size={14} color={colors.text40} />}
-                <Text style={styles.archivedToggleText}>Arquivadas ({archivedTasks.length})</Text>
+        <Section title="Contribuições">
+          <View style={styles.segmented}>
+            {SIZES.map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setContributionSize(s)}
+                style={[styles.segment, contributionSize === s && styles.segmentActivePrimary]}>
+                <Text style={[styles.segmentLabel, contributionSize === s && styles.segmentLabelActive]}>{SIZE_LABELS[s]}</Text>
               </Pressable>
-              {showArchived && archivedTasks.map((t) => <TaskBlock key={t.task_id} task={t} busy={busy} onComplete={() => completeTask(t.task_id)} onUndo={undoCompletion} />)}
+            ))}
+          </View>
+          <Field
+            label="Justificativa"
+            placeholder="O que foi feito"
+            value={contributionDescription}
+            onChangeText={setContributionDescription}
+            multiline
+            numberOfLines={3}
+          />
+          <TextButton
+            label={busy === 'new-contribution' ? 'Registrando...' : 'Registrar contribuição'}
+            onPress={addContribution}
+            disabled={busy === 'new-contribution'}
+          />
+          {data.contributions.length === 0 && <Text style={styles.empty}>Nenhuma contribuição registrada.</Text>}
+          {data.contributions.map((c) => (
+            <View key={c.id} style={styles.entryBlock}>
+              <View style={styles.entryHeader}>
+                <Text style={[styles.badge, styles.badgePrimary]}>{SIZE_LABELS[c.size]}</Text>
+                <Pressable onPress={() => deleteContribution(c.id)}>
+                  <Text style={styles.deleteLabel}>excluir</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.itemText}>{c.description}</Text>
+              <Text style={styles.memberDetail}>
+                {fmtDateTime(c.created_at)}{c.created_by_name ? ` · ${c.created_by_name}` : ''}
+              </Text>
             </View>
-          )}
+          ))}
         </Section>
 
         <Section title="Campos customizados">
@@ -240,38 +310,14 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   )
 }
 
-function TextButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+function TextButton({ label, onPress, disabled, destructive }: { label: string; onPress: () => void; disabled?: boolean; destructive?: boolean }) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={[styles.textButton, disabled && styles.textButtonDim]}>
-      <Text style={styles.textButtonLabel}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.textButton, destructive && styles.textButtonDestructive, disabled && styles.textButtonDim]}>
+      <Text style={[styles.textButtonLabel, destructive && styles.textButtonLabelDestructive]}>{label}</Text>
     </Pressable>
-  )
-}
-
-function TaskBlock({ task, busy, onComplete, onUndo }: { task: TaskRow; busy: string | null; onComplete: () => void; onUndo: (id: string) => void }) {
-  return (
-    <View style={styles.taskBlock}>
-      <View style={styles.taskHeader}>
-        <View style={styles.flex}>
-          <Text style={[styles.itemText, !task.active && styles.itemInactive]}>{task.title}</Text>
-          {task.description ? <Text style={styles.memberDetail}>{task.description}</Text> : null}
-        </View>
-        {task.active && !task.archived && (
-          <TextButton label={busy === task.task_id ? '...' : 'Marcar cumprida'} onPress={onComplete} disabled={busy === task.task_id} />
-        )}
-      </View>
-      {task.completions.map((c) => (
-        <View key={c.id} style={styles.entryRow}>
-          <Text style={styles.memberDetail}>
-            Cumprida em {fmtDate(c.completed_at)}
-            {c.marked_by_name ? ` por ${c.marked_by_name}` : ''}
-          </Text>
-          <Pressable onPress={() => onUndo(c.id)}>
-            <Text style={styles.deleteLabel}>desfazer</Text>
-          </Pressable>
-        </View>
-      ))}
-    </View>
   )
 }
 
@@ -280,28 +326,48 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 48, gap: 16 },
   notice: { fontFamily: fonts.body, fontSize: 13, color: colors.destructive },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  headerName: { flex: 1, fontFamily: fonts.bodyBold, fontSize: 18, color: colors.text },
-  headerScore: { fontFamily: fonts.bodyBold, fontSize: 24, color: colors.primary },
+  headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerName: { fontFamily: fonts.bodyBold, fontSize: 18, color: colors.text },
   empty: { fontFamily: fonts.body, fontSize: 13, color: colors.text35 },
   section: { padding: 16, gap: 10 },
   sectionTitle: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.text70, textTransform: 'uppercase', letterSpacing: 0.5 },
   itemText: { fontFamily: fonts.body, fontSize: 14, color: colors.text },
-  itemInactive: { color: colors.text35 },
   memberDetail: { fontFamily: fonts.body, fontSize: 11, color: colors.text40 },
-  criterionRow: { gap: 8, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
-  criterionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   rowGap: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
-  scoreInput: { width: 70, textAlign: 'center' },
   flexInput: { flex: 1 },
-  taskBlock: { gap: 6, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
-  taskHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  segmented: { flexDirection: 'row', gap: 8 },
+  segment: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+  },
+  segmentActiveDestructive: { backgroundColor: 'rgba(239,68,68,0.15)' },
+  segmentActivePrimary: { backgroundColor: 'rgba(74,222,128,0.15)' },
+  segmentLabel: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.text40 },
+  segmentLabelActive: { color: colors.text },
+  entryBlock: { gap: 4, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  entryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   entryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   entryValue: { fontFamily: fonts.bodySemi, color: colors.text70 },
+  badge: {
+    fontFamily: fonts.bodySemi,
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+  badgeDestructive: { color: colors.destructive, backgroundColor: 'rgba(239,68,68,0.12)' },
+  badgePrimary: { color: colors.primary, backgroundColor: 'rgba(74,222,128,0.12)' },
   deleteLabel: { fontFamily: fonts.body, fontSize: 11, color: 'rgba(239,68,68,0.7)' },
   fieldBlock: { gap: 6, paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border },
-  archivedToggle: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6 },
-  archivedToggleText: { fontFamily: fonts.body, fontSize: 12, color: colors.text40 },
-  textButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: 'rgba(74,222,128,0.1)' },
+  textButton: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: 'rgba(74,222,128,0.1)', alignItems: 'center' },
+  textButtonDestructive: { backgroundColor: 'rgba(239,68,68,0.1)' },
   textButtonDim: { opacity: 0.5 },
   textButtonLabel: { fontFamily: fonts.bodySemi, fontSize: 12, color: colors.primary },
+  textButtonLabelDestructive: { color: colors.destructive },
 })
