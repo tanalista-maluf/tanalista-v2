@@ -5,8 +5,9 @@ import { ChevronLeft } from 'lucide-react'
 import { getGroupById } from '@/features/grupos/queries'
 import { isGroupManager } from '@/features/grupos/roles'
 import { getMemberReputationDetail } from '@/features/reputacao/queries'
-import { MemberCriteriaPanel } from '@/features/reputacao/components/MemberCriteriaPanel'
-import { MemberTasksPanel } from '@/features/reputacao/components/MemberTasksPanel'
+import { ReputationIndicatorBadge } from '@/features/reputacao/components/ReputationIndicator'
+import { MemberIncidentsPanel } from '@/features/reputacao/components/MemberIncidentsPanel'
+import { MemberContributionsPanel } from '@/features/reputacao/components/MemberContributionsPanel'
 import { MemberFieldsPanel } from '@/features/reputacao/components/MemberFieldsPanel'
 
 export default async function MemberReputationPage({
@@ -34,26 +35,23 @@ export default async function MemberReputationPage({
         <Link href={`/grupos/${groupSlug}/reputacao`} className="text-white/50 hover:text-white">
           <ChevronLeft className="size-5" />
         </Link>
-        <h1 className="text-xl font-bold flex-1 truncate" style={{ fontFamily: 'var(--font-heading)' }}>
+        <h1 className="text-xl font-bold flex-1 truncate flex items-center gap-2" style={{ fontFamily: 'var(--font-heading)' }}>
           {name}
+          <ReputationIndicatorBadge indicator={detail.indicator} />
         </h1>
-        <div className="text-right shrink-0">
-          {detail.average !== null ? (
-            <p className="text-2xl font-bold text-primary">{detail.average.toFixed(1)}</p>
-          ) : (
-            <p className="text-xs text-white/30">Sem notas</p>
-          )}
-        </div>
+        <p className="text-xs text-white/40 shrink-0">
+          {detail.incident_count} {detail.incident_count === 1 ? 'falta' : 'faltas'} · {detail.contribution_count} {detail.contribution_count === 1 ? 'contribuição' : 'contribuições'}
+        </p>
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white/70">Critérios de avaliação</h2>
-        <MemberCriteriaPanel groupId={group.id} memberId={memberId} criteria={detail.criteria} />
+        <h2 className="text-sm font-semibold text-white/70">Faltas</h2>
+        <MemberIncidentsPanel groupId={group.id} memberId={memberId} incidents={detail.incidents} />
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white/70">Mini-missões</h2>
-        <MemberTasksPanel groupId={group.id} memberId={memberId} tasks={detail.tasks} />
+        <h2 className="text-sm font-semibold text-white/70">Contribuições</h2>
+        <MemberContributionsPanel groupId={group.id} memberId={memberId} contributions={detail.contributions} />
       </section>
 
       <section className="space-y-3">

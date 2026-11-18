@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { removeMemberAction, setGroupMemberRoleAction } from '../actions'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { ShieldCheck, ShieldOff, X } from 'lucide-react'
+import { ReputationIndicatorBadge } from '@/features/reputacao/components/ReputationIndicator'
+import type { ReputationIndicator } from '@/features/reputacao/queries'
 
 interface Member {
   id: string
@@ -24,10 +27,13 @@ interface MemberListProps {
   members: Member[]
   isOwner: boolean
   groupId: string
+  groupSlug: string
   currentUserId: string
+  // null = quem está vendo não é gestor (indicador nem foi buscado)
+  reputationIndicators: Record<string, ReputationIndicator> | null
 }
 
-export function MemberList({ members, isOwner, groupId, currentUserId }: MemberListProps) {
+export function MemberList({ members, isOwner, groupId, groupSlug, currentUserId, reputationIndicators }: MemberListProps) {
   const router = useRouter()
   const [removing, setRemoving] = useState<string | null>(null)
   const [changing, setChanging] = useState<string | null>(null)
@@ -71,7 +77,16 @@ export function MemberList({ members, isOwner, groupId, currentUserId }: MemberL
               size="sm"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{profile?.full_name ?? 'Usuário'}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium text-white truncate">{profile?.full_name ?? 'Usuário'}</p>
+                {reputationIndicators && (
+                  reputationIndicators[m.user_id] ? (
+                    <Link href={`/grupos/${groupSlug}/reputacao/${m.user_id}`} title="Ver faltas e contribuições">
+                      <ReputationIndicatorBadge indicator={reputationIndicators[m.user_id]} />
+                    </Link>
+                  ) : null
+                )}
+              </div>
               <p className="text-xs text-white/40">@{profile?.username}</p>
             </div>
             <div className="flex items-center gap-2">

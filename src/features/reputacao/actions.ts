@@ -30,171 +30,80 @@ async function requireOwner(groupId: string): Promise<ManagerAuth> {
   return auth
 }
 
-// ── Critérios de avaliação ───────────────────────────────────────────────
+// ── Faltas ────────────────────────────────────────────────────────────────
+// Dono ou gestor registra o tipo (gravidade) e a justificativa. Sem edição
+// — só criar e apagar (corrigir um lançamento errado), pra manter o
+// histórico simples.
 
-export async function createCriterionAction(groupId: string, name: string) {
-  const auth = await requireOwner(groupId)
+const INCIDENT_SEVERITIES = ['LEVE', 'MEDIA', 'GRAVE'] as const
+type IncidentSeverity = typeof INCIDENT_SEVERITIES[number]
+
+export async function createIncidentAction(groupId: string, memberId: string, severity: string, description: string) {
+  const auth = await requireManager(groupId)
   if (!auth.ok) return auth
 
-  const trimmed = name.trim()
-  if (trimmed.length < 2 || trimmed.length > 60) return { error: 'Nome deve ter de 2 a 60 caracteres.' }
+  if (!INCIDENT_SEVERITIES.includes(severity as IncidentSeverity)) return { error: 'Gravidade inválida.' }
+  const trimmed = description.trim()
+  if (trimmed.length < 3 || trimmed.length > 500) return { error: 'Justificativa deve ter de 3 a 500 caracteres.' }
 
   const admin = createAdminClient()
   const { data, error } = await admin
-    .from('group_rating_criteria')
-    .insert({ group_id: groupId, name: trimmed, created_by: auth.user.id })
-    .select('id, name, active')
+    .from('group_member_incidents')
+    .insert({ group_id: groupId, member_id: memberId, severity: severity as IncidentSeverity, description: trimmed, created_by: auth.user.id })
+    .select('id, severity, description, created_at')
     .single()
-  if (error || !data) return { error: 'Erro ao criar critério.' }
-  return { success: true, criterion: data }
+  if (error || !data) return { error: 'Erro ao registrar falta.' }
+  return { success: true, incident: data }
 }
 
-export async function updateCriterionAction(groupId: string, criterionId: string, name: string) {
-  const auth = await requireOwner(groupId)
-  if (!auth.ok) return auth
-
-  const trimmed = name.trim()
-  if (trimmed.length < 2 || trimmed.length > 60) return { error: 'Nome deve ter de 2 a 60 caracteres.' }
-
-  const admin = createAdminClient()
-  const { error } = await admin
-    .from('group_rating_criteria')
-    .update({ name: trimmed })
-    .eq('id', criterionId)
-    .eq('group_id', groupId)
-  if (error) return { error: 'Erro ao editar critério.' }
-  return { success: true }
-}
-
-export async function toggleCriterionAction(groupId: string, criterionId: string, active: boolean) {
-  const auth = await requireOwner(groupId)
-  if (!auth.ok) return auth
-
-  const admin = createAdminClient()
-  const { error } = await admin
-    .from('group_rating_criteria')
-    .update({ active })
-    .eq('id', criterionId)
-    .eq('group_id', groupId)
-  if (error) return { error: 'Erro ao atualizar critério.' }
-  return { success: true }
-}
-
-// ── Notas por critério ───────────────────────────────────────────────────
-// Upsert: um gestor tem no máximo uma nota vigente por critério+membro.
-
-export async function rateMemberAction(groupId: string, criterionId: string, memberId: string, score: number) {
-  const auth = await requireManager(groupId)
-  if (!auth.ok) return auth
-
-  if (!Number.isInteger(score) || score < 0 || score > 10) return { error: 'Nota deve ser de 0 a 10.' }
-
-  const admin = createAdminClient()
-  const { error } = await admin.from('group_rating_scores').upsert(
-    {
-      group_id: groupId,
-      criterion_id: criterionId,
-      member_id: memberId,
-      rated_by: auth.user.id,
-      score,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'criterion_id,member_id,rated_by' }
-  )
-  if (error) return { error: 'Erro ao salvar nota.' }
-  return { success: true }
-}
-
-// ── Mini-missões ─────────────────────────────────────────────────────────
-// Cumprimento pode repetir: cada marcação é uma linha própria, valendo
-// outra nota 10 na média do membro.
-
-export async function createTaskAction(groupId: string, title: string, description: string) {
-  const auth = await requireManager(groupId)
-  if (!auth.ok) return auth
-
-  const trimmedTitle = title.trim()
-  if (trimmedTitle.length < 2 || trimmedTitle.length > 80) return { error: 'Título deve ter de 2 a 80 caracteres.' }
-
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('group_tasks')
-    .insert({ group_id: groupId, title: trimmedTitle, description: description.trim() || null, created_by: auth.user.id })
-    .select('id, title, description, active')
-    .single()
-  if (error || !data) return { error: 'Erro ao criar missão.' }
-  return { success: true, task: data }
-}
-
-export async function updateTaskAction(groupId: string, taskId: string, title: string, description: string) {
-  const auth = await requireManager(groupId)
-  if (!auth.ok) return auth
-
-  const trimmedTitle = title.trim()
-  if (trimmedTitle.length < 2 || trimmedTitle.length > 80) return { error: 'Título deve ter de 2 a 80 caracteres.' }
-
-  const admin = createAdminClient()
-  const { error } = await admin
-    .from('group_tasks')
-    .update({ title: trimmedTitle, description: description.trim() || null })
-    .eq('id', taskId)
-    .eq('group_id', groupId)
-  if (error) return { error: 'Erro ao editar missão.' }
-  return { success: true }
-}
-
-export async function toggleTaskAction(groupId: string, taskId: string, active: boolean) {
-  const auth = await requireManager(groupId)
-  if (!auth.ok) return auth
-
-  const admin = createAdminClient()
-  const { error } = await admin.from('group_tasks').update({ active }).eq('id', taskId).eq('group_id', groupId)
-  if (error) return { error: 'Erro ao atualizar missão.' }
-  return { success: true }
-}
-
-// Arquivar esconde a missão da lista principal (sem apagar cumprimentos já
-// registrados, que continuam contando na média) e desativa de uma vez —
-// desarquivar só a traz de volta pra lista, sem reativar sozinho.
-export async function archiveTaskAction(groupId: string, taskId: string, archived: boolean) {
+export async function deleteIncidentAction(groupId: string, incidentId: string) {
   const auth = await requireManager(groupId)
   if (!auth.ok) return auth
 
   const admin = createAdminClient()
   const { error } = await admin
-    .from('group_tasks')
-    .update(archived ? { archived: true, active: false } : { archived: false })
-    .eq('id', taskId)
-    .eq('group_id', groupId)
-  if (error) return { error: 'Erro ao arquivar missão.' }
-  return { success: true }
-}
-
-export async function completeTaskAction(groupId: string, taskId: string, memberId: string) {
-  const auth = await requireManager(groupId)
-  if (!auth.ok) return auth
-
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('group_task_completions')
-    .insert({ group_id: groupId, task_id: taskId, member_id: memberId, marked_by: auth.user.id })
-    .select('id, completed_at')
-    .single()
-  if (error || !data) return { error: 'Erro ao marcar cumprimento.' }
-  return { success: true, completion: data }
-}
-
-export async function undoTaskCompletionAction(groupId: string, completionId: string) {
-  const auth = await requireManager(groupId)
-  if (!auth.ok) return auth
-
-  const admin = createAdminClient()
-  const { error } = await admin
-    .from('group_task_completions')
+    .from('group_member_incidents')
     .delete()
-    .eq('id', completionId)
+    .eq('id', incidentId)
     .eq('group_id', groupId)
-  if (error) return { error: 'Erro ao desfazer cumprimento.' }
+  if (error) return { error: 'Erro ao excluir falta.' }
+  return { success: true }
+}
+
+// ── Contribuições ─────────────────────────────────────────────────────────
+
+const CONTRIBUTION_SIZES = ['PEQUENA', 'MEDIA', 'GRANDE'] as const
+type ContributionSize = typeof CONTRIBUTION_SIZES[number]
+
+export async function createContributionAction(groupId: string, memberId: string, size: string, description: string) {
+  const auth = await requireManager(groupId)
+  if (!auth.ok) return auth
+
+  if (!CONTRIBUTION_SIZES.includes(size as ContributionSize)) return { error: 'Porte inválido.' }
+  const trimmed = description.trim()
+  if (trimmed.length < 3 || trimmed.length > 500) return { error: 'Justificativa deve ter de 3 a 500 caracteres.' }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('group_member_contributions')
+    .insert({ group_id: groupId, member_id: memberId, size: size as ContributionSize, description: trimmed, created_by: auth.user.id })
+    .select('id, size, description, created_at')
+    .single()
+  if (error || !data) return { error: 'Erro ao registrar contribuição.' }
+  return { success: true, contribution: data }
+}
+
+export async function deleteContributionAction(groupId: string, contributionId: string) {
+  const auth = await requireManager(groupId)
+  if (!auth.ok) return auth
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('group_member_contributions')
+    .delete()
+    .eq('id', contributionId)
+    .eq('group_id', groupId)
+  if (error) return { error: 'Erro ao excluir contribuição.' }
   return { success: true }
 }
 

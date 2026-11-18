@@ -5,8 +5,7 @@ import { ChevronLeft, Star } from 'lucide-react'
 import { getGroupById } from '@/features/grupos/queries'
 import { isGroupManager } from '@/features/grupos/roles'
 import { getGroupReputationConfig, getGroupReputationOverview } from '@/features/reputacao/queries'
-import { CriteriaManager } from '@/features/reputacao/components/CriteriaManager'
-import { TasksManager } from '@/features/reputacao/components/TasksManager'
+import { ReputationIndicatorBadge } from '@/features/reputacao/components/ReputationIndicator'
 import { FieldsManager } from '@/features/reputacao/components/FieldsManager'
 
 export default async function GroupReputationPage({
@@ -28,7 +27,7 @@ export default async function GroupReputationPage({
     getGroupReputationOverview(group.id),
     getGroupReputationConfig(group.id),
   ])
-  const { criteria, tasks, fields } = config ?? { criteria: [], tasks: [], fields: [] }
+  const { fields } = config ?? { fields: [] }
 
   return (
     <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6 space-y-8">
@@ -42,7 +41,7 @@ export default async function GroupReputationPage({
         </h1>
       </div>
       <p className="text-xs text-white/35 -mt-6">
-        Visível só para dono e gestores do grupo. Ninguém mais vê estas notas.
+        Visível só para dono e gestores do grupo. Ninguém mais vê estes registros.
       </p>
 
       <section className="space-y-3">
@@ -65,33 +64,19 @@ export default async function GroupReputationPage({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-white truncate">{name}</p>
+                    <ReputationIndicatorBadge indicator={m.indicator} />
+                  </div>
                   <p className="text-xs text-white/40">
-                    {m.rating_count} {m.rating_count === 1 ? 'nota' : 'notas'} · {m.task_count} {m.task_count === 1 ? 'missão' : 'missões'}
+                    {m.incident_count} {m.incident_count === 1 ? 'falta' : 'faltas'} · {m.contribution_count} {m.contribution_count === 1 ? 'contribuição' : 'contribuições'}
                   </p>
-                </div>
-                <div className="text-right shrink-0">
-                  {m.average !== null ? (
-                    <p className="text-lg font-bold text-primary">{m.average.toFixed(1)}</p>
-                  ) : (
-                    <p className="text-xs text-white/30">Sem notas</p>
-                  )}
                 </div>
               </Link>
             )
           })}
           {(members ?? []).length === 0 && <p className="text-sm text-white/30">Nenhum membro no grupo ainda.</p>}
         </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white/70">Critérios de avaliação</h2>
-        <CriteriaManager groupId={group.id} initialCriteria={criteria} isOwner={group.is_owner} />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white/70">Mini-missões</h2>
-        <TasksManager groupId={group.id} initialTasks={tasks} />
       </section>
 
       <section className="space-y-3">
