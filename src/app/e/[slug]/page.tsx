@@ -3,10 +3,9 @@ import { getPublicEvent } from '@/features/eventos/queries-public'
 import { buildInviteMessage } from '@/features/eventos/invite-message'
 import { EventCountdown } from '@/features/eventos/components/EventCountdown'
 import { formatPrice, formatDateTime } from '@/utils/format'
+import { getBRDateTimeLong } from '@/utils/datetime'
 import { MapPin, Calendar, Users, Clock, Share2, UserPlus } from 'lucide-react'
 import { EventLocationMap } from '@/features/eventos/components/EventLocationMap'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
@@ -214,7 +213,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
         <p className="text-xs text-white/30 text-center">
           Inscrições até{' '}
           {event.registration_deadline
-            ? format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+            ? getBRDateTimeLong(event.registration_deadline)
             : 'o início do evento'}
         </p>
       )}

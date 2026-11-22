@@ -45,8 +45,8 @@ export function ClaimPayoutButton({ eventId, netCents, alreadyClaimed, startsAt 
   }
 
   if (!eventPast) {
-    const dateStr = new Date(startsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    const timeStr = new Date(startsAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    const dateStr = new Date(startsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+    const timeStr = new Date(startsAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
     return (
       <div className="space-y-2">
         <button

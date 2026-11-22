@@ -1,8 +1,7 @@
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { MapPin, Users, Lock, Star } from 'lucide-react'
 import { EventStatusBadge } from './EventStatusBadge'
+import { getBRDay, getBRMonthShort, getBRTime } from '@/utils/datetime'
 
 interface EventCardProps {
   event: {
@@ -38,10 +37,9 @@ function getAccentColor(status: string, pct: number) {
 }
 
 export function EventCard({ event, confirmedCount, groupName, isLoggedIn = true }: EventCardProps) {
-  const startsAt = new Date(event.starts_at)
-  const day = startsAt.getDate()
-  const mon = format(startsAt, 'MMM', { locale: ptBR }).replace('.', '')
-  const timeStr = format(startsAt, 'HH:mm', { locale: ptBR })
+  const day = getBRDay(event.starts_at)
+  const mon = getBRMonthShort(event.starts_at)
+  const timeStr = getBRTime(event.starts_at)
   const occupancy = confirmedCount ?? 0
   const pct = event.capacity > 0 ? occupancy / event.capacity : 0
   const isFull = pct >= 1

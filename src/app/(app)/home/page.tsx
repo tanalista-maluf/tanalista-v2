@@ -11,8 +11,9 @@ import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Calendar, Plus, ArrowRight, Users, Activity, MapPin, Clock } from 'lucide-react'
-import { differenceInHours, differenceInMinutes, differenceInDays, format } from 'date-fns'
+import { differenceInHours, differenceInMinutes, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { getBRDay, getBRMonthShort, getBRTime } from '@/utils/datetime'
 
 function getCountdown(startsAt: string): { label: string; urgent: boolean } {
   const now = new Date()
@@ -221,10 +222,9 @@ export default async function HomePage() {
             <div className="space-y-2">
               {upcoming.map((p: any) => {
                 const ev = p.events
-                const startsAt = new Date(ev.starts_at)
-                const day = startsAt.getDate()
-                const mon = format(startsAt, 'MMM', { locale: ptBR }).replace('.', '')
-                const timeStr = format(startsAt, 'HH:mm', { locale: ptBR })
+                const day = getBRDay(ev.starts_at)
+                const mon = getBRMonthShort(ev.starts_at)
+                const timeStr = getBRTime(ev.starts_at)
                 const countdown = getCountdown(ev.starts_at)
                 const confirmedParticipants = (ev.participations ?? [])
                   .filter((pp: any) => pp.status === 'CONFIRMED')
