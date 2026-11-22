@@ -836,207 +836,106 @@ export type Database = {
           },
         ]
       }
-      group_rating_criteria: {
+      group_member_incidents: {
         Row: {
-          active: boolean
+          id: string
+          group_id: string
+          member_id: string
+          severity: Database["public"]["Enums"]["group_incident_severity"]
+          description: string
+          created_by: string
           created_at: string
-          created_by: string
-          group_id: string
-          id: string
-          name: string
         }
         Insert: {
-          active?: boolean
-          created_at?: string
+          id?: string
+          group_id: string
+          member_id: string
+          severity: Database["public"]["Enums"]["group_incident_severity"]
+          description: string
           created_by: string
-          group_id: string
-          id?: string
-          name: string
-        }
-        Update: {
-          active?: boolean
           created_at?: string
-          created_by?: string
-          group_id?: string
-          id?: string
-          name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "group_rating_criteria_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "group_rating_criteria_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      group_rating_scores: {
-        Row: {
-          criterion_id: string
-          group_id: string
-          id: string
-          member_id: string
-          rated_by: string
-          score: number
-          updated_at: string
-        }
-        Insert: {
-          criterion_id: string
-          group_id: string
-          id?: string
-          member_id: string
-          rated_by: string
-          score: number
-          updated_at?: string
         }
         Update: {
-          criterion_id?: string
-          group_id?: string
           id?: string
+          group_id?: string
           member_id?: string
-          rated_by?: string
-          score?: number
-          updated_at?: string
+          severity?: Database["public"]["Enums"]["group_incident_severity"]
+          description?: string
+          created_by?: string
+          created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "group_rating_scores_criterion_id_fkey"
-            columns: ["criterion_id"]
-            isOneToOne: false
-            referencedRelation: "group_rating_criteria"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "group_rating_scores_group_id_fkey"
+            foreignKeyName: "group_member_incidents_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "group_rating_scores_member_id_fkey"
+            foreignKeyName: "group_member_incidents_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "group_rating_scores_rated_by_fkey"
-            columns: ["rated_by"]
+            foreignKeyName: "group_member_incidents_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
-      group_task_completions: {
+      group_member_contributions: {
         Row: {
-          completed_at: string
-          group_id: string
           id: string
-          marked_by: string
+          group_id: string
           member_id: string
-          task_id: string
+          size: Database["public"]["Enums"]["group_contribution_size"]
+          description: string
+          created_by: string
+          created_at: string
         }
         Insert: {
-          completed_at?: string
-          group_id: string
           id?: string
-          marked_by: string
+          group_id: string
           member_id: string
-          task_id: string
+          size: Database["public"]["Enums"]["group_contribution_size"]
+          description: string
+          created_by: string
+          created_at?: string
         }
         Update: {
-          completed_at?: string
-          group_id?: string
           id?: string
-          marked_by?: string
+          group_id?: string
           member_id?: string
-          task_id?: string
+          size?: Database["public"]["Enums"]["group_contribution_size"]
+          description?: string
+          created_by?: string
+          created_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "group_task_completions_group_id_fkey"
+            foreignKeyName: "group_member_contributions_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "group_task_completions_marked_by_fkey"
-            columns: ["marked_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "group_task_completions_member_id_fkey"
+            foreignKeyName: "group_member_contributions_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "group_task_completions_task_id_fkey"
-            columns: ["task_id"]
-            isOneToOne: false
-            referencedRelation: "group_tasks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      group_tasks: {
-        Row: {
-          active: boolean
-          archived: boolean
-          created_at: string
-          created_by: string
-          description: string | null
-          group_id: string
-          id: string
-          title: string
-        }
-        Insert: {
-          active?: boolean
-          archived?: boolean
-          created_at?: string
-          created_by: string
-          description?: string | null
-          group_id: string
-          id?: string
-          title: string
-        }
-        Update: {
-          active?: boolean
-          archived?: boolean
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          group_id?: string
-          id?: string
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "group_tasks_created_by_fkey"
+            foreignKeyName: "group_member_contributions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "group_tasks_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
         ]
@@ -1845,6 +1744,8 @@ export type Database = {
         | "COMPLETED"
         | "CANCELLED"
       group_visibility: "PUBLIC" | "PRIVATE"
+      group_incident_severity: "LEVE" | "MEDIA" | "GRAVE"
+      group_contribution_size: "PEQUENA" | "MEDIA" | "GRANDE"
       notification_type:
         | "EVENT_CONFIRMED"
         | "EVENT_CANCELLED"
@@ -2022,6 +1923,8 @@ export const Constants = {
         "CANCELLED",
       ],
       group_visibility: ["PUBLIC", "PRIVATE"],
+      group_incident_severity: ["LEVE", "MEDIA", "GRAVE"],
+      group_contribution_size: ["PEQUENA", "MEDIA", "GRANDE"],
       notification_type: [
         "EVENT_CONFIRMED",
         "EVENT_CANCELLED",
