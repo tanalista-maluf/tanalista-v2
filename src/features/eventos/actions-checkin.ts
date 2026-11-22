@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { canCheckInEvent } from './permissions'
 
 export async function checkInAction(eventId: string, participationId: string) {
   const supabase = await createClient()
@@ -10,15 +11,15 @@ export async function checkInAction(eventId: string, participationId: string) {
 
   const admin = createAdminClient()
 
-  // Verifica se o usuário é organizador do evento
+  // Organizador ou dono/gestor do grupo do evento podem fazer check-in
   const { data: event } = await admin
     .from('events')
-    .select('organizer_id')
+    .select('organizer_id, group_id')
     .eq('id', eventId)
     .single()
 
-  if (!event || event.organizer_id !== user.id) {
-    return { success: false, error: 'Apenas o organizador pode fazer check-in' }
+  if (!event || !(await canCheckInEvent(supabase, event, user.id))) {
+    return { success: false, error: 'Apenas o organizador ou gestores do grupo podem fazer check-in' }
   }
 
   // Busca a participação

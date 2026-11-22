@@ -9,8 +9,11 @@ import {
   Flag,
   Lock,
   MapPin,
+  Navigation,
+  QrCode,
   Settings2,
   Share2,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react-native'
@@ -19,6 +22,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -57,7 +61,8 @@ import {
 } from '@/lib/api'
 import { countdownParts, formatLongDate, formatPrice } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
-import { shareLink } from '@/lib/share'
+import { buildInviteMessage } from '@/lib/invite-message'
+import { shareLink, shareText } from '@/lib/share'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -71,7 +76,7 @@ type EventDetail = {
   city: string
   starts_at: string
   ends_at: string | null
-  registration_deadline: string
+  registration_deadline: string | null
   price: number
   capacity: number
   confirmed_count: number
@@ -125,8 +130,11 @@ async function fetchEvent(eventId: string, userId: string) {
     fetchEventExtras(eventId),
   ])
 
-  // O dono do grupo edita e cancela os eventos dos gestores
+  // O dono do grupo edita e cancela os eventos dos gestores; check-in na
+  // entrada, porém, qualquer dono OU gestor do grupo pode fazer — não fica
+  // dependente só do organizador estar presente
   let isGroupOwner = false
+  let canCheckIn = event?.organizer_id === userId
   if (event?.group_id && event.organizer_id !== userId) {
     const { data: membership } = await supabase
       .from('group_members')
@@ -135,6 +143,7 @@ async function fetchEvent(eventId: string, userId: string) {
       .eq('user_id', userId)
       .maybeSingle()
     isGroupOwner = membership?.role === 'OWNER'
+    canCheckIn = membership?.role === 'OWNER' || membership?.role === 'MANAGER'
   }
 
   // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
@@ -142,6 +151,7 @@ async function fetchEvent(eventId: string, userId: string) {
   return {
     event: event as EventDetail | null,
     isGroupOwner,
+    canCheckIn,
     participation: active as Participation | null,
     entry: entry as WaitlistEntry | null,
     teams: 'teams' in teams ? teams.teams : [],
@@ -170,11 +180,13 @@ export default function EventScreen() {
   const [cancelling, setCancelling] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isGroupOwner, setIsGroupOwner] = useState(false)
+  const [canCheckIn, setCanCheckIn] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
 
   const apply = useCallback((result: Awaited<ReturnType<typeof fetchEvent>>) => {
     setEvent(result.event)
     setIsGroupOwner(result.isGroupOwner)
+    setCanCheckIn(result.canCheckIn)
     setParticipation(result.participation)
     setEntry(result.entry)
     setTeams(result.teams)
@@ -285,6 +297,14 @@ export default function EventScreen() {
     } catch {
       setMessage('Não foi possível abrir o calendário.')
     }
+  }
+
+  // Abre no app de mapas do aparelho (Google Maps, se instalado, senão o
+  // navegador) — mesmo link usado pelo botão "Abrir no Google Maps" do site
+  function openInMaps() {
+    if (!event) return
+    const query = encodeURIComponent(`${event.address}, ${event.city}`)
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`)
   }
 
   // Vaga reservada pela fila: evento pago passa pelo checkout, gratuito confirma daqui
@@ -439,11 +459,37 @@ export default function EventScreen() {
                     },
                   ]
                 : []),
+            // Check-in na entrada: dono ou gestor do grupo, mesmo sem ser o
+            // organizador — não depende só dele estar presente no evento
+            ...(!isOrganizer && canCheckIn
+              ? [
+                  {
+                    testID: 'group-checkin',
+                    label: 'Check-in',
+                    icon: <QrCode size={20} color={colors.text70} />,
+                    onPress: () => router.push({ pathname: '/manage/scan/[eventId]', params: { eventId: id } }),
+                  },
+                ]
+              : []),
             {
               testID: 'share',
               label: 'Compartilhar evento',
               icon: <Share2 size={20} color={colors.text70} />,
               onPress: () => shareLink(event.title, `/e/${event.slug ?? event.id}`),
+            },
+            {
+              testID: 'invite',
+              label: 'Convide alguém',
+              icon: <UserPlus size={20} color={colors.primary} />,
+              onPress: () =>
+                shareText(
+                  buildInviteMessage(
+                    event,
+                    extras?.participants ?? [],
+                    teams,
+                    `https://www.tanalista.app/e/${event.slug ?? event.id}`,
+                  ),
+                ),
             },
           ]),
         }}
@@ -491,6 +537,15 @@ export default function EventScreen() {
               />
             ) : null}
             <InfoRow icon={<MapPin size={18} color={colors.primary} />} text={`${event.address} — ${event.city}`} />
+            <Pressable
+              testID="open-in-maps"
+              accessibilityRole="button"
+              onPress={openInMaps}
+              hitSlop={6}
+              style={styles.calendar}>
+              <Navigation size={18} color={colors.primary} />
+              <Text style={styles.calendarText}>Como chegar</Text>
+            </Pressable>
             <InfoRow
               icon={<Users size={18} color={colors.primary} />}
               text={`${event.confirmed_count}/${event.capacity} confirmados`}
@@ -817,7 +872,9 @@ function resolveAction(
 ): Action {
   if (participationStatus === 'CONFIRMED') return { kind: 'confirmed' }
   if (participationStatus === 'PENDING') return { kind: 'pay' }
-  if (event.status !== 'OPEN' || new Date(event.registration_deadline) < new Date()) {
+  // Sem prazo definido, inscrições ficam abertas até o início do evento
+  const deadline = event.registration_deadline ? new Date(event.registration_deadline) : new Date(event.starts_at)
+  if (['CANCELLED', 'COMPLETED'].includes(event.status) || deadline < new Date()) {
     return { kind: 'notice', label: 'Encerrado', text: 'Inscrições encerradas.' }
   }
   if (entry?.status === 'NOTIFIED') return { kind: 'spot', expiresAt: entry.expires_at }

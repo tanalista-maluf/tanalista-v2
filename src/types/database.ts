@@ -531,7 +531,7 @@ export type Database = {
           created_at: string
           custom_rules: string | null
           description: string | null
-          ends_at: string | null
+          ends_at: string
           group_id: string | null
           id: string
           invite_token: string | null
@@ -547,7 +547,7 @@ export type Database = {
           rating_count: number | null
           recurrence_index: number | null
           recurrence_rule: string | null
-          registration_deadline: string
+          registration_deadline: string | null
           search_vec: unknown
           slug: string
           starts_at: string
@@ -568,7 +568,7 @@ export type Database = {
           created_at?: string
           custom_rules?: string | null
           description?: string | null
-          ends_at?: string | null
+          ends_at: string
           group_id?: string | null
           id?: string
           invite_token?: string | null
@@ -584,7 +584,7 @@ export type Database = {
           rating_count?: number | null
           recurrence_index?: number | null
           recurrence_rule?: string | null
-          registration_deadline: string
+          registration_deadline?: string | null
           search_vec?: unknown
           slug: string
           starts_at: string
@@ -605,7 +605,7 @@ export type Database = {
           created_at?: string
           custom_rules?: string | null
           description?: string | null
-          ends_at?: string | null
+          ends_at?: string
           group_id?: string | null
           id?: string
           invite_token?: string | null
@@ -621,7 +621,7 @@ export type Database = {
           rating_count?: number | null
           recurrence_index?: number | null
           recurrence_rule?: string | null
-          registration_deadline?: string
+          registration_deadline?: string | null
           search_vec?: unknown
           slug?: string
           starts_at?: string
@@ -690,6 +690,113 @@ export type Database = {
           },
         ]
       }
+      group_member_field_entries: {
+        Row: {
+          created_at: string
+          field_id: string
+          group_id: string
+          id: string
+          member_id: string
+          recorded_at: string
+          recorded_by: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          field_id: string
+          group_id: string
+          id?: string
+          member_id: string
+          recorded_at: string
+          recorded_by: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          field_id?: string
+          group_id?: string
+          id?: string
+          member_id?: string
+          recorded_at?: string
+          recorded_by?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_member_field_entries_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "group_member_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_field_entries_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_field_entries_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_field_entries_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_member_fields: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          label: string
+          unit: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          label: string
+          unit?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          label?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_member_fields_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_fields_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -723,6 +830,110 @@ export type Database = {
           {
             foreignKeyName: "group_members_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_member_incidents: {
+        Row: {
+          id: string
+          group_id: string
+          member_id: string
+          severity: Database["public"]["Enums"]["group_incident_severity"]
+          description: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          member_id: string
+          severity: Database["public"]["Enums"]["group_incident_severity"]
+          description: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          member_id?: string
+          severity?: Database["public"]["Enums"]["group_incident_severity"]
+          description?: string
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_member_incidents_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_incidents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_incidents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_member_contributions: {
+        Row: {
+          id: string
+          group_id: string
+          member_id: string
+          size: Database["public"]["Enums"]["group_contribution_size"]
+          description: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          member_id: string
+          size: Database["public"]["Enums"]["group_contribution_size"]
+          description: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          member_id?: string
+          size?: Database["public"]["Enums"]["group_contribution_size"]
+          description?: string
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_member_contributions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_contributions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_member_contributions_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1095,7 +1306,7 @@ export type Database = {
           onboarding_completed: boolean
           phone: string | null
           updated_at: string
-          username: string
+          username: string | null
           wallet_balance: number
         }
         Insert: {
@@ -1113,7 +1324,7 @@ export type Database = {
           onboarding_completed?: boolean
           phone?: string | null
           updated_at?: string
-          username: string
+          username?: string | null
           wallet_balance?: number
         }
         Update: {
@@ -1131,7 +1342,7 @@ export type Database = {
           onboarding_completed?: boolean
           phone?: string | null
           updated_at?: string
-          username?: string
+          username?: string | null
           wallet_balance?: number
         }
         Relationships: []
@@ -1533,6 +1744,8 @@ export type Database = {
         | "COMPLETED"
         | "CANCELLED"
       group_visibility: "PUBLIC" | "PRIVATE"
+      group_incident_severity: "LEVE" | "MEDIA" | "GRAVE"
+      group_contribution_size: "PEQUENA" | "MEDIA" | "GRANDE"
       notification_type:
         | "EVENT_CONFIRMED"
         | "EVENT_CANCELLED"
@@ -1710,6 +1923,8 @@ export const Constants = {
         "CANCELLED",
       ],
       group_visibility: ["PUBLIC", "PRIVATE"],
+      group_incident_severity: ["LEVE", "MEDIA", "GRAVE"],
+      group_contribution_size: ["PEQUENA", "MEDIA", "GRANDE"],
       notification_type: [
         "EVENT_CONFIRMED",
         "EVENT_CANCELLED",

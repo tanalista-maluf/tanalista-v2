@@ -4,6 +4,7 @@ import { getEventById } from '@/features/eventos/queries'
 import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
 import { EventRules } from '@/features/eventos/components/EventRules'
 import { OrganizerActions } from '@/features/eventos/components/OrganizerActions'
+import { EventLocationMap } from '@/features/eventos/components/EventLocationMap'
 import { ParticipantCTA } from '@/features/eventos/components/ParticipantCTA'
 import { formatDateTime, formatPrice } from '@/utils/format'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -22,7 +23,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
-import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket, UserPlus } from 'lucide-react'
+import { buildInviteMessage } from '@/features/eventos/invite-message'
+import { getParticipants } from '@/features/participacoes/queries'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import { EventBroadcastForm } from '@/features/eventos/components/EventBroadcastForm'
 import { EventInviteButton } from '@/features/eventos/components/EventInviteButton'
@@ -39,7 +42,7 @@ import { OrganizerChecklist } from '@/features/eventos/components/OrganizerCheck
 import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload'
 import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { isGroupOwner } from '@/features/eventos/permissions'
+import { isGroupOwner, canCheckInEvent } from '@/features/eventos/permissions'
 import { attachProfiles } from '@/features/perfil/attach-profiles'
 import { getBRDateShort, getBRWeekday, getBRTime, getBRDateTimeLong } from '@/utils/datetime'
 import { Suspense } from 'react'
@@ -73,14 +76,26 @@ export default async function EventDetailPage({
   const id = event.id // UUID para queries
   const eventSlug = event.slug ?? event.id // slug para URLs
 
-  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
+  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }, participants] = await Promise.all([
     getEventComments(id),
     getEventPolls(id, user.id),
     getEventRatingSummary(id),
     getEventPhotos(id),
     getEventStorageUsage(id),
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
+    getParticipants(id),
   ])
+
+  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${eventSlug}`
+  const inviteMessage = buildInviteMessage({
+    title: event.title,
+    city: event.city,
+    starts_at: event.starts_at,
+    confirmed_all: participants
+      .filter(p => p.status === 'CONFIRMED')
+      .map(p => ({ name: p.profiles?.full_name ?? '?', teamId: p.team_id })),
+    teams: (teamsRaw ?? []).map(t => ({ id: t.id, name: t.name })),
+  }, shareUrl)
 
   // Bloquear acesso a eventos restritos sem permissão
   const eventVisibility = (event as any).visibility ?? 'PUBLIC'
@@ -130,7 +145,9 @@ export default async function EventDetailPage({
 
   const spotsLeft = event.capacity - event.confirmed_count
   const isFull = spotsLeft <= 0
-  const isOpen = event.status === 'OPEN'
+  // Confirmado não fecha inscrição — só cancelado/concluído fecham de vez;
+  // prazo e lotação é que decidem o resto.
+  const isOpen = !['CANCELLED', 'COMPLETED'].includes(event.status)
   const canJoin = isOpen && !isFull && !activeParticipationStatus && !event.is_organizer
 
   // Join request for non-PUBLIC events
@@ -187,6 +204,8 @@ export default async function EventDetailPage({
   const showRequests = event.is_organizer && eventVisibilityField !== 'PUBLIC'
   // Dono do grupo edita e cancela os eventos dos gestores do grupo
   const isGroupOwnerOnly = !event.is_organizer && (await isGroupOwner(supabase, event.group_id ?? null, user.id))
+  // Check-in na entrada: organizador ou qualquer dono/gestor do grupo
+  const canCheckIn = event.is_organizer || (await canCheckInEvent(supabase, { organizer_id: event.organizer_id, group_id: event.group_id ?? null }, user.id))
   const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
 
   // Fila de espera
@@ -342,6 +361,15 @@ export default async function EventDetailPage({
               eventId={id}
             />
             <ShareEventButton eventId={eventSlug} />
+            <a
+              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/15 border border-primary/30 text-xs font-semibold text-primary hover:bg-primary/25 transition-colors"
+            >
+              <UserPlus className="size-3.5" />
+              Convide alguém
+            </a>
           </div>
         </div>
 
@@ -357,13 +385,6 @@ export default async function EventDetailPage({
                 <OrganizerActions event={{
                   id: event.id,
                   status: event.status,
-                  title: event.title,
-                  group_id: event.group_id ?? undefined,
-                  address: event.address ?? undefined,
-                  city: event.city ?? undefined,
-                  price: event.price,
-                  capacity: event.capacity,
-                  min_participants: event.min_participants,
                   confirmed_count: event.confirmed_count,
                 }} />
                 {/* Organizador também pode se inscrever como participante */}
@@ -399,13 +420,6 @@ export default async function EventDetailPage({
               <OrganizerActions event={{
                 id: event.id,
                 status: event.status,
-                title: event.title,
-                group_id: event.group_id ?? undefined,
-                address: event.address ?? undefined,
-                city: event.city ?? undefined,
-                price: event.price,
-                capacity: event.capacity,
-                min_participants: event.min_participants,
                 confirmed_count: event.confirmed_count,
               }} />
             )}
@@ -425,7 +439,11 @@ export default async function EventDetailPage({
         {isOpen && (
           <p className="text-[11px] text-white/25 mt-3">
             Inscrições até{' '}
-            <span className="text-white/40">{getBRDateTimeLong(event.registration_deadline)}</span>
+            <span className="text-white/40">
+              {event.registration_deadline
+                ? getBRDateTimeLong(event.registration_deadline)
+                : 'o início do evento'}
+            </span>
           </p>
         )}
 
@@ -467,7 +485,6 @@ export default async function EventDetailPage({
             status: event.status,
             description: event.description,
             cover_url: (event as any).cover_url,
-            ends_at: (event as any).ends_at,
             cancel_before_hours: (event as any).cancel_before_hours,
             confirmed_count: event.confirmed_count,
             min_participants: event.min_participants,
@@ -497,7 +514,7 @@ export default async function EventDetailPage({
 
           <TabsTrigger value="participantes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Participantes</TabsTrigger>
 
-          {event.is_organizer && (
+          {canCheckIn && (
             <TabsTrigger value="checkin" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <QrCode className="size-3" />Check-in
             </TabsTrigger>
@@ -587,6 +604,8 @@ export default async function EventDetailPage({
           ) : (
             <p className="text-[13px] text-white/25 italic">Sem descrição adicional.</p>
           )}
+
+          <EventLocationMap address={event.address} city={event.city} />
 
           {organizer && (
             <div className="text-[11px] text-white/25 border-t border-white/[0.06] pt-3">
@@ -680,7 +699,7 @@ export default async function EventDetailPage({
           </TabsContent>
         )}
 
-        {event.is_organizer && (
+        {canCheckIn && (
           <TabsContent value="checkin" className="pt-4 space-y-6">
             <CheckInScanner eventId={id} />
             <CheckInList eventId={id} />

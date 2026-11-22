@@ -211,17 +211,18 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
           {errors.starts_at && <p className="text-xs text-destructive">{errors.starts_at.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="ends_at">Término</Label>
+          <Label htmlFor="ends_at">Término *</Label>
           <Input
             id="ends_at"
             type="datetime-local"
             disabled={isLocked}
+            aria-invalid={!!errors.ends_at}
             {...register('ends_at')}
           />
           {errors.ends_at && <p className="text-xs text-destructive">{errors.ends_at.message}</p>}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="registration_deadline">Prazo de inscrição *</Label>
+          <Label htmlFor="registration_deadline">Prazo de inscrição (opcional)</Label>
           <Input
             id="registration_deadline"
             type="datetime-local"
@@ -230,7 +231,11 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
             {...register('registration_deadline')}
           />
           {errors.registration_deadline && <p className="text-xs text-destructive">{errors.registration_deadline.message}</p>}
-          <p className="text-xs text-white/50">Deve ser antes do início do evento</p>
+          <p className="text-xs text-white/50">Em branco, as inscrições ficam abertas até o início do evento</p>
+        </div>
+        <div className="rounded-lg bg-yellow-400/5 border border-yellow-400/20 p-3 text-xs text-yellow-400">
+          Se o evento não atingir o número mínimo de participantes até 12h antes do início, ele é cancelado
+          automaticamente e todos os inscritos são reembolsados.
         </div>
       </section>
 

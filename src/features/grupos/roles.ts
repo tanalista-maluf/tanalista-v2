@@ -12,3 +12,9 @@ export const GROUP_ROLE_LABEL: Record<GroupRole, string> = {
 export function canCreateGroupEvents(role: string | null | undefined): boolean {
   return role === 'OWNER' || role === 'MANAGER'
 }
+
+// Painel de reputação (notas, mini-missões, campos customizados): visível e
+// editável por dono e gestores; critérios e campos só o dono cria/desativa.
+export function isGroupManager(role: string | null | undefined): boolean {
+  return role === 'OWNER' || role === 'MANAGER'
+}

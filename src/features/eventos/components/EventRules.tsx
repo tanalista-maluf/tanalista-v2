@@ -5,7 +5,7 @@ interface EventRulesProps {
     price: number
     min_participants: number
     capacity: number
-    registration_deadline: string
+    registration_deadline: string | null
     starts_at: string
     organizer_exempt: boolean
   }
@@ -35,6 +35,10 @@ export function EventRules({ event }: EventRulesProps) {
         <li className="flex items-start gap-2">
           <span className="text-primary mt-0.5">•</span>
           <span>O evento é confirmado automaticamente 12h antes do início, caso o mínimo de participantes seja atingido.</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <span className="text-primary mt-0.5">•</span>
+          <span>Confirmado o evento, as inscrições continuam abertas até o prazo de inscrição ou até lotar.</span>
         </li>
         {event.organizer_exempt && (
           <li className="flex items-start gap-2">

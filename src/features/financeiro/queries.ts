@@ -16,6 +16,15 @@ export interface EventFinancial {
   net_revenue: number
 }
 
+export interface EventFinancialDetail extends EventFinancial {
+  cover_url: string | null
+  address: string
+  city: string
+  min_participants: number
+  organizer_name: string
+  group_name: string | null
+}
+
 export async function getOrganizerFinancials(opts?: { from?: string; to?: string }): Promise<EventFinancial[]> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -84,10 +93,14 @@ export interface EventParticipant {
   joined_at: string
   payment_method: string | null
   payment_amount: number | null
+  // Sem pagamento aprovado mas com cupom cobrindo o valor: isento por cupom,
+  // não "gratuito" — o relatório de prestação de contas precisa distinguir.
+  coupon_code: string | null
+  is_exempt: boolean
 }
 
 export async function getEventFinancialDetail(eventId: string): Promise<{
-  event: (EventFinancial & { payout_claimed_at: string | null }) | null
+  event: (EventFinancialDetail & { payout_claimed_at: string | null }) | null
   participants: EventParticipant[]
   byMethod: Record<string, { count: number; total: number }>
 }> {
@@ -99,7 +112,7 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
 
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, starts_at, status, price, capacity, payout_claimed_at')
+    .select('id, title, starts_at, status, price, capacity, min_participants, payout_claimed_at, cover_url, address, city, organizer_id, group_id, groups(name)')
     .eq('id', eventId)
     .eq('organizer_id', user.id)
     .maybeSingle()
@@ -109,7 +122,7 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   // Participações confirmadas
   const { data: partRows } = await admin
     .from('participations')
-    .select('id, user_id, created_at')
+    .select('id, user_id, created_at, discount_cents, coupon_id, coupons(code)')
     .eq('event_id', eventId)
     .eq('status', 'CONFIRMED')
     .order('created_at', { ascending: true })
@@ -117,14 +130,16 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   const partIds = (partRows ?? []).map((p) => p.id)
   const userIds = [...new Set((partRows ?? []).map((p) => p.user_id))]
 
-  // Buscar perfis (admin para bypassar RLS) e pagamentos em paralelo
-  const [profilesResult, paymentsResult] = await Promise.all([
+  // Buscar perfis (admin para bypassar RLS), pagamentos e perfil do
+  // organizador (pro cabeçalho do relatório) em paralelo
+  const [profilesResult, paymentsResult, organizerResult] = await Promise.all([
     userIds.length > 0
       ? admin.from('profiles').select('id, full_name, username').in('id', userIds)
       : Promise.resolve({ data: [] }),
     partIds.length > 0
       ? admin.from('payments').select('participation_id, amount, platform_fee, gateway_fee, method').eq('status', 'APPROVED').in('participation_id', partIds)
       : Promise.resolve({ data: [] }),
+    admin.from('profiles').select('full_name, username').eq('id', event.organizer_id).maybeSingle(),
   ])
 
   const profileMap = Object.fromEntries(
@@ -138,8 +153,10 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
   const platformFees = (paymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.platform_fee ?? 0), 0)
   const gatewayFees  = (paymentsResult.data ?? []).reduce((s: number, p: any) => s + (p.gateway_fee ?? 0), 0)
 
-  const eventFinancial = {
+  const eventFinancial: EventFinancialDetail & { payout_claimed_at: string | null } = {
     ...event,
+    group_name: (event as any).groups?.name ?? null,
+    organizer_name: (organizerResult.data as any)?.full_name ?? (organizerResult.data as any)?.username ?? '—',
     confirmed_count: partIds.length,
     gross_revenue: gross,
     platform_fees: platformFees,
@@ -147,9 +164,10 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
     net_revenue: gross - platformFees - gatewayFees,
   }
 
-  const participants: EventParticipant[] = (partRows ?? []).map((p) => {
+  const participants: EventParticipant[] = (partRows ?? []).map((p: any) => {
     const profile = profileMap[p.user_id]
     const payment = paymentMap[p.id]
+    const couponCode: string | null = p.coupons?.code ?? null
     return {
       participation_id: p.id,
       user_id: p.user_id,
@@ -158,6 +176,8 @@ export async function getEventFinancialDetail(eventId: string): Promise<{
       joined_at: p.created_at,
       payment_method: payment?.method ?? null,
       payment_amount: payment?.amount ?? null,
+      coupon_code: couponCode,
+      is_exempt: !payment && (!!couponCode || !!p.discount_cents),
     }
   })
 

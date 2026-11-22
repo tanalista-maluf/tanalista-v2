@@ -4,6 +4,7 @@ import { getURLFromRedirectError } from 'next/dist/client/components/redirect'
 import type { User } from '@supabase/supabase-js'
 import { getBearerSession } from '@/lib/supabase/bearer'
 import { runWithSupabaseClient } from '@/lib/supabase/request-context'
+import { signReportToken } from '@/lib/report-token'
 import {
   approveEventJoinRequest,
   cancelEventAction,
@@ -42,6 +43,17 @@ import {
   deleteGroupAction,
   uploadGroupAvatarAction,
 } from '@/features/grupos/actions'
+import {
+  createIncidentAction,
+  deleteIncidentAction,
+  createContributionAction,
+  deleteContributionAction,
+  createMemberFieldAction,
+  toggleMemberFieldAction,
+  addMemberFieldEntryAction,
+  deleteMemberFieldEntryAction,
+} from '@/features/reputacao/actions'
+import { getGroupReputationConfig, getGroupReputationIndicators, getGroupReputationOverview, getMemberReputationDetail } from '@/features/reputacao/queries'
 import { createListingAction, deleteListingAction, publishDraftListingAction } from '@/features/marketplace/actions'
 import { getGroupListings } from '@/features/marketplace/queries'
 import { claimEventPayoutAction } from '@/features/financeiro/actions'
@@ -111,6 +123,15 @@ const HANDLERS: Record<string, Handler> = {
   organizerFinancials: ([range]) => getOrganizerFinancials((range ?? undefined) as { from?: string; to?: string }),
   eventFinancial: ([eventId]) => getEventFinancialDetail(text(eventId)),
   claimEventPayout: ([eventId]) => claimEventPayoutAction(text(eventId)),
+  // Link de relatório em PDF pra abrir no navegador do sistema (ver
+  // api/v1/events/[id]/relatorio): token próprio porque essa rota não recebe
+  // o Bearer normal (é navegação, não fetch do app).
+  eventReportToken: async ([eventId], user) => {
+    const { event } = await getEventFinancialDetail(text(eventId))
+    if (!event) return { error: 'Evento não encontrado.' }
+    const token = signReportToken(text(eventId), user.id)
+    return { url: `${process.env.NEXT_PUBLIC_APP_URL}/api/v1/events/${text(eventId)}/relatorio?token=${token}` }
+  },
 
   // ── Grupos ─────────────────────────────────────────────────────────────────
   updateGroup: ([groupId, data]) => updateGroupAction(text(groupId), data as never),
@@ -126,6 +147,27 @@ const HANDLERS: Record<string, Handler> = {
   transferGroupOwnership: ([groupId, userId]) => transferGroupOwnershipAction(text(groupId), text(userId)),
   deleteGroup: ([groupId]) => deleteGroupAction(text(groupId)),
   sendGroupBroadcast: ([groupId, message]) => sendGroupBroadcastAction(text(groupId), text(message)),
+
+  // ── Avaliação de membros do grupo ───────────────────────────────────────────
+  groupReputationOverview: ([groupId]) =>
+    getGroupReputationOverview(text(groupId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  groupReputationIndicators: ([groupId]) =>
+    getGroupReputationIndicators(text(groupId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  groupReputationConfig: ([groupId]) =>
+    getGroupReputationConfig(text(groupId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  memberReputationDetail: ([groupId, memberId]) =>
+    getMemberReputationDetail(text(groupId), text(memberId)).then((r) => r ?? { error: 'Apenas dono ou gestores do grupo.' }),
+  createIncident: ([groupId, memberId, severity, description]) =>
+    createIncidentAction(text(groupId), text(memberId), text(severity), text(description)),
+  deleteIncident: ([groupId, incidentId]) => deleteIncidentAction(text(groupId), text(incidentId)),
+  createContribution: ([groupId, memberId, size, description]) =>
+    createContributionAction(text(groupId), text(memberId), text(size), text(description)),
+  deleteContribution: ([groupId, contributionId]) => deleteContributionAction(text(groupId), text(contributionId)),
+  createMemberField: ([groupId, label, unit]) => createMemberFieldAction(text(groupId), text(label), text(unit)),
+  toggleMemberField: ([groupId, fieldId, active]) => toggleMemberFieldAction(text(groupId), text(fieldId), active === true),
+  addMemberFieldEntry: ([groupId, fieldId, memberId, value, recordedAt]) =>
+    addMemberFieldEntryAction(text(groupId), text(fieldId), text(memberId), text(value), text(recordedAt)),
+  deleteMemberFieldEntry: ([groupId, entryId]) => deleteMemberFieldEntryAction(text(groupId), text(entryId)),
 
   // ── Marketplace do grupo ───────────────────────────────────────────────────
   groupListings: ([groupId], user) => getGroupListings(text(groupId), user.id),

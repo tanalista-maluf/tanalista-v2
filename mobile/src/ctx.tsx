@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase'
 
 export type Profile = {
   full_name: string
-  username: string
+  username: string | null
   city: string | null
   bio: string | null
   avatar_url: string | null

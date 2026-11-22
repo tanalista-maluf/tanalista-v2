@@ -6,11 +6,12 @@ import { EventCard } from '@/features/eventos/components/EventCard'
 import { JoinGroupButton } from '@/features/grupos/components/JoinGroupButton'
 import { LeaveGroupButton } from '@/features/grupos/components/LeaveGroupButton'
 import { MemberList } from '@/features/grupos/components/MemberList'
-import { canCreateGroupEvents } from '@/features/grupos/roles'
+import { canCreateGroupEvents, isGroupManager } from '@/features/grupos/roles'
+import { getGroupReputationIndicators } from '@/features/reputacao/queries'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag } from 'lucide-react'
+import { ChevronLeft, MapPin, Users, Lock, Settings, Plus, History, Calendar, Link2, ShoppingBag, Star } from 'lucide-react'
 import Image from 'next/image'
 import { InviteButton } from '@/features/grupos/components/InviteButton'
 import { ShareGroupButton } from '@/features/grupos/components/ShareGroupButton'
@@ -89,11 +90,15 @@ export default async function GroupDetailPage({
   const isPrivateNonMember = group.visibility === 'PRIVATE' && !group.is_member
   // Dono e Gestores criam eventos no grupo
   const canCreateEvents = canCreateGroupEvents(group.user_role)
+  // Indicador de faltas/contribuições: só busca pra quem vê como gestor —
+  // nunca chega a sair do servidor pros demais membros.
+  const isManagerViewer = isGroupManager(group.user_role)
 
-  const [members, upcomingResult, pastResult] = await Promise.all([
+  const [members, upcomingResult, pastResult, reputationIndicators] = await Promise.all([
     isPrivateNonMember ? Promise.resolve([]) : getGroupMembers(group.id),
     isPrivateNonMember ? Promise.resolve({ events: [] }) : getEvents({ userId: user.id, group_id: group.id, status: ['OPEN', 'CONFIRMED', 'PENDING'] }),
     isPrivateNonMember ? Promise.resolve({ events: [] }) : getEvents({ userId: user.id, group_id: group.id, status: ['COMPLETED'], onlyMine: false }),
+    isPrivateNonMember || !isManagerViewer ? Promise.resolve(null) : getGroupReputationIndicators(group.id),
   ])
   const upcomingEvents = upcomingResult.events
   const pastEvents = (pastResult as any).events?.slice(0, 5) ?? []
@@ -108,6 +113,15 @@ export default async function GroupDetailPage({
         <h1 className="text-lg font-bold truncate flex-1" style={{ fontFamily: 'var(--font-heading)' }}>
           {group.name}
         </h1>
+        {canCreateEvents && (
+          <Link
+            href={`/grupos/${groupSlug}/reputacao`}
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+            title="Avaliação de membros"
+          >
+            <Star className="size-4" />
+          </Link>
+        )}
         {group.is_owner && (
           <Link
             href={`/grupos/${groupSlug}/configuracoes`}
@@ -293,7 +307,9 @@ export default async function GroupDetailPage({
             members={members}
             isOwner={group.is_owner}
             groupId={group.id}
+            groupSlug={group.slug ?? group.id}
             currentUserId={user.id}
+            reputationIndicators={reputationIndicators}
           />
         </section>
       )}

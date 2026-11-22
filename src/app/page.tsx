@@ -23,7 +23,14 @@ export default function LandingPage() {
               <span className="text-[#4ADE80]">Lista</span>
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/testar-ios"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#4ADE80]/25 bg-[#4ADE80]/10 px-2.5 py-1 text-xs font-semibold text-[#4ADE80] hover:bg-[#4ADE80]/20 transition-colors"
+            >
+              <Smartphone className="size-3.5" />
+              <span className="hidden sm:inline">Testar no</span> iOS
+            </Link>
             <Link href="/como-funciona" className="hidden sm:inline text-sm text-white/60 hover:text-white transition-colors px-2">
               Como funciona
             </Link>

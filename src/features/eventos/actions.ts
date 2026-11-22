@@ -16,8 +16,21 @@ import { changeTeam } from './teams'
 import { minCheckAt } from './min-check'
 import { canEditEvent } from './permissions'
 import { canCreateGroupEvents } from '@/features/grupos/roles'
+import { fromLocalInput } from '@/lib/timezone'
 
 // Preço em string "R$ xx,xx" → centavos
+// Datas do formulário do site chegam sem fuso ("2026-11-08T07:30"): são
+// horário de Brasília. Sem isto, o banco as gravava como UTC.
+function withUtcDates(data: EventSchema): EventSchema {
+  return {
+    ...data,
+    starts_at: fromLocalInput(data.starts_at),
+    ends_at: fromLocalInput(data.ends_at),
+    // Em branco: inscrições ficam abertas até o início (ver join-event.ts)
+    registration_deadline: data.registration_deadline ? fromLocalInput(data.registration_deadline) : '',
+  }
+}
+
 function parsePriceToCents(price: string): number {
   return Math.round(parseFloat(price.replace(',', '.')) * 100)
 }
@@ -91,18 +104,18 @@ async function createRecurringChildren(
   const admin = createAdminClient()
   const count = Math.min(data.recurrence_count ?? 4, 52)
   const startsAt = new Date(data.starts_at)
-  const endsAt = data.ends_at ? new Date(data.ends_at) : null
-  const deadline = new Date(data.registration_deadline)
-  const durationMs = endsAt ? endsAt.getTime() - startsAt.getTime() : 0
-  const deadlineOffsetMs = deadline.getTime() - startsAt.getTime()
+  const endsAt = new Date(data.ends_at)
+  const deadline = data.registration_deadline ? new Date(data.registration_deadline) : null
+  const durationMs = endsAt.getTime() - startsAt.getTime()
+  const deadlineOffsetMs = deadline ? deadline.getTime() - startsAt.getTime() : null
 
   const children = []
   const takenSlugs = new Set<string>()
   for (let i = 1; i <= count; i++) {
     const offsetDays = freqDays * i
     const childStart = new Date(startsAt.getTime() + offsetDays * 86400000)
-    const childEnd = endsAt ? new Date(childStart.getTime() + durationMs) : null
-    const childDeadline = new Date(childStart.getTime() + deadlineOffsetMs)
+    const childEnd = new Date(childStart.getTime() + durationMs)
+    const childDeadline = deadlineOffsetMs !== null ? new Date(childStart.getTime() + deadlineOffsetMs) : null
     const childMinCheck = minCheckAt(childStart)
     const childSlug = await generateUniqueEventSlug(data.title, childStart, undefined, takenSlugs)
     takenSlugs.add(childSlug)
@@ -121,8 +134,8 @@ async function createRecurringChildren(
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: childStart.toISOString(),
-      ends_at: childEnd?.toISOString() ?? null,
-      registration_deadline: childDeadline.toISOString(),
+      ends_at: childEnd.toISOString(),
+      registration_deadline: childDeadline?.toISOString() ?? null,
       min_check_at: childMinCheck.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -195,7 +208,36 @@ async function notifyGroupNewEvent(params: {
   )
 }
 
-export async function createEventAction(data: EventSchema) {
+// Duplicar evento: copia o arquivo da capa (mesmo bucket/pasta do upload
+// normal, ver uploadEventCoverAction) direto no storage, sem baixar/reenviar.
+async function duplicateEventCover(sourceEventId: string, newEventId: string, userId: string) {
+  const admin = createAdminClient()
+
+  const { data: source } = await admin
+    .from('events')
+    .select('organizer_id, cover_url')
+    .eq('id', sourceEventId)
+    .maybeSingle()
+
+  // Confere a organização de novo (defesa extra: novo/page.tsx já checa isso)
+  if (!source || source.organizer_id !== userId || !source.cover_url) return
+
+  const marker = '/avatars/'
+  const idx = source.cover_url.indexOf(marker)
+  if (idx === -1) return
+  const sourcePath = source.cover_url.slice(idx + marker.length).split('?')[0]
+  const ext = sourcePath.includes('.') ? sourcePath.split('.').pop() : 'jpg'
+  const destPath = `event-covers/${newEventId}/cover.${ext}`
+
+  const { error: copyError } = await admin.storage.from('avatars').copy(sourcePath, destPath)
+  if (copyError) return
+
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(destPath)
+  await admin.from('events').update({ cover_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', newEventId)
+}
+
+export async function createEventAction(input: EventSchema) {
+  const data = withUtcDates(input)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
@@ -236,8 +278,8 @@ export async function createEventAction(data: EventSchema) {
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
-      ends_at: data.ends_at || null,
-      registration_deadline: data.registration_deadline,
+      ends_at: data.ends_at,
+      registration_deadline: data.registration_deadline || null,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -250,6 +292,11 @@ export async function createEventAction(data: EventSchema) {
   if (error || !event) return { error: 'Erro ao criar evento.' }
 
   await replaceEventTeams(event.id, data)
+
+  // Duplicar: copia o arquivo da capa do evento de origem pro novo
+  if (data.duplicate_from) {
+    await duplicateEventCover(data.duplicate_from, event.id, user.id)
+  }
 
   // Eventos seguintes da série recorrente, no mesmo estado do principal
   await createRecurringChildren(event.id, user.id, data, data.as_draft ? 'DRAFT' : 'OPEN')
@@ -267,7 +314,8 @@ export async function createEventAction(data: EventSchema) {
   redirect(`/eventos/${event.slug ?? event.id}`)
 }
 
-export async function updateEventAction(eventId: string, data: EventSchema) {
+export async function updateEventAction(eventId: string, input: EventSchema) {
+  const data = withUtcDates(input)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
@@ -393,8 +441,8 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
-      ends_at: data.ends_at || null,
-      registration_deadline: data.registration_deadline,
+      ends_at: data.ends_at,
+      registration_deadline: data.registration_deadline || null,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -466,8 +514,10 @@ export async function publishEventAction(eventId: string) {
 
   if (!event || event.organizer_id !== user.id) return { error: 'Evento não encontrado.' }
   if (event.status !== 'DRAFT') return { error: 'Este evento já foi publicado.' }
-  // Um rascunho antigo pode ter ficado com a data no passado
-  if (new Date(event.registration_deadline) <= new Date()) {
+  // Um rascunho antigo pode ter ficado com a data no passado. Sem prazo de
+  // inscrição definido, inscrições ficam abertas até o início do evento.
+  const deadline = event.registration_deadline ? new Date(event.registration_deadline) : new Date(event.starts_at)
+  if (deadline <= new Date()) {
     return { error: 'O prazo de inscrição deste rascunho já passou. Edite as datas antes de publicar.' }
   }
 
@@ -481,14 +531,16 @@ export async function publishEventAction(eventId: string) {
 
   if (error) return { error: 'Erro ao publicar evento.' }
 
-  // Os eventos seguintes da série, menos os que já ficaram para trás
+  // Os eventos seguintes da série, menos os que já ficaram para trás (sem
+  // prazo definido, vale o início do próprio evento)
+  const nowIso = new Date().toISOString()
   await admin
     .from('events')
     .update({ status: 'OPEN' })
     .eq('parent_event_id', eventId)
     .eq('organizer_id', user.id)
     .eq('status', 'DRAFT')
-    .gt('registration_deadline', new Date().toISOString())
+    .or(`registration_deadline.gt.${nowIso},and(registration_deadline.is.null,starts_at.gt.${nowIso})`)
 
   if (event.group_id) {
     await notifyGroupNewEvent({ groupId: event.group_id, organizerId: user.id, event })

@@ -1,5 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { FileDown } from 'lucide-react-native'
+import * as WebBrowser from 'expo-web-browser'
+import { FileDown, FileText } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native'
 import { Button, Card, Screen } from '@/components/ui'
@@ -31,6 +32,7 @@ export default function EventFinanceScreen() {
   const [detail, setDetail] = useState<Detail | null | undefined>(undefined)
   const [claiming, setClaiming] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const load = useCallback(async () => {
     const result = await runAction<Detail>('eventFinancial', eventId)
@@ -71,6 +73,19 @@ export default function EventFinanceScreen() {
       ),
     ]
     await Share.share({ title: `Financeiro - ${detail.event.title}`, message: lines.join('\n') })
+  }
+
+  // O PDF é gerado no servidor (react-pdf não roda no app); o link assinado
+  // abre no navegador do sistema, que já sabe exibir/compartilhar/salvar PDF
+  async function openPdfReport() {
+    setGeneratingPdf(true)
+    const result = await runAction<{ url: string }>('eventReportToken', eventId)
+    setGeneratingPdf(false)
+    if (!('ok' in result)) {
+      Alert.alert('Erro', 'error' in result ? result.error : 'Não foi possível gerar o relatório.')
+      return
+    }
+    await WebBrowser.openBrowserAsync(result.ok.url)
   }
 
   if (detail === undefined) {
@@ -154,10 +169,25 @@ export default function EventFinanceScreen() {
           <View style={styles.row}>
             <Text style={styles.label}>Inscritos ({detail.participants.length})</Text>
             {detail.participants.length > 0 && (
-              <Pressable testID="finance-export" accessibilityRole="button" onPress={exportCsv} style={styles.inline}>
-                <FileDown size={15} color={colors.primary} />
-                <Text style={styles.link}>Exportar</Text>
-              </Pressable>
+              <View style={styles.inlineActions}>
+                <Pressable testID="finance-export" accessibilityRole="button" onPress={exportCsv} style={styles.inline}>
+                  <FileDown size={15} color={colors.primary} />
+                  <Text style={styles.link}>Exportar</Text>
+                </Pressable>
+                <Pressable
+                  testID="finance-pdf"
+                  accessibilityRole="button"
+                  onPress={openPdfReport}
+                  disabled={generatingPdf}
+                  style={[styles.inline, generatingPdf && styles.dim]}>
+                  {generatingPdf ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <FileText size={15} color={colors.primary} />
+                  )}
+                  <Text style={styles.link}>PDF</Text>
+                </Pressable>
+              </View>
             )}
           </View>
           {detail.participants.map((participant) => (
@@ -207,5 +237,7 @@ const styles = StyleSheet.create({
   rowBody: { flex: 1, gap: 2 },
   rowTitle: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  inlineActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  dim: { opacity: 0.5 },
   link: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.primary },
 })

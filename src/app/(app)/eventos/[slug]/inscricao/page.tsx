@@ -29,7 +29,7 @@ export default async function InscricaoPage({
 
   const eventSlug = event.slug ?? event.id
 
-  if (event.status !== 'OPEN') redirect(`/eventos/${eventSlug}`)
+  if (['CANCELLED', 'COMPLETED'].includes(event.status)) redirect(`/eventos/${eventSlug}`)
   // Organizador pode se inscrever como participante (ocupa uma vaga)
   // organizer_exempt controla apenas isenção de pagamento, não bloqueia inscrição
 

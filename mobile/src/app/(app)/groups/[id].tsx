@@ -1,5 +1,5 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { CalendarPlus, Flag, Link2, Lock, LogOut, MapPin, Settings2, Share2, ShoppingBag, Users } from 'lucide-react-native'
+import { CalendarPlus, CircleMinus, Flag, Link2, Lock, LogOut, MapPin, Settings2, Share2, ShoppingBag, Star, Users } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { headerActions } from '@/components/header-actions'
@@ -7,7 +7,7 @@ import { EventCard, type EventCardData } from '@/components/event-card'
 import { GroupAvatar, memberLabel } from '@/components/group-card'
 import { Badge, Button, Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { decideGroupRequest, joinGroup, leaveGroup } from '@/lib/api'
+import { decideGroupRequest, joinGroup, leaveGroup, runAction } from '@/lib/api'
 import { useHeaderInset } from '@/lib/header'
 import { shareLink } from '@/lib/share'
 import { supabase } from '@/lib/supabase'
@@ -25,6 +25,8 @@ type GroupDetail = {
   member_count: number
   invite_token: string | null
 }
+
+type ReputationIndicator = 'positive' | 'negative' | null
 
 type Member = { user_id: string; role: string; profiles: { full_name: string; username: string } | null }
 type JoinRequest = { id: string; name: string; username: string | null }
@@ -86,6 +88,8 @@ async function fetchGroup(groupId: string, userId: string) {
   ])
 
   const role = membership?.role ?? null
+  const isManager = role === 'OWNER' || role === 'MANAGER'
+  const indicatorsResult = isManager ? await runAction<Record<string, ReputationIndicator>>('groupReputationIndicators', groupId) : null
   return {
     group: group as GroupDetail | null,
     role,
@@ -93,6 +97,7 @@ async function fetchGroup(groupId: string, userId: string) {
     events: (events ?? []).map((event) => ({ ...event, groups: null })) as EventCardData[],
     past: (past ?? []).map((event) => ({ ...event, groups: null })) as EventCardData[],
     requests: role === 'OWNER' ? await fetchRequests(groupId) : [],
+    reputationIndicators: indicatorsResult && 'ok' in indicatorsResult ? indicatorsResult.ok : null,
   }
 }
 
@@ -174,7 +179,7 @@ export default function GroupScreen() {
     )
   }
 
-  const { group, role, members, events, past, requests } = data
+  const { group, role, members, events, past, requests, reputationIndicators } = data
 
   if (group === null) {
     return (
@@ -201,6 +206,16 @@ export default function GroupScreen() {
                     label: 'Configurações do grupo',
                     icon: <Settings2 size={20} color={colors.text70} />,
                     onPress: () => router.push({ pathname: '/groups/settings/[id]', params: { id } }),
+                  },
+                ]
+              : []),
+            ...(isOwner || role === 'MANAGER'
+              ? [
+                  {
+                    testID: 'group-reputation',
+                    label: 'Avaliação de membros',
+                    icon: <Star size={20} color={colors.text70} />,
+                    onPress: () => router.push({ pathname: '/groups/reputation/[id]', params: { id } }),
                   },
                 ]
               : []),
@@ -397,7 +412,20 @@ export default function GroupScreen() {
                   }
                   style={[styles.member, index > 0 && styles.memberDivider]}>
                   <View style={styles.personBody}>
-                    <Text style={styles.personName}>{member.profiles?.full_name ?? 'Membro'}</Text>
+                    <View style={styles.personNameRow}>
+                      <Text style={styles.personName}>{member.profiles?.full_name ?? 'Membro'}</Text>
+                      {reputationIndicators?.[member.user_id] && (
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() => router.push({ pathname: '/groups/reputation-member', params: { groupId: id, memberId: member.user_id } })}>
+                          {reputationIndicators[member.user_id] === 'positive' ? (
+                            <Star size={14} color={colors.primary} fill={colors.primary} />
+                          ) : (
+                            <CircleMinus size={14} color={colors.destructive} />
+                          )}
+                        </Pressable>
+                      )}
+                    </View>
                     {member.profiles?.username ? (
                       <Text style={styles.personUser}>@{member.profiles.username}</Text>
                     ) : null}
@@ -490,6 +518,7 @@ const styles = StyleSheet.create({
   member: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   memberDivider: { borderTopWidth: 1, borderTopColor: colors.cardBorder },
   personBody: { flex: 1, gap: 2 },
+  personNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   personName: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
   personUser: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
 })

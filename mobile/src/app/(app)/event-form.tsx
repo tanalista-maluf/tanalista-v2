@@ -166,10 +166,13 @@ export default function EventFormScreen() {
               .sort((a, b) => a.position - b.position)
               .map((team) => ({ name: team.name, capacity: String(team.capacity) }))
           )
+          // Duplicar também mostra a capa de origem: se a pessoa não trocar,
+          // o servidor copia o arquivo pro novo evento (ver duplicate_from)
+          if (mode === 'duplicate') setCoverUrl(data.cover_url)
           if (mode === 'edit') {
             setStartsAt(new Date(data.starts_at))
             setEndsAt(data.ends_at ? new Date(data.ends_at) : null)
-            setDeadline(new Date(data.registration_deadline))
+            setDeadline(data.registration_deadline ? new Date(data.registration_deadline) : null)
             setCoverUrl(data.cover_url)
             setLocked(data.status !== 'DRAFT')
             setIsDraft(data.status === 'DRAFT')
@@ -230,8 +233,9 @@ export default function EventFormScreen() {
     if (!Number.isInteger(min) || min < 1) return 'O mínimo de participantes é 1.'
     if (min > cap) return 'O mínimo não pode ser maior que a capacidade.'
     if (!startsAt || startsAt <= new Date()) return 'A data de início precisa ser no futuro.'
-    if (!deadline || deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
-    if (endsAt && endsAt <= startsAt) return 'O término precisa ser depois do início.'
+    if (deadline && deadline >= startsAt) return 'O prazo de inscrição precisa ser antes do início.'
+    if (!endsAt) return 'Informe o horário de término.'
+    if (endsAt <= startsAt) return 'O término precisa ser depois do início.'
     if (canShape && teams.length > 0) {
       if (teams.some((team) => !team.name.trim() || !(Number(team.capacity) >= 1))) return 'Cada time precisa de nome e vagas.'
       const names = new Set(teams.map((team) => team.name.trim().toLowerCase()))
@@ -270,8 +274,8 @@ export default function EventFormScreen() {
       capacity: Number(capacity),
       min_participants: Number(minimum),
       starts_at: startsAt!.toISOString(),
-      ends_at: endsAt ? endsAt.toISOString() : '',
-      registration_deadline: deadline!.toISOString(),
+      ends_at: endsAt!.toISOString(),
+      registration_deadline: deadline ? deadline.toISOString() : '',
       organizer_exempt: exempt,
       ...(groupId ? { group_id: groupId } : {}),
       recurrence: canShape ? recurrence : 'none',
@@ -281,6 +285,9 @@ export default function EventFormScreen() {
       visibility,
       cancel_before_hours: cancelPolicy,
       ...(mode === 'edit' ? (editingDraft ? { draft_series: true } : {}) : { as_draft: asDraft }),
+      // Pede ao servidor pra copiar a capa de origem (duplicateEventCover em
+      // features/eventos/actions.ts); some se a pessoa escolher outra capa
+      ...(mode === 'duplicate' ? { duplicate_from: params.eventId } : {}),
     }
     const result = mode === 'edit' ? await runAction('updateEvent', params.eventId, data) : await runAction('createEvent', data)
     if (!('redirect' in result)) {
@@ -463,8 +470,18 @@ export default function EventFormScreen() {
             ) : (
               <>
                 <DateTimeField testID="form-starts" label="Início" value={startsAt} onChange={changeStart} />
-                <DateTimeField testID="form-ends" label="Término (opcional)" value={endsAt} onChange={setEndsAt} optional />
-                <DateTimeField testID="form-deadline" label="Inscrições até" value={deadline} onChange={setDeadline} />
+                <DateTimeField testID="form-ends" label="Término" value={endsAt} onChange={setEndsAt} />
+                <DateTimeField
+                  testID="form-deadline"
+                  label="Inscrições até (opcional)"
+                  value={deadline}
+                  onChange={setDeadline}
+                  optional
+                />
+                <Text style={styles.detail}>
+                  Em branco, as inscrições ficam abertas até o início do evento. Se o mínimo de participantes não for
+                  atingido até 12h antes do início, o evento é cancelado automaticamente e todos são reembolsados.
+                </Text>
               </>
             )}
             {canShape && (
