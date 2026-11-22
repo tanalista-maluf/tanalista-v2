@@ -1,9 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { onboardingStep1Schema, onboardingStep2Schema } from './schemas'
 
-// Conclui o onboarding de uma vez (username, cidade e WhatsApp), para o app
-// mobile. No site o mesmo acontece em etapas, pelas actions de actions.ts; as
-// regras de formato são as mesmas (schemas.ts).
+// Salva username, cidade e WhatsApp de uma vez, para o app mobile (etapa 1 do
+// onboarding ali). No site o mesmo acontece em duas etapas, pelas actions de
+// actions.ts; as regras de formato são as mesmas (schemas.ts). Não marca
+// onboarding_completed — isso só acontece em completeOnboardingAction, depois
+// das etapas de interesses e grupos sugeridos (iguais nas duas plataformas).
 
 const onboardingSchema = onboardingStep1Schema.merge(onboardingStep2Schema)
 
@@ -29,7 +31,7 @@ export async function completeOnboarding(userId: string, input: unknown): Promis
 
   const { error } = await admin
     .from('profiles')
-    .update({ ...parsed.data, onboarding_completed: true })
+    .update(parsed.data)
     .eq('id', userId)
 
   if (error) {

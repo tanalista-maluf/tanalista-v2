@@ -587,6 +587,19 @@ appId: ${APP_ID}
 - tapOn:
     id: "city"
 - pressKey: Enter
+# Onboarding segue com interesses e grupos sugeridos, ambos puláveis
+- extendedWaitUntil:
+    visible:
+      id: "interests-next"
+    timeout: 15000
+- tapOn:
+    id: "interests-next"
+- extendedWaitUntil:
+    visible:
+      id: "finish-onboarding"
+    timeout: 15000
+- tapOn:
+    id: "finish-onboarding"
 - extendedWaitUntil:
     visible:
       id: "home-greeting"

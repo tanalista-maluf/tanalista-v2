@@ -18,6 +18,11 @@ import {
   updateEventRulesAction,
   uploadEventCoverAction,
 } from '@/features/eventos/actions'
+import {
+  completeOnboardingAction,
+  getSuggestedGroupsAction,
+  joinGroupOnboardingAction,
+} from '@/features/auth/actions'
 import { checkInAction } from '@/features/eventos/actions-checkin'
 import { purgeCancelledEvents } from '@/features/admin/cleanup'
 import { getGroupPreview } from '@/features/grupos/queries-public'
@@ -80,6 +85,7 @@ type Handler = (args: unknown[], user: User) => Promise<unknown>
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '')
 const optionalText = (value: unknown) => (typeof value === 'string' ? value : undefined)
+const textArray = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
 
 // Arquivo enviado pelo app em base64, como as ações de upload do site esperam (FormData)
 function formWithFile(fields: Record<string, string>, fileField: string, file: unknown) {
@@ -97,6 +103,11 @@ function adminOnly(handler: Handler): Handler {
 }
 
 const HANDLERS: Record<string, Handler> = {
+  // ── Onboarding: interesses e grupos sugeridos (etapas 3 e 4 do site) ───────
+  suggestedGroups: ([city, categories]) => getSuggestedGroupsAction(text(city), textArray(categories)),
+  joinOnboardingGroup: ([groupId]) => joinGroupOnboardingAction(text(groupId)),
+  finishOnboarding: () => completeOnboardingAction(),
+
   // ── Organizador: evento ────────────────────────────────────────────────────
   createEvent: ([data]) => createEventAction(data as never),
   updateEvent: ([eventId, data]) => updateEventAction(text(eventId), data as never),

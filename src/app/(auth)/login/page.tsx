@@ -36,7 +36,7 @@ function LoginForm() {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [captchaReset, setCaptchaReset] = useState(0)
   const [serverError, setServerError] = useState<string | null>(
-    errorParam === 'link_invalido' ? 'Link inválido ou expirado.' : null
+    errorParam === 'link_invalido' ? 'Este link não vale mais. Peça um novo.' : null
   )
 
   const {
