@@ -16,7 +16,7 @@ export function JoinGroupButton({ groupId }: { groupId: string }) {
     const result = await joinGroupAction(groupId)
     setLoading(false)
 
-    if (result?.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
       toast.success('Você entrou no grupo!')

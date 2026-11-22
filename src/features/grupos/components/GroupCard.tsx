@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { MapPin, Users, Lock } from 'lucide-react'
-import type { GroupRow } from '@/types/database'
+import type { GroupRow } from '@/types/rows'
 
 interface GroupCardProps {
   group: GroupRow

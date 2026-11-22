@@ -3,23 +3,33 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { Database, Json } from '@/types/database'
+import { deliverNotificationPush } from './push-delivery'
 
 export async function createNotificationAdmin(params: {
   userId: string
-  type: string
+  type: Database['public']['Enums']['notification_type']
   title: string
   body: string
   data?: Record<string, unknown>
 }) {
   const admin = createAdminClient()
-  await admin.from('notifications').insert({
-    user_id: params.userId,
-    type: params.type,
-    title: params.title,
-    body: params.body,
-    data: params.data ?? {},
-    read: false,
-  })
+  const { data: row } = await admin
+    .from('notifications')
+    .insert({
+      user_id: params.userId,
+      type: params.type,
+      title: params.title,
+      body: params.body,
+      data: (params.data ?? {}) as Json,
+      read: false,
+    })
+    .select('id, user_id, title, body, data')
+    .single()
+
+  // E como push, no app do celular e no navegador, para quem deixou ligado. O
+  // banco também pede esse envio (gatilho em notifications); sai uma vez só.
+  if (row) await deliverNotificationPush(row.id, row)
 }
 
 export async function setNotificationPreferenceAction(
@@ -33,7 +43,7 @@ export async function setNotificationPreferenceAction(
   const admin = createAdminClient()
   const { error } = await admin
     .from('profiles')
-    .update({ [channel]: enabled })
+    .update(channel === 'notif_email' ? { notif_email: enabled } : { notif_push: enabled })
     .eq('id', user.id)
 
   if (error) return { error: error.message }

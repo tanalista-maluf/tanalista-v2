@@ -29,14 +29,16 @@ export async function GET(request: NextRequest) {
 
   for (const p of stalePending) {
     // Verificar se o pagamento associado está realmente pendente no gateway
-    const { data: payment } = await admin
+    // Uma inscrição pode ter mais de um pagamento (ex.: cartão recusado e depois PIX)
+    const { data: payments } = await admin
       .from('payments')
-      .select('id, status, method')
+      .select('status, method')
       .eq('participation_id', p.id)
-      .maybeSingle()
 
-    // Só cancela se pagamento é PIX e ainda está PENDING (não aprovado)
-    if (!payment || payment.status !== 'PENDING' || payment.method !== 'PIX') continue
+    // Só cancela se há PIX ainda PENDING e nada aprovado nem cartão em análise
+    const open = (payments ?? []).filter((payment) => payment.status === 'PENDING')
+    const approved = (payments ?? []).some((payment) => payment.status === 'APPROVED')
+    if (approved || open.length === 0 || open.some((payment) => payment.method !== 'PIX')) continue
 
     await admin
       .from('participations')

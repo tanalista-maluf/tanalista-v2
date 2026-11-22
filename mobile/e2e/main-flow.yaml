@@ -1,0 +1,765 @@
+# Fluxo principal de ponta a ponta, no simulador de iOS com Expo Go.
+# Pré-requisitos: ./e2e/setup-local.sh rodado, `npm run dev` na raiz do repo
+# e `npx expo start` em mobile/.
+# Com o build próprio (npx expo run:ios | run:android), nos dois sistemas:
+#   eval "$(supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
+#   maestro test -e APP_ID=app.tanalista \
+#     -e SUPABASE_URL=$API_URL -e SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY \
+#     -e APP_URL='exp+tanalista://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081' \
+#     e2e/main-flow.yaml
+# Com o Expo Go: APP_URL=exp://localhost:8081 e APP_ID=host.exp.Exponent (iOS)
+# ou host.exp.exponent (Android).
+# No Android, antes: adb reverse tcp:54321 tcp:54321 && adb reverse tcp:3000 tcp:3000
+appId: ${APP_ID}
+---
+# Reinicia o Expo Go antes de abrir o projeto: campos e navegação começam do zero
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+# tira o botão flutuante do Expo de cima do cabeçalho, sem deixá-lo sobre a barra de abas
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "89%, 10%"
+          end: "92%, 62%"
+          duration: 800
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: "90%, 7%"
+          end: "92%, 62%"
+          duration: 800
+# Sobra de uma execução anterior: sai da conta, esteja ela na lista ou no onboarding
+- runFlow:
+    when:
+      visible:
+        id: "profile"
+    commands:
+      - tapOn:
+          id: "profile"
+      - scrollUntilVisible:
+          element:
+            id: "sign-out"
+          centerElement: true
+      - tapOn:
+          id: "sign-out"
+- runFlow:
+    when:
+      visible:
+        id: "onboarding-sign-out"
+    commands:
+      - tapOn:
+          id: "onboarding-sign-out"
+- assertVisible: "Entrar na sua conta"
+- takeScreenshot: 01-login
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "password"
+- inputText: "senha-errada"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "submit"
+- assertVisible: "E-mail ou senha incorretos."
+- takeScreenshot: 02-login-erro
+# Reabre o app para os campos voltarem vazios, em vez de apagar o texto
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - launchApp
+      - waitForAnimationToEnd
+# No Android, abrir o link com o app já carregado recarrega o JS, e o
+# react-native-screens quebra nessa recarga (só em desenvolvimento): lá o app
+# fecha e abre direto pelo link, do zero
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - stopApp
+- openLink: ${APP_URL}
+# Se o Expo Go ainda estava abrindo, o link se perde e fica a tela inicial dele
+- runFlow:
+    when:
+      visible: "Enter URL"
+    commands:
+      - openLink: ${APP_URL}
+# O menu de desenvolvedor abre sozinho na primeira execução: no Android com
+# uma apresentação ("Continue"), no iOS já aberto. Ele aparece alguns segundos
+# depois de o app carregar, então espera por ele ou pelo app antes de decidir.
+- extendedWaitUntil:
+    visible: "Continue|Fast refresh|Fast Refresh|Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta|Complete seu perfil"
+    timeout: 40000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      visible: "Continue"
+    commands:
+      - tapOn: "Continue"
+- runFlow:
+    when:
+      visible: "Fast refresh|Fast Refresh|Toggle performance monitor"
+    commands:
+      - swipe:
+          start: "50%, 50%"
+          end: "50%, 98%"
+- extendedWaitUntil:
+    visible: "Próximos eventos|Bo[am] (dia|tarde|noite).*|Entrar na sua conta"
+    timeout: 30000
+- tapOn:
+    id: "email"
+- inputText: "bruno@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "password"
+- inputText: "senha-teste-123"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "submit"
+# O iOS pode perguntar se quer guardar a senha
+- extendedWaitUntil:
+    visible: "Bo[am] (dia|tarde|noite).*|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+# Depois do login o app abre na tela inicial
+- assertVisible:
+    id: "home-greeting"
+- takeScreenshot: 02b-inicio
+- tapOn:
+    id: "tab-events"
+- assertVisible: "Futebol de quinta.*0/14 inscritos"
+# Em telas menores (ou com a fonte do sistema maior) o Racha fica abaixo
+- scrollUntilVisible:
+    element: "Racha lotado.*Esgotado"
+- takeScreenshot: 03-lista
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    direction: UP
+    centerElement: true
+- tapOn: "Futebol de quinta.*"
+- assertVisible:
+    id: "join"
+- takeScreenshot: 04-evento-gratuito
+- tapOn:
+    id: "join"
+- assertVisible:
+    id: "status-confirmed"
+- takeScreenshot: 05-inscrito
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    centerElement: true
+- tapOn: "Torneio pago de sábado.*"
+# Evento pago: checkout com cupom de 50%, carteira sem saldo, pagamento por PIX
+- tapOn:
+    id: "join"
+- assertVisible: ".*Saldo:.*0,00 — insuficiente.*"
+- tapOn:
+    id: "coupon-code"
+- inputText: "TESTE50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-apply"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "coupon-apply"
+- assertVisible:
+    id: "coupon-applied"
+- scrollUntilVisible:
+    element:
+      id: "checkout-total"
+      text: ".*15,00"
+- takeScreenshot: 05b-checkout
+- tapOn:
+    id: "checkout-submit"
+# A inscrição fica pendente e abre o PIX; sair e voltar pelo botão Pagar
+- assertVisible: "Pagamento via PIX"
+- assertVisible: ".*15,00"
+- assertVisible:
+    id: "copy-pix"
+- takeScreenshot: 06-pix
+- tapOn:
+    id: "copy-pix"
+- assertVisible: "Código copiado"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Sua inscrição aguarda o pagamento."
+- tapOn:
+    id: "pay"
+- assertVisible:
+    id: "copy-pix"
+# O pagamento chega (aqui, pelo script que faz o papel do webhook)
+- runScript:
+    file: confirm-payment.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+- extendedWaitUntil:
+    visible:
+      id: "payment-confirmed"
+    timeout: 15000
+- takeScreenshot: 07-pix-confirmado
+- tapOn:
+    id: "payment-done"
+- assertVisible:
+    id: "status-confirmed"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# A lista volta na posição em que estava: o título pode ter ficado acima
+- scrollUntilVisible:
+    element: ".*Treino fechado.*"
+    centerElement: true
+- tapOn: ".*Treino fechado.*"
+# Evento privado: a pessoa pede a entrada e fica aguardando o organizador
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Evento privado: peça a entrada ao organizador."
+- tapOn:
+    id: "request-join"
+- assertVisible:
+    id: "status-requested"
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Seu pedido de entrada foi enviado.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
+- scrollUntilVisible:
+    element: "Racha lotado.*"
+    centerElement: true
+- tapOn: "Racha lotado.*"
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Evento lotado.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# Título da tela (a lista volta na posição em que estava e o "Próximos
+# eventos" pode ter ficado acima)
+- assertVisible: "Eventos"
+- swipe:
+    direction: DOWN
+- assertVisible: "Futebol de quinta.*1/14 inscritos"
+- takeScreenshot: 08-lista-final
+# Meus eventos: só os eventos em que Bruno se inscreveu, e o cancelamento por ele
+- tapOn:
+    id: "tab-mine"
+- assertVisible: "Futebol de quinta.*Inscrito.*1/14 inscritos"
+- assertVisible: "Torneio pago de sábado.*Inscrito.*1/20 inscritos"
+- assertNotVisible: "Racha lotado.*"
+- takeScreenshot: 09-meus-eventos
+- scrollUntilVisible:
+    element: "Futebol de quinta.*"
+    centerElement: true
+- tapOn: "Futebol de quinta.*"
+- assertVisible:
+    id: "status-confirmed"
+- scrollUntilVisible:
+    element:
+      id: "cancel"
+    centerElement: true
+- tapOn:
+    id: "cancel"
+- assertVisible: "Cancelar inscrição\\?"
+- takeScreenshot: 10-confirmar-cancelamento
+- tapOn: "Confirmar cancelamento"
+- assertVisible:
+    id: "join"
+- takeScreenshot: 11-cancelado
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertNotVisible: "Futebol de quinta.*"
+# Cancelar a inscrição paga devolve o valor para a carteira
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    centerElement: true
+- tapOn: "Torneio pago de sábado.*"
+- scrollUntilVisible:
+    element:
+      id: "cancel"
+    centerElement: true
+- tapOn:
+    id: "cancel"
+- assertVisible: ".*volta integralmente como crédito na sua carteira.*"
+- tapOn: "Confirmar cancelamento"
+- assertVisible:
+    id: "join"
+- runScript:
+    file: check-refund.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+# Reinscrição com o saldo devolvido: sem cupom não alcança; o cupom, liberado
+# pelo cancelamento, vale de novo
+- tapOn:
+    id: "join"
+- assertVisible: ".*Saldo:.*15,00 — insuficiente.*"
+- tapOn:
+    id: "method-wallet"
+- tapOn:
+    id: "coupon-code"
+- inputText: "TESTE50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-apply"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "coupon-apply"
+- assertVisible:
+    id: "coupon-applied"
+- takeScreenshot: 12-checkout-carteira
+- tapOn:
+    id: "checkout-submit"
+- assertVisible:
+    id: "status-confirmed"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- assertVisible: "Torneio pago de sábado.*Inscrito.*1/20 inscritos"
+- tapOn:
+    id: "tab-upcoming"
+- assertVisible: "Futebol de quinta.*0/14 inscritos"
+# Perfil: com inscrição em evento por vir, a conta não pode ser excluída
+- tapOn:
+    id: "profile"
+- assertVisible: "Bruno Participante"
+- assertVisible: "bruno@teste.local"
+- scrollUntilVisible:
+    element:
+      id: "delete-account"
+- tapOn:
+    id: "delete-account"
+- tapOn: "Excluir definitivamente"
+- scrollUntilVisible:
+    element: ".*inscrição em eventos que ainda vão acontecer.*"
+- takeScreenshot: 13-excluir-conta-pendencias
+- scrollUntilVisible:
+    element:
+      id: "sign-out"
+    direction: UP
+- tapOn:
+    id: "sign-out"
+- assertVisible: "Entrar na sua conta"
+
+# ── Conta nova: cadastro, onboarding, cartão e exclusão da conta ─────────────
+- tapOn:
+    id: "go-sign-up"
+- assertVisible: "Criar conta"
+- tapOn:
+    id: "full-name"
+- inputText: "Dani Nova"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "email"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "email"
+- inputText: "dani@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "password"
+- inputText: "senhafraca"
+- pressKey: Enter
+- assertVisible: "A senha deve conter ao menos uma letra maiúscula."
+- tapOn:
+    id: "password"
+- eraseText: 12
+- inputText: "Senha-teste-1"
+- takeScreenshot: 14-cadastro
+- pressKey: Enter
+# No ambiente local o e-mail não precisa de confirmação: o cadastro já entra.
+# O iOS pergunta se quer guardar a senha recém-criada.
+- extendedWaitUntil:
+    visible: "Complete seu perfil|Agora Não|Not Now"
+    timeout: 15000
+- runFlow:
+    when:
+      visible: "Agora Não|Not Now"
+    commands:
+      - tapOn: "Agora Não|Not Now"
+- assertVisible: "Olá, Dani! Falta pouco."
+- tapOn:
+    id: "username"
+# "bruno" não: é o username que o cadastro deu ao Bruno
+- inputText: "bruno"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "phone"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "phone"
+- inputText: "19988887777"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "city"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "city"
+- inputText: "Campinas"
+- pressKey: Enter
+- assertVisible: "Este @username já está em uso."
+- tapOn:
+    id: "username"
+- eraseText: 10
+- inputText: "dani_nova"
+- takeScreenshot: 15-onboarding
+# Com o teclado aberto, a cidade pode ficar abaixo
+- scrollUntilVisible:
+    element:
+      id: "city"
+- tapOn:
+    id: "city"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible:
+      id: "home-greeting"
+    timeout: 15000
+- tapOn:
+    id: "tab-events"
+- assertVisible: "Próximos eventos"
+# Cartão recusado: a inscrição segue pendente e dá para tentar de novo ou trocar o meio
+- scrollUntilVisible:
+    element: "Torneio pago de sábado.*"
+    centerElement: true
+- tapOn: "Torneio pago de sábado.*"
+- tapOn:
+    id: "join"
+- tapOn:
+    id: "method-card"
+- takeScreenshot: 16-checkout-cartao
+- tapOn:
+    id: "checkout-submit"
+- assertVisible:
+    id: "card-amount"
+    text: ".*30,00"
+- extendedWaitUntil:
+    visible: "Simular cartão recusado"
+    timeout: 30000
+- takeScreenshot: 17-cartao
+- tapOn: "Simular cartão recusado"
+- extendedWaitUntil:
+    visible: "Pagamento recusado. Cartão sem limite suficiente."
+    timeout: 15000
+- takeScreenshot: 17b-cartao-recusado
+# Sai sem pagar: a inscrição aparece pendente e "Pagar" leva de volta ao checkout
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+# Os avisos ficam abaixo das informações do evento
+- scrollUntilVisible:
+    element: "Sua inscrição aguarda o pagamento."
+- tapOn:
+    id: "pay"
+# Refaz o checkout da mesma inscrição, agora com cupom, e paga com outro cartão
+- tapOn:
+    id: "coupon-code"
+- inputText: "TESTE50"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "coupon-apply"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "coupon-apply"
+- assertVisible:
+    id: "coupon-applied"
+- tapOn:
+    id: "method-card"
+- tapOn:
+    id: "checkout-submit"
+- assertVisible:
+    id: "card-amount"
+    text: ".*15,00"
+- extendedWaitUntil:
+    visible: "Simular cartão recusado"
+    timeout: 30000
+- tapOn: "Simular cartão recusado"
+- extendedWaitUntil:
+    visible:
+      id: "card-retry"
+    timeout: 15000
+- tapOn:
+    id: "card-retry"
+- extendedWaitUntil:
+    visible: "Pagar com cartão de teste"
+    timeout: 30000
+- tapOn: "Pagar com cartão de teste"
+- extendedWaitUntil:
+    visible:
+      id: "card-confirmed"
+    timeout: 15000
+- takeScreenshot: 18-cartao-confirmado
+- tapOn:
+    id: "card-done"
+- assertVisible:
+    id: "status-confirmed"
+# Cancelar devolve o valor para a carteira, e saldo impede excluir a conta
+- scrollUntilVisible:
+    element:
+      id: "cancel"
+    centerElement: true
+- tapOn:
+    id: "cancel"
+- tapOn: "Confirmar cancelamento"
+- assertVisible:
+    id: "join"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: "1%, 50%"
+          end: "85%, 50%"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - back
+- tapOn:
+    id: "profile"
+- assertVisible: "Dani Nova"
+- assertVisible: "@dani_nova"
+- scrollUntilVisible:
+    element:
+      id: "delete-account"
+- tapOn:
+    id: "delete-account"
+- tapOn: "Excluir definitivamente"
+- scrollUntilVisible:
+    element: ".*saldo na carteira.*"
+# Sem saldo (como depois de um saque), a exclusão acontece
+- runScript:
+    file: clear-wallet.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      USERNAME: dani_nova
+- scrollUntilVisible:
+    element:
+      id: "delete-account"
+    centerElement: true
+- tapOn:
+    id: "delete-account"
+- tapOn: "Excluir definitivamente"
+- extendedWaitUntil:
+    visible: "Entrar na sua conta"
+    timeout: 15000
+- runScript:
+    file: check-deleted.js
+    env:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      USERNAME: dani_nova
+# A conta excluída não entra mais
+- tapOn:
+    id: "email"
+- inputText: "dani@teste.local"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "password"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "password"
+- inputText: "Senha-teste-1"
+# No Android o teclado pode cobrir o alvo: fecha antes de tocar
+- runFlow:
+    when:
+      notVisible:
+        id: "submit"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "submit"
+- assertVisible: "E-mail ou senha incorretos."
+- takeScreenshot: 19-conta-excluida

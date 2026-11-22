@@ -14,7 +14,8 @@ export async function getPublicEvent(slugOrId: string) {
       registration_deadline, cover_url, created_at,
       groups(id, name),
       profiles!events_organizer_id_fkey(full_name, username),
-      participations(status, profiles(full_name, avatar_url))
+      participations(status, team_id, profiles(full_name, avatar_url)),
+      event_teams(id, name, position)
     `)
     .eq(isUUID ? 'id' : 'slug', slugOrId)
     .neq('status', 'DRAFT')
@@ -24,12 +25,15 @@ export async function getPublicEvent(slugOrId: string) {
 
   if (error) return null
 
-  const participations = (event.participations ?? []) as unknown as Array<{ status: string; profiles: { full_name: string; avatar_url?: string | null } | null }>
+  const participations = (event.participations ?? []) as unknown as Array<{ status: string; team_id: string | null; profiles: { full_name: string; avatar_url?: string | null } | null }>
   const confirmed = participations.filter(p => p.status === 'CONFIRMED')
   const waitlist = participations.filter(p => p.status === 'WAITLIST')
 
   const groups = Array.isArray(event.groups) ? event.groups[0] : event.groups
   const profiles = Array.isArray(event.profiles) ? event.profiles[0] : event.profiles
+  const teams = ((event.event_teams ?? []) as Array<{ id: string; name: string; position: number }>)
+    .slice()
+    .sort((a, b) => a.position - b.position)
 
   return {
     ...event,
@@ -40,6 +44,11 @@ export async function getPublicEvent(slugOrId: string) {
       name: p.profiles?.full_name ?? '?',
       avatarUrl: p.profiles?.avatar_url ?? null,
     })),
+    confirmed_all: confirmed.map(p => ({
+      name: p.profiles?.full_name ?? '?',
+      teamId: p.team_id,
+    })),
+    teams,
     groups: groups as { id: string; name: string } | null,
     organizer: profiles as { full_name: string; username: string } | null,
   }

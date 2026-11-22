@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   compress: true,
+  // Só vale no `next dev`: o app mobile abre o site local por 127.0.0.1 (a
+  // página do cartão, em WebView), e sem isto o Next recusa servir o JavaScript
+  allowedDevOrigins: ['127.0.0.1'],
   poweredByHeader: false,
   images: {
     formats: ['image/avif', 'image/webp'],

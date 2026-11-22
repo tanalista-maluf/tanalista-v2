@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export const metadata = {
   title: 'Termos de Uso — TáNaLista',
   description: 'Termos e condições de uso da plataforma TáNaLista.',
@@ -8,7 +10,7 @@ export default function TermosPage() {
     <article className="prose prose-invert prose-sm max-w-none space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-white mb-1">Termos de Uso</h1>
-        <p className="text-sm text-white/40">Última atualização: junho de 2025</p>
+        <p className="text-sm text-white/40">Última atualização: outubro de 2026</p>
       </div>
 
       <Section title="1. Aceitação dos Termos">
@@ -41,7 +43,7 @@ export default function TermosPage() {
           <li>Os valores são debitados no momento da inscrição e creditados na carteira do organizador após a conclusão do evento.</li>
           <li>Em caso de cancelamento do evento pelo organizador, os participantes recebem reembolso integral na carteira TáNaLista.</li>
           <li>Cancelamentos por parte do participante estão sujeitos à política de cancelamento definida pelo organizador.</li>
-          <li>A TáNaLista cobra uma taxa de plataforma por transação aprovada, conforme tabela vigente.</li>
+          <li>A TáNaLista cobra uma taxa de plataforma por transação aprovada, conforme a <Link href="/como-funciona#taxas" className="text-primary hover:underline">tabela vigente</Link>.</li>
         </ul>
       </Section>
 
@@ -64,7 +66,37 @@ export default function TermosPage() {
         </ul>
       </Section>
 
-      <Section title="7. Carteira Digital">
+      <Section title="7. Conteúdo Publicado pelos Usuários">
+        <p>
+          Fotos, mensagens e enquetes no mural, anúncios no marketplace, foto de perfil e as descrições de
+          eventos e grupos são publicados pelos próprios usuários. Sobre esse conteúdo:
+        </p>
+        <ul>
+          <li>Você continua dono do que publica.</li>
+          <li>
+            Ao publicar, você autoriza a TáNaLista, de forma gratuita e não exclusiva, a armazenar, reproduzir e
+            exibir esse conteúdo dentro da plataforma (site e aplicativos), para as pessoas que têm acesso a ele,
+            como os membros do grupo ou os inscritos do evento. A autorização vale enquanto o conteúdo estiver
+            publicado.
+          </li>
+          <li>A TáNaLista não usa esse conteúdo em publicidade nem o repassa a terceiros sem a sua autorização.</li>
+          <li>
+            Você declara ter os direitos sobre o que publica, inclusive a autorização das pessoas que aparecem
+            nas suas fotos.
+          </li>
+          <li>
+            Você pode apagar o que publicou a qualquer momento. Ao excluir a conta, a foto de perfil e os anúncios
+            são removidos; mensagens e fotos já publicadas em eventos podem continuar visíveis, sem os seus dados
+            pessoais (aparecem como &ldquo;Conta excluída&rdquo;).
+          </li>
+          <li>
+            Conteúdo que viole estes Termos pode ser denunciado à TáNaLista e removido sem aviso prévio, e a
+            conta responsável pode ser suspensa.
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="8. Carteira Digital">
         <ul>
           <li>A carteira TáNaLista armazena créditos para uso exclusivo dentro da plataforma.</li>
           <li>Saques estão sujeitos a prazo de processamento e verificação de identidade.</li>
@@ -72,15 +104,15 @@ export default function TermosPage() {
         </ul>
       </Section>
 
-      <Section title="8. Privacidade">
+      <Section title="9. Privacidade">
         <p>
           O uso dos seus dados pessoais é regido pela nossa{' '}
-          <a href="/privacidade" className="text-primary hover:underline">Política de Privacidade</a>,
+          <Link href="/privacidade" className="text-primary hover:underline">Política de Privacidade</Link>,
           que é parte integrante destes Termos.
         </p>
       </Section>
 
-      <Section title="9. Limitação de Responsabilidade">
+      <Section title="10. Limitação de Responsabilidade">
         <p>
           A TáNaLista não se responsabiliza por danos decorrentes de: cancelamentos de eventos por parte dos organizadores,
           força maior, falhas em serviços de terceiros (gateways de pagamento, provedores de infraestrutura) ou uso
@@ -88,30 +120,30 @@ export default function TermosPage() {
         </p>
       </Section>
 
-      <Section title="10. Alterações nos Termos">
+      <Section title="11. Alterações nos Termos">
         <p>
           Podemos atualizar estes Termos a qualquer momento. Notificaremos usuários sobre mudanças relevantes
           por e-mail ou notificação na plataforma. O uso continuado após a notificação implica aceitação dos novos termos.
         </p>
       </Section>
 
-      <Section title="11. Encerramento de Conta">
+      <Section title="12. Encerramento de Conta">
         <p>
           Você pode encerrar sua conta a qualquer momento. A TáNaLista reserva-se o direito de suspender ou encerrar
           contas que violem estes Termos. Saldos remanescentes em carteira serão processados conforme política vigente.
         </p>
       </Section>
 
-      <Section title="12. Lei Aplicável">
+      <Section title="13. Lei Aplicável">
         <p>
           Estes Termos são regidos pelas leis da República Federativa do Brasil. O foro competente para
           resolução de disputas é o da comarca de domicílio do usuário.
         </p>
       </Section>
 
-      <Section title="13. Contato">
+      <Section title="14. Contato">
         <p>
-          Para dúvidas sobre estes Termos, entre em contato: <a href="mailto:suporte@tanalista.com.br" className="text-primary hover:underline">suporte@tanalista.com.br</a>
+          Para dúvidas sobre estes Termos, entre em contato: <a href="mailto:contato@tanalista.app" className="text-primary hover:underline">contato@tanalista.app</a>
         </p>
       </Section>
     </article>

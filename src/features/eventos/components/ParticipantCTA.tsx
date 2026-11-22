@@ -65,8 +65,8 @@ export function ParticipantCTA({ event, canJoin, isFull }: ParticipantCTAProps) 
     )
   }
 
-  // Evento encerrado para inscrições
-  if (!['OPEN'].includes(event.status)) {
+  // Evento encerrado para inscrições — confirmado não conta, só cancelado/concluído
+  if (['CANCELLED', 'COMPLETED'].includes(event.status)) {
     return (
       <span className="text-xs text-white/50">
         Inscrições encerradas

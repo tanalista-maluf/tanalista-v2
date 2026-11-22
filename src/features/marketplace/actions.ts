@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { ListingSchema } from './schemas'
+import { createListingPhotoUpload, ownListingPhotos } from './photos'
 
 const LISTING_COST_CENTS = 100  // R$ 1,00
 const MAX_LISTINGS_PER_MEMBER = 5
@@ -13,6 +14,14 @@ function parsePriceToCents(price?: string): number | null {
   if (!price || price.trim() === '') return null
   const n = parseFloat(price.replace(',', '.'))
   return isNaN(n) ? null : Math.round(n * 100)
+}
+
+// Link de envio assinado para uma foto de anúncio (o navegador envia direto ao Storage)
+export async function createListingPhotoUploadAction(input: { mimeType: string; size: number }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+  return createListingPhotoUpload(user.id, input)
 }
 
 export async function createListingAction(groupId: string, data: ListingSchema) {
@@ -53,6 +62,9 @@ export async function createListingAction(groupId: string, data: ListingSchema) 
 
   const hasBalance = profile && profile.wallet_balance >= LISTING_COST_CENTS
 
+  // Fotos enviadas pela própria pessoa (rota /api/v1/listing-photos)
+  const photos = ownListingPhotos(user.id, data.photo_urls)
+
   // Calcular expiração
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + LISTING_DURATION_DAYS)
@@ -72,7 +84,8 @@ export async function createListingAction(groupId: string, data: ListingSchema) 
       price_negotiable: data.price_negotiable,
       payment_methods:  data.payment_methods ?? [],
       contact:          data.contact || null,
-      photo_url:        data.photo_url || null,
+      photo_url:        photos[0] ?? (data.photo_url || null),
+      photo_urls:       photos,
       status,
       published_at:     hasBalance ? new Date().toISOString() : null,
       expires_at:       hasBalance ? expiresAt.toISOString() : null,
@@ -89,8 +102,7 @@ export async function createListingAction(groupId: string, data: ListingSchema) 
       p_amount:     LISTING_COST_CENTS,
       p_type:       'PAYMENT',
       p_description: `Anúncio no marketplace: ${data.title}`,
-      p_event_id:   null,
-    })
+      })
 
     if (debitError) {
       // Reverter para draft se débito falhar
@@ -143,7 +155,6 @@ export async function publishDraftListingAction(listingId: string) {
     p_amount:     LISTING_COST_CENTS,
     p_type:       'PAYMENT',
     p_description: `Anúncio no marketplace: ${listing.title}`,
-    p_event_id:   null,
   })
 
   if (debitError) return { error: 'Erro ao debitar saldo.' }

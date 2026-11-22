@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getEventById } from '@/features/eventos/queries'
 import { InscricaoForm } from '@/features/participacoes/components/InscricaoForm'
+import { isCardPaymentEnabled } from '@/features/participacoes/card-payment'
 import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
 import { formatPrice, formatDateTime } from '@/utils/format'
 import { Calendar, MapPin, ChevronLeft } from 'lucide-react'
@@ -28,7 +29,7 @@ export default async function InscricaoPage({
 
   const eventSlug = event.slug ?? event.id
 
-  if (event.status !== 'OPEN') redirect(`/eventos/${eventSlug}`)
+  if (['CANCELLED', 'COMPLETED'].includes(event.status)) redirect(`/eventos/${eventSlug}`)
   // Organizador pode se inscrever como participante (ocupa uma vaga)
   // organizer_exempt controla apenas isenção de pagamento, não bloqueia inscrição
 
@@ -101,6 +102,7 @@ export default async function InscricaoPage({
         wantWaitlist={wantWaitlist}
         isFull={event.confirmed_count >= event.capacity}
         teams={teams.length > 0 ? teams : undefined}
+        cardEnabled={isCardPaymentEnabled()}
       />
     </main>
   )

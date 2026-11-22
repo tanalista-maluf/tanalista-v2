@@ -2,9 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getEventById } from '@/features/eventos/queries'
+import { canEditEvent } from '@/features/eventos/permissions'
 import { EventForm } from '@/features/eventos/components/EventForm'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import Link from 'next/link'
+import { toLocalInput } from '@/lib/timezone'
 import { ChevronLeft, Ticket } from 'lucide-react'
 
 function centsToPriceString(cents: number): string {
@@ -22,12 +24,26 @@ export default async function EditarEventoPage({
 
   const { slug } = await params
   const event = await getEventById(slug, user.id)
-  if (!event || !event.is_organizer) notFound()
+  // O organizador, ou o dono do grupo do evento
+  if (!event || !(await canEditEvent(supabase, { organizer_id: event.organizer_id, group_id: event.group_id ?? null }, user.id))) notFound()
 
   const eventSlug = event.slug ?? event.id
   const isLocked = event.status !== 'DRAFT'
 
   const admin = createAdminClient()
+
+  // Rascunho: times e repetição voltam como foram salvos
+  const isDraft = event.status === 'DRAFT'
+  const [{ data: teams }, { data: shape }, { count: seriesCount }] = await Promise.all([
+    admin.from('event_teams').select('name, capacity').eq('event_id', event.id).order('position'),
+    admin.from('events').select('recurrence_rule').eq('id', event.id).single(),
+    admin.from('events').select('id', { count: 'exact', head: true }).eq('parent_event_id', event.id).eq('status', 'DRAFT'),
+  ])
+  const rule = shape?.recurrence_rule ?? ''
+  const recurrence = !isDraft || !rule || !seriesCount
+    ? 'none'
+    : rule.includes('MONTHLY') ? 'monthly' : rule.includes('INTERVAL=2') ? 'biweekly' : 'weekly'
+
   const couponScopeFilter = event.group_id
     ? `event_id.eq.${event.id},group_id.eq.${event.group_id}`
     : `event_id.eq.${event.id}`
@@ -44,14 +60,15 @@ export default async function EditarEventoPage({
           <ChevronLeft className="size-5" />
         </Link>
         <h1 className="text-xl font-bold" style={{ fontFamily: 'var(--font-heading)' }}>
-          Editar evento
+          {isDraft ? 'Editar rascunho' : 'Editar evento'}
         </h1>
       </div>
 
       <EventForm
         eventId={event.id}
-        groupId={event.group_id}
+        groupId={event.group_id ?? undefined}
         isLocked={isLocked}
+        isDraft={isDraft}
         defaultValues={{
           title: event.title,
           description: event.description ?? '',
@@ -61,22 +78,29 @@ export default async function EditarEventoPage({
           price: centsToPriceString(event.price),
           capacity: event.capacity,
           min_participants: event.min_participants,
-          starts_at: event.starts_at.slice(0, 16),
-          ends_at: event.ends_at?.slice(0, 16) ?? '',
-          registration_deadline: event.registration_deadline.slice(0, 16),
+          starts_at: toLocalInput(event.starts_at),
+          ends_at: event.ends_at ? toLocalInput(event.ends_at) : '',
+          registration_deadline: event.registration_deadline ? toLocalInput(event.registration_deadline) : '',
           organizer_exempt: event.organizer_exempt,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
-          group_id: event.group_id,
+          group_id: event.group_id ?? undefined,
+          use_teams: (teams?.length ?? 0) >= 2,
+          teams: teams ?? [],
+          recurrence,
+          recurrence_count: seriesCount || 4,
         }}
       />
 
-      <div className="card-dark rounded-2xl p-5 space-y-3">
-        <h2 className="font-bold text-white flex items-center gap-2">
-          <Ticket className="size-4 text-primary" />Cupons do evento
-        </h2>
-        <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} groupId={event.group_id} />
-      </div>
+      {/* Cupons ficam com quem criou o evento, não com o dono do grupo */}
+      {event.is_organizer && (
+        <div className="card-dark rounded-2xl p-5 space-y-3">
+          <h2 className="font-bold text-white flex items-center gap-2">
+            <Ticket className="size-4 text-primary" />Cupons do evento
+          </h2>
+          <EventCoupons eventId={event.id} eventPrice={event.price} coupons={eventCoupons ?? []} groupId={event.group_id} />
+        </div>
+      )}
     </main>
   )
 }

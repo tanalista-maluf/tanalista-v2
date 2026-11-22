@@ -20,10 +20,10 @@ export function RedeemCouponForm() {
     const result = await redeemCouponAction(code)
     setLoading(false)
 
-    if (result.error) {
+    if ('error' in result) {
       toast.error(result.error)
     } else {
-      toast.success(`Cupom aplicado! ${formatPrice(result.amount_cents!)} creditados na sua carteira.`)
+      toast.success(`Cupom aplicado! ${formatPrice(result.amount_cents)} creditados na sua carteira.`)
       setCode('')
       setOpen(false)
     }

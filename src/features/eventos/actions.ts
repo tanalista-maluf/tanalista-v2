@@ -1,15 +1,36 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { slugify } from '@/lib/utils'
 import { formatPrice } from '@/utils/format'
 import { sendEventCancelledToParticipant } from '@/lib/emails'
+import { refundParticipationPayments, releaseCouponUse } from '@/lib/refunds'
+import { changeWaitlistTeam } from '@/features/fila/waitlist'
 import type { EventSchema } from './schemas'
+import { requestEventJoin } from './engagement'
+import { changeTeam } from './teams'
+import { minCheckAt } from './min-check'
+import { canEditEvent } from './permissions'
+import { canCreateGroupEvents } from '@/features/grupos/roles'
+import { fromLocalInput } from '@/lib/timezone'
 
 // Preço em string "R$ xx,xx" → centavos
+// Datas do formulário do site chegam sem fuso ("2026-11-08T07:30"): são
+// horário de Brasília. Sem isto, o banco as gravava como UTC.
+function withUtcDates(data: EventSchema): EventSchema {
+  return {
+    ...data,
+    starts_at: fromLocalInput(data.starts_at),
+    ends_at: fromLocalInput(data.ends_at),
+    // Em branco: inscrições ficam abertas até o início (ver join-event.ts)
+    registration_deadline: data.registration_deadline ? fromLocalInput(data.registration_deadline) : '',
+  }
+}
+
 function parsePriceToCents(price: string): number {
   return Math.round(parseFloat(price.replace(',', '.')) * 100)
 }
@@ -28,30 +49,200 @@ function eventDateSuffix(startsAt: string | Date): string {
   return `${dd}${mm}${yy}`
 }
 
+// Confere a unicidade com o service_role: pelo cliente do usuário a RLS esconde
+// rascunhos de outros organizadores, e o slug é unique na tabela inteira.
+// `taken` cobre slugs já reservados neste mesmo lote e ainda não inseridos.
 async function generateUniqueEventSlug(
-  supabase: Awaited<ReturnType<typeof createClient>>,
   title: string,
   startsAt: string | Date,
-  excludeId?: string
+  excludeId?: string,
+  taken?: Set<string>
 ): Promise<string> {
+  const admin = createAdminClient()
   const base = `${slugify(title) || 'evento'}-${eventDateSuffix(startsAt)}`
   let candidate = base
   let suffix = 2
   while (true) {
-    let q = supabase.from('events').select('id').eq('slug', candidate)
-    if (excludeId) q = q.neq('id', excludeId)
-    const { data } = await q.maybeSingle()
-    if (!data) return candidate
+    if (!taken?.has(candidate)) {
+      let q = admin.from('events').select('id').eq('slug', candidate)
+      if (excludeId) q = q.neq('id', excludeId)
+      const { data } = await q.maybeSingle()
+      if (!data) return candidate
+    }
     candidate = `${base}-${suffix++}`
   }
 }
 
-export async function createEventAction(data: EventSchema) {
+// Times do evento conforme o formulário: com use_teams e ao menos 2 times,
+// grava esses; senão o evento fica sem times. Só para eventos sem inscrições
+// (criação e rascunho), porque as inscrições apontam para os times.
+async function replaceEventTeams(eventId: string, data: Pick<EventSchema, 'use_teams' | 'teams'>) {
+  const admin = createAdminClient()
+  await admin.from('event_teams').delete().eq('event_id', eventId)
+  if (!data.use_teams || !data.teams || data.teams.length < 2) return
+  const { error } = await admin.from('event_teams').insert(
+    data.teams.map((t, i) => ({ event_id: eventId, name: t.name, capacity: t.capacity, position: i }))
+  )
+  if (error) console.error('[EVENT] teams insert error:', eventId, error)
+}
+
+// Cria os eventos seguintes de uma série recorrente a partir do principal
+async function createRecurringChildren(
+  parentId: string,
+  organizerId: string,
+  data: EventSchema,
+  status: 'DRAFT' | 'OPEN'
+) {
+  if (!data.recurrence || data.recurrence === 'none') return
+  const freqDays = data.recurrence === 'weekly' ? 7 : data.recurrence === 'biweekly' ? 14 : 30
+  const rrule = data.recurrence === 'weekly'
+    ? 'FREQ=WEEKLY'
+    : data.recurrence === 'biweekly'
+      ? 'FREQ=WEEKLY;INTERVAL=2'
+      : 'FREQ=MONTHLY'
+
+  const admin = createAdminClient()
+  const count = Math.min(data.recurrence_count ?? 4, 52)
+  const startsAt = new Date(data.starts_at)
+  const endsAt = new Date(data.ends_at)
+  const deadline = data.registration_deadline ? new Date(data.registration_deadline) : null
+  const durationMs = endsAt.getTime() - startsAt.getTime()
+  const deadlineOffsetMs = deadline ? deadline.getTime() - startsAt.getTime() : null
+
+  const children = []
+  const takenSlugs = new Set<string>()
+  for (let i = 1; i <= count; i++) {
+    const offsetDays = freqDays * i
+    const childStart = new Date(startsAt.getTime() + offsetDays * 86400000)
+    const childEnd = new Date(childStart.getTime() + durationMs)
+    const childDeadline = deadlineOffsetMs !== null ? new Date(childStart.getTime() + deadlineOffsetMs) : null
+    const childMinCheck = minCheckAt(childStart)
+    const childSlug = await generateUniqueEventSlug(data.title, childStart, undefined, takenSlugs)
+    takenSlugs.add(childSlug)
+
+    children.push({
+      group_id: data.group_id ?? null,
+      organizer_id: organizerId,
+      title: data.title,
+      slug: childSlug,
+      description: data.description || null,
+      address: data.address,
+      city: data.city,
+      category: data.category || null,
+      price: parsePriceToCents(data.price),
+      capacity: data.capacity,
+      min_participants: data.min_participants,
+      waitlist_capacity: calcWaitlistCapacity(data.capacity),
+      starts_at: childStart.toISOString(),
+      ends_at: childEnd.toISOString(),
+      registration_deadline: childDeadline?.toISOString() ?? null,
+      min_check_at: childMinCheck.toISOString(),
+      organizer_exempt: data.organizer_exempt,
+      visibility: data.visibility ?? 'PUBLIC',
+      cancel_before_hours: data.cancel_before_hours ?? null,
+      status,
+      parent_event_id: parentId,
+      recurrence_rule: rrule,
+      recurrence_index: i,
+    })
+  }
+
+  const { data: inserted, error: childrenError } = await admin.from('events').insert(children).select('id')
+
+  // Cada evento da série tem os mesmos times
+  for (const child of inserted ?? []) await replaceEventTeams(child.id, data)
+
+  // Also mark the parent with recurrence_rule
+  await admin.from('events').update({ recurrence_rule: rrule }).eq('id', parentId)
+
+  // O evento principal já existe: quem chama segue o fluxo em vez de devolver
+  // erro, o que levaria o organizador a criá-lo de novo
+  if (childrenError) console.error('[EVENT] recurrence insert error:', parentId, childrenError)
+}
+
+// Avisa os membros do grupo (menos o organizador) de um evento novo publicado
+async function notifyGroupNewEvent(params: {
+  groupId: string
+  organizerId: string
+  event: { id: string; slug: string | null; title: string; starts_at: string; city: string }
+}) {
+  const { groupId, organizerId, event } = params
+  const adminClient = createAdminClient()
+  const { data: members } = await adminClient
+    .from('group_members')
+    .select('user_id, profiles(full_name, notif_new_event_channel)')
+    .eq('group_id', groupId)
+    .neq('user_id', organizerId)
+
+  if (!members || members.length === 0) return
+
+  const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
+  await Promise.all(
+    members.map((m) =>
+      createNotificationAdmin({
+        userId: m.user_id,
+        type: 'NEW_EVENT',
+        title: 'Novo evento no grupo',
+        body: event.title,
+        data: { event_id: event.id },
+      })
+    )
+  )
+
+  // E-mail para quem prefere ser avisado por e-mail (WhatsApp ainda não está disponível)
+  const { sendNewEventToGroupMember } = await import('@/lib/emails')
+  const emailMembers = members.filter((m) => ((m.profiles as any)?.notif_new_event_channel ?? 'EMAIL') === 'EMAIL')
+  await Promise.allSettled(
+    emailMembers.map(async (m) => {
+      const { data: authUser } = await adminClient.auth.admin.getUserById(m.user_id)
+      if (!authUser?.user?.email) return
+      await sendNewEventToGroupMember({
+        to: authUser.user.email,
+        name: (m.profiles as any)?.full_name ?? 'Participante',
+        eventTitle: event.title,
+        eventDate: event.starts_at,
+        eventCity: event.city,
+        eventId: event.slug ?? event.id,
+      })
+    })
+  )
+}
+
+// Duplicar evento: copia o arquivo da capa (mesmo bucket/pasta do upload
+// normal, ver uploadEventCoverAction) direto no storage, sem baixar/reenviar.
+async function duplicateEventCover(sourceEventId: string, newEventId: string, userId: string) {
+  const admin = createAdminClient()
+
+  const { data: source } = await admin
+    .from('events')
+    .select('organizer_id, cover_url')
+    .eq('id', sourceEventId)
+    .maybeSingle()
+
+  // Confere a organização de novo (defesa extra: novo/page.tsx já checa isso)
+  if (!source || source.organizer_id !== userId || !source.cover_url) return
+
+  const marker = '/avatars/'
+  const idx = source.cover_url.indexOf(marker)
+  if (idx === -1) return
+  const sourcePath = source.cover_url.slice(idx + marker.length).split('?')[0]
+  const ext = sourcePath.includes('.') ? sourcePath.split('.').pop() : 'jpg'
+  const destPath = `event-covers/${newEventId}/cover.${ext}`
+
+  const { error: copyError } = await admin.storage.from('avatars').copy(sourcePath, destPath)
+  if (copyError) return
+
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(destPath)
+  await admin.from('events').update({ cover_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', newEventId)
+}
+
+export async function createEventAction(input: EventSchema) {
+  const data = withUtcDates(input)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verificar que é membro do grupo (eventos avulsos, sem grupo, pulam essa checagem)
+  // No grupo, só o dono e os Gestores criam eventos (avulso, sem grupo, é livre)
   if (data.group_id) {
     const { data: membership } = await supabase
       .from('group_members')
@@ -61,12 +252,15 @@ export async function createEventAction(data: EventSchema) {
       .maybeSingle()
 
     if (!membership) return { error: 'Você precisa ser membro do grupo para criar eventos.' }
+    if (!canCreateGroupEvents(membership.role)) {
+      return { error: 'Só o dono e os gestores do grupo criam eventos nele.' }
+    }
   }
 
   const starts_at = new Date(data.starts_at)
-  const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
+  const min_check_at = minCheckAt(starts_at)
 
-  const slug = await generateUniqueEventSlug(supabase, data.title, data.starts_at)
+  const slug = await generateUniqueEventSlug(data.title, data.starts_at)
 
   const { data: event, error } = await supabase
     .from('events')
@@ -84,147 +278,56 @@ export async function createEventAction(data: EventSchema) {
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
-      ends_at: data.ends_at || null,
-      registration_deadline: data.registration_deadline,
+      ends_at: data.ends_at,
+      registration_deadline: data.registration_deadline || null,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
       cancel_before_hours: data.cancel_before_hours ?? null,
-      status: 'OPEN',
+      status: data.as_draft ? 'DRAFT' : 'OPEN',
     })
     .select('id, slug')
     .single()
 
   if (error || !event) return { error: 'Erro ao criar evento.' }
 
-  // Criar times se habilitado
-  if (data.use_teams && data.teams && data.teams.length >= 2) {
-    const admin = createAdminClient()
-    await admin.from('event_teams').insert(
-      data.teams.map((t, i) => ({
-        event_id: event.id,
-        name: t.name,
-        capacity: t.capacity,
-        position: i,
-      }))
-    )
+  await replaceEventTeams(event.id, data)
+
+  // Duplicar: copia o arquivo da capa do evento de origem pro novo
+  if (data.duplicate_from) {
+    await duplicateEventCover(data.duplicate_from, event.id, user.id)
   }
 
-  // Generate recurring child events
-  if (data.recurrence && data.recurrence !== 'none') {
-    const freqDays = data.recurrence === 'weekly' ? 7 : data.recurrence === 'biweekly' ? 14 : 30
-    const rrule = data.recurrence === 'weekly'
-      ? 'FREQ=WEEKLY'
-      : data.recurrence === 'biweekly'
-        ? 'FREQ=WEEKLY;INTERVAL=2'
-        : 'FREQ=MONTHLY'
+  // Eventos seguintes da série recorrente, no mesmo estado do principal
+  await createRecurringChildren(event.id, user.id, data, data.as_draft ? 'DRAFT' : 'OPEN')
 
-    const admin = createAdminClient()
-    const count = Math.min(data.recurrence_count ?? 4, 52)
-    const startsAt = new Date(data.starts_at)
-    const endsAt = data.ends_at ? new Date(data.ends_at) : null
-    const deadline = new Date(data.registration_deadline)
-    const durationMs = endsAt ? endsAt.getTime() - startsAt.getTime() : 0
-    const deadlineOffsetMs = deadline.getTime() - startsAt.getTime()
-
-    const children = []
-    for (let i = 1; i <= count; i++) {
-      const offsetDays = freqDays * i
-      const childStart = new Date(startsAt.getTime() + offsetDays * 86400000)
-      const childEnd = endsAt ? new Date(childStart.getTime() + durationMs) : null
-      const childDeadline = new Date(childStart.getTime() + deadlineOffsetMs)
-      const childMinCheck = new Date(childStart.getTime() - 12 * 60 * 60 * 1000)
-
-      children.push({
-        group_id: data.group_id ?? null,
-        organizer_id: user.id,
-        title: data.title,
-        description: data.description || null,
-        address: data.address,
-        city: data.city,
-        category: data.category || null,
-        price: parsePriceToCents(data.price),
-        capacity: data.capacity,
-        min_participants: data.min_participants,
-        waitlist_capacity: calcWaitlistCapacity(data.capacity),
-        starts_at: childStart.toISOString(),
-        ends_at: childEnd?.toISOString() ?? null,
-        registration_deadline: childDeadline.toISOString(),
-        min_check_at: childMinCheck.toISOString(),
-        organizer_exempt: data.organizer_exempt,
-        status: 'OPEN' as const,
-        parent_event_id: event.id,
-        recurrence_rule: rrule,
-        recurrence_index: i,
-      })
-    }
-
-    await admin.from('events').insert(children)
-
-    // Also mark the parent with recurrence_rule
-    await admin.from('events').update({ recurrence_rule: rrule }).eq('id', event.id)
-  }
-
-  // Notificar membros do grupo sobre o novo evento (eventos avulsos não têm quem notificar)
-  const adminClient = createAdminClient()
-  const { data: members } = data.group_id
-    ? await adminClient
-      .from('group_members')
-      .select('user_id, profiles(full_name, notif_new_event_channel)')
-      .eq('group_id', data.group_id)
-      .neq('user_id', user.id)
-    : { data: null }
-
-  if (members && members.length > 0) {
-    const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
-    await Promise.all(
-      members.map((m) =>
-        createNotificationAdmin({
-          userId: m.user_id,
-          type: 'NEW_EVENT',
-          title: 'Novo evento no grupo',
-          body: data.title,
-          data: { event_id: event.id },
-        })
-      )
-    )
-
-    // E-mail para quem prefere ser avisado por e-mail (WhatsApp ainda não está disponível)
-    const { sendNewEventToGroupMember } = await import('@/lib/emails')
-    const emailMembers = members.filter((m) => ((m.profiles as any)?.notif_new_event_channel ?? 'EMAIL') === 'EMAIL')
-    await Promise.allSettled(
-      emailMembers.map(async (m) => {
-        const { data: authUser } = await adminClient.auth.admin.getUserById(m.user_id)
-        if (!authUser?.user?.email) return
-        await sendNewEventToGroupMember({
-          to: authUser.user.email,
-          name: (m.profiles as any)?.full_name ?? 'Participante',
-          eventTitle: data.title,
-          eventDate: data.starts_at,
-          eventCity: data.city,
-          eventId: event.slug ?? event.id,
-        })
-      })
-    )
+  // Rascunho não avisa ninguém: o aviso sai quando for publicado
+  if (!data.as_draft && data.group_id) {
+    await notifyGroupNewEvent({
+      groupId: data.group_id,
+      organizerId: user.id,
+      event: { id: event.id, slug: event.slug, title: data.title, starts_at: data.starts_at, city: data.city },
+    })
   }
 
   revalidatePath('/eventos')
   redirect(`/eventos/${event.slug ?? event.id}`)
 }
 
-export async function updateEventAction(eventId: string, data: EventSchema) {
+export async function updateEventAction(eventId: string, input: EventSchema) {
+  const data = withUtcDates(input)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // Verificar que é o organizador
+  // O organizador, ou o dono do grupo do evento
   const { data: event } = await supabase
     .from('events')
-    .select('status, organizer_id')
+    .select('status, organizer_id, group_id')
     .eq('id', eventId)
     .single()
 
-  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+  if (!event || !(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
 
   const admin = createAdminClient()
 
@@ -258,8 +361,8 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       .single()
 
     const newSlug = current?.title !== data.title
-      ? await generateUniqueEventSlug(supabase, data.title, current!.starts_at, eventId)
-      : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, current!.starts_at, eventId))
+      ? await generateUniqueEventSlug(data.title, current!.starts_at, eventId)
+      : (current?.slug ?? await generateUniqueEventSlug(data.title, current!.starts_at, eventId))
 
     const newPrice = parsePriceToCents(data.price)
 
@@ -309,7 +412,7 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   }
 
   const starts_at = new Date(data.starts_at)
-  const min_check_at = new Date(starts_at.getTime() - 12 * 60 * 60 * 1000)
+  const min_check_at = minCheckAt(starts_at)
 
   // Busca valores anteriores para detectar mudanças relevantes
   const { data: current } = await supabase
@@ -321,8 +424,8 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   const titleOrDateChanged = current?.title !== data.title ||
     (current?.starts_at && eventDateSuffix(current.starts_at) !== eventDateSuffix(data.starts_at))
   const updatedSlug = titleOrDateChanged
-    ? await generateUniqueEventSlug(supabase, data.title, data.starts_at, eventId)
-    : (current?.slug ?? await generateUniqueEventSlug(supabase, data.title, data.starts_at, eventId))
+    ? await generateUniqueEventSlug(data.title, data.starts_at, eventId)
+    : (current?.slug ?? await generateUniqueEventSlug(data.title, data.starts_at, eventId))
 
   const { error } = await supabase
     .from('events')
@@ -338,8 +441,8 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
       min_participants: data.min_participants,
       waitlist_capacity: calcWaitlistCapacity(data.capacity),
       starts_at: data.starts_at,
-      ends_at: data.ends_at || null,
-      registration_deadline: data.registration_deadline,
+      ends_at: data.ends_at,
+      registration_deadline: data.registration_deadline || null,
       min_check_at: min_check_at.toISOString(),
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
@@ -348,6 +451,21 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
     .eq('id', eventId)
 
   if (error) return { error: 'Erro ao atualizar evento.' }
+
+  // Rascunho não tem inscrições: o app manda draft_series para refazer os
+  // times e a série recorrente com o que está no formulário. O formulário do
+  // site não manda, e aí times e série ficam como estão.
+  if (data.draft_series) {
+    await replaceEventTeams(eventId, data)
+    await admin.from('events').delete().eq('parent_event_id', eventId).eq('organizer_id', user.id).eq('status', 'DRAFT')
+    await admin.from('events').update({ recurrence_rule: null }).eq('id', eventId)
+    await createRecurringChildren(eventId, user.id, data, 'DRAFT')
+  }
+
+  if (data.publish_draft) {
+    const published = await publishEventAction(eventId)
+    if ('error' in published) return { error: published.error }
+  }
 
   // Notifica participantes se data ou endereço mudaram
   if (current) {
@@ -359,7 +477,12 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
         `Data e local de "${data.title}" foram alterados. Confira os novos detalhes.`
       )
     } else if (dateChanged) {
-      const newDate = new Date(data.starts_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+      // data.starts_at vem do input datetime-local ("AAAA-MM-DDTHH:mm"), já no
+      // horário de Brasília digitado pelo organizador — só reordena os dígitos,
+      // sem passar por Date (que o interpretaria como UTC e voltaria errado).
+      const [datePart, timePart] = data.starts_at.split('T')
+      const [y, m, d] = datePart.split('-')
+      const newDate = `${d}/${m}/${y} ${timePart}`
       await notifyParticipants(
         'Data do evento alterada',
         `"${data.title}" foi reagendado para ${newDate}.`
@@ -376,13 +499,29 @@ export async function updateEventAction(eventId: string, data: EventSchema) {
   redirect(`/eventos/${updatedSlug}`)
 }
 
+// Publica um rascunho e, se ele abre uma série recorrente, os rascunhos da série
 export async function publishEventAction(eventId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  // status não é gravável pelo cliente do usuário (GRANT de UPDATE por coluna)
   const admin = createAdminClient()
+  const { data: event } = await admin
+    .from('events')
+    .select('id, slug, title, starts_at, registration_deadline, city, group_id, organizer_id, status')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Evento não encontrado.' }
+  if (event.status !== 'DRAFT') return { error: 'Este evento já foi publicado.' }
+  // Um rascunho antigo pode ter ficado com a data no passado. Sem prazo de
+  // inscrição definido, inscrições ficam abertas até o início do evento.
+  const deadline = event.registration_deadline ? new Date(event.registration_deadline) : new Date(event.starts_at)
+  if (deadline <= new Date()) {
+    return { error: 'O prazo de inscrição deste rascunho já passou. Edite as datas antes de publicar.' }
+  }
+
+  // status não é gravável pelo cliente do usuário (GRANT de UPDATE por coluna)
   const { error } = await admin
     .from('events')
     .update({ status: 'OPEN' })
@@ -392,7 +531,47 @@ export async function publishEventAction(eventId: string) {
 
   if (error) return { error: 'Erro ao publicar evento.' }
 
-  revalidatePath(`/eventos/${eventId}`)
+  // Os eventos seguintes da série, menos os que já ficaram para trás (sem
+  // prazo definido, vale o início do próprio evento)
+  const nowIso = new Date().toISOString()
+  await admin
+    .from('events')
+    .update({ status: 'OPEN' })
+    .eq('parent_event_id', eventId)
+    .eq('organizer_id', user.id)
+    .eq('status', 'DRAFT')
+    .or(`registration_deadline.gt.${nowIso},and(registration_deadline.is.null,starts_at.gt.${nowIso})`)
+
+  if (event.group_id) {
+    await notifyGroupNewEvent({ groupId: event.group_id, organizerId: user.id, event })
+  }
+
+  revalidatePath('/eventos')
+  revalidatePath(`/eventos/${event.slug ?? eventId}`)
+  return { success: true }
+}
+
+// Apaga um rascunho e os rascunhos da série que ele abre
+export async function deleteDraftEventAction(eventId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { data: event } = await admin
+    .from('events')
+    .select('organizer_id, status')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || event.organizer_id !== user.id) return { error: 'Evento não encontrado.' }
+  if (event.status !== 'DRAFT') return { error: 'Só rascunhos podem ser excluídos.' }
+
+  await admin.from('events').delete().eq('parent_event_id', eventId).eq('organizer_id', user.id).eq('status', 'DRAFT')
+  const { error } = await admin.from('events').delete().eq('id', eventId).eq('status', 'DRAFT')
+  if (error) return { error: 'Erro ao excluir o rascunho.' }
+
+  revalidatePath('/eventos')
   return { success: true }
 }
 
@@ -403,12 +582,12 @@ export async function cancelEventAction(eventId: string, reason?: string) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('status, organizer_id, title, price')
+    .select('status, organizer_id, group_id, title, price')
     .eq('id', eventId)
     .single()
 
   if (!event) return { error: 'Evento não encontrado.' }
-  if (event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+  if (!(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
   if (['COMPLETED', 'CANCELLED'].includes(event.status)) {
     return { error: 'Este evento não pode ser cancelado.' }
   }
@@ -418,7 +597,7 @@ export async function cancelEventAction(eventId: string, reason?: string) {
   // Buscar participantes confirmados para reembolsar
   const { data: confirmed } = await admin
     .from('participations')
-    .select('user_id')
+    .select('id, user_id, coupon_id')
     .eq('event_id', eventId)
     .eq('status', 'CONFIRMED')
 
@@ -433,22 +612,21 @@ export async function cancelEventAction(eventId: string, reason?: string) {
   // Reembolsar e notificar cada participante confirmado
   const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
   for (const p of confirmed ?? []) {
-    // Reembolso na carteira (só se o evento tinha preço)
-    if (event.price > 0) {
-      await admin.rpc('wallet_credit', {
-        p_user_id: p.user_id,
-        p_amount: event.price,
-        p_type: 'REFUND',
-        p_description: `Reembolso: ${event.title}`,
-      })
-    }
+    // Reembolso na carteira do que cada um de fato pagou
+    const refundedAmount = await refundParticipationPayments(admin, {
+      participationId: p.id,
+      userId: p.user_id,
+      eventId,
+      description: `Reembolso: ${event.title}`,
+    }) ?? 0
+    await releaseCouponUse(admin, { couponId: p.coupon_id, userId: p.user_id, eventId })
 
     // Notificação in-app
     await createNotificationAdmin({
       userId: p.user_id,
       type: 'EVENT_CANCELLED',
       title: 'Evento cancelado',
-      body: `"${event.title}" foi cancelado pelo organizador.${event.price > 0 ? ' Seu pagamento foi estornado para a carteira.' : ''}`,
+      body: `"${event.title}" foi cancelado pelo organizador.${refundedAmount > 0 ? ' Seu pagamento foi estornado para a carteira.' : ''}`,
       data: { event_id: eventId },
     })
 
@@ -462,7 +640,7 @@ export async function cancelEventAction(eventId: string, reason?: string) {
         to: authUser.user.email,
         name: profile?.full_name ?? 'Participante',
         eventTitle: event.title,
-        refundAmount: event.price > 0 ? event.price : 0,
+        refundAmount: refundedAmount,
       }).catch((e) => console.error('[EMAIL] sendEventCancelledToParticipant:', e))
     }
   }
@@ -478,52 +656,7 @@ export async function changeTeamAction(participationId: string, newTeamId: strin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-
-  // Buscar participação
-  const { data: participation } = await admin
-    .from('participations')
-    .select('id, user_id, event_id, status, team_id, team_changes_used')
-    .eq('id', participationId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!participation) return { error: 'Participação não encontrada.' }
-
-  if (participation.status === 'CONFIRMED') {
-    if (participation.team_changes_used >= 1) {
-      return { error: 'Você já utilizou sua troca de time permitida.' }
-    }
-
-    // Verificar se novo time tem vaga
-    const { data: team } = await admin
-      .from('event_teams')
-      .select('capacity')
-      .eq('id', newTeamId)
-      .single()
-
-    if (!team) return { error: 'Time não encontrado.' }
-
-    const { count } = await admin
-      .from('participations')
-      .select('*', { count: 'exact', head: true })
-      .eq('team_id', newTeamId)
-      .eq('status', 'CONFIRMED')
-
-    if ((count ?? 0) >= team.capacity) {
-      return { error: 'Este time está lotado. Você pode entrar na fila de espera do time.' }
-    }
-
-    await admin
-      .from('participations')
-      .update({ team_id: newTeamId, team_changes_used: 1 })
-      .eq('id', participationId)
-
-    revalidatePath(`/eventos/${participation.event_id}`)
-    return { success: true }
-  }
-
-  return { error: 'Apenas participantes confirmados podem trocar de time aqui.' }
+  return changeTeam(user.id, participationId, newTeamId)
 }
 
 // ── Troca de fila de espera entre times (ilimitado) ───────────────────────────
@@ -532,25 +665,7 @@ export async function changeWaitlistTeamAction(waitlistId: string, newTeamId: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-
-  const { data: entry } = await admin
-    .from('waitlist_entries')
-    .select('id, user_id, event_id, status')
-    .eq('id', waitlistId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (!entry) return { error: 'Entrada na fila não encontrada.' }
-  if (entry.status !== 'WAITING') return { error: 'Só é possível trocar de fila enquanto aguarda.' }
-
-  await admin
-    .from('waitlist_entries')
-    .update({ team_id: newTeamId })
-    .eq('id', waitlistId)
-
-  revalidatePath(`/eventos/${entry.event_id}`)
-  return { success: true }
+  return changeWaitlistTeam(user.id, waitlistId, newTeamId)
 }
 
 export async function regenerateEventInviteAction(eventId: string) {
@@ -577,40 +692,7 @@ export async function requestEventJoinAction(eventId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const admin = createAdminClient()
-  const { error } = await admin
-    .from('event_join_requests')
-    .upsert({ event_id: eventId, user_id: user.id, status: 'PENDING', updated_at: new Date().toISOString() }, { onConflict: 'event_id,user_id' })
-
-  if (error) return { error: 'Erro ao enviar solicitação.' }
-
-  // Notify organizer
-  const { data: event } = await admin
-    .from('events')
-    .select('organizer_id, title, slug')
-    .eq('id', eventId)
-    .maybeSingle()
-
-  const { data: requester } = await admin
-    .from('profiles')
-    .select('full_name, username')
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (event?.organizer_id) {
-    const requesterName = requester?.full_name ?? requester?.username ?? 'Alguém'
-    await admin.from('notifications').insert({
-      user_id: event.organizer_id,
-      type: 'EVENT_JOIN_REQUEST',
-      title: 'Solicitação de participação',
-      body: `${requesterName} quer participar de "${event.title}".`,
-      data: { event_id: eventId, event_slug: event.slug, requester_id: user.id },
-      read: false,
-    })
-  }
-
-  revalidatePath(`/eventos/${eventId}`)
-  return { success: true }
+  return requestEventJoin(user.id, eventId)
 }
 
 export async function approveEventJoinRequest(requestId: string) {
@@ -630,32 +712,60 @@ export async function approveEventJoinRequest(requestId: string) {
   // Verify caller is organizer
   const { data: event } = await admin
     .from('events')
-    .select('organizer_id, title, slug, price')
+    .select('organizer_id, title, slug, price, capacity')
     .eq('id', req.event_id)
     .maybeSingle()
 
   if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+
+  const { data: existing } = await admin
+    .from('participations')
+    .select('status, coupon_id')
+    .eq('event_id', req.event_id)
+    .eq('user_id', req.user_id)
+    .maybeSingle()
+
+  // Quem já tem inscrição ativa (confirmada ou aguardando pagamento) continua
+  // como está, com o cupom que tiver; os demais ocupam uma vaga nova
+  const alreadyRegistered = existing?.status === 'CONFIRMED' || existing?.status === 'PENDING'
+  if (!alreadyRegistered) {
+    const { count } = await admin
+      .from('participations')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', req.event_id)
+      .eq('status', 'CONFIRMED')
+
+    if ((count ?? 0) >= event.capacity) return { error: 'Evento lotado. Não há vaga para aprovar esta solicitação.' }
+  }
 
   await admin
     .from('event_join_requests')
     .update({ status: 'APPROVED', updated_at: new Date().toISOString() })
     .eq('id', requestId)
 
-  // Create participation (free events get CONFIRMED; paid events get PENDING_PAYMENT)
-  const participationStatus = event.price === 0 ? 'CONFIRMED' : 'PENDING_PAYMENT'
-  const { error: partError } = await admin
-    .from('participations')
-    .upsert({ event_id: req.event_id, user_id: req.user_id, status: participationStatus }, { onConflict: 'event_id,user_id' })
+  // Create participation (free events get CONFIRMED; paid events wait for payment as PENDING)
+  if (!alreadyRegistered) {
+    // A linha cancelada é reaproveitada sem cupom; devolve o uso que ela ainda segurar
+    if (existing?.coupon_id) {
+      await releaseCouponUse(admin, { couponId: existing.coupon_id, userId: req.user_id, eventId: req.event_id })
+    }
+    const participationStatus = event.price === 0 ? 'CONFIRMED' : 'PENDING'
+    const { error: partError } = await admin
+      .from('participations')
+      .upsert(
+        { event_id: req.event_id, user_id: req.user_id, status: participationStatus, discount_cents: 0, coupon_id: null },
+        { onConflict: 'event_id,user_id' }
+      )
 
-  if (partError) return { error: 'Erro ao criar participação.' }
+    if (partError) return { error: 'Erro ao criar participação.' }
+  }
 
-  await admin.from('notifications').insert({
-    user_id: req.user_id,
+  await createNotificationAdmin({
+    userId: req.user_id,
     type: 'EVENT_JOIN_APPROVED',
     title: 'Solicitação aprovada!',
     body: `Sua solicitação para participar de "${event.title}" foi aprovada.`,
     data: { event_id: req.event_id, event_slug: event.slug },
-    read: false,
   })
 
   revalidatePath(`/eventos/${req.event_id}`)
@@ -690,13 +800,12 @@ export async function rejectEventJoinRequest(requestId: string) {
     .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
     .eq('id', requestId)
 
-  await admin.from('notifications').insert({
-    user_id: req.user_id,
+  await createNotificationAdmin({
+    userId: req.user_id,
     type: 'EVENT_JOIN_REJECTED',
     title: 'Solicitação recusada',
     body: `Sua solicitação para participar de "${event.title}" foi recusada.`,
     data: { event_id: req.event_id },
-    read: false,
   })
 
   revalidatePath(`/eventos/${req.event_id}`)
@@ -741,13 +850,16 @@ export async function uploadEventCoverAction(formData: FormData) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('organizer_id, slug')
+    .select('organizer_id, group_id, slug, cover_url')
     .eq('id', eventId)
     .maybeSingle()
 
-  if (!event || event.organizer_id !== user.id) return { error: 'Sem permissão.' }
+  if (!event || !(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
 
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  // O app manda o arquivo sem extensão no nome: usa o tipo da imagem
+  const ext = file.name.includes('.')
+    ? file.name.split('.').pop()!.toLowerCase()
+    : (file.type.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg')
   const path = `event-covers/${eventId}/cover.${ext}`
 
   const admin = createAdminClient()
@@ -766,6 +878,10 @@ export async function uploadEventCoverAction(formData: FormData) {
     .eq('id', eventId)
 
   if (dbError) return { error: 'Erro ao salvar URL da capa.' }
+
+  // Os próximos eventos da série acompanham, salvo os que ganharam capa própria
+  const children = admin.from('events').update({ cover_url: coverUrl }).eq('parent_event_id', eventId)
+  await (event.cover_url ? children.or(`cover_url.is.null,cover_url.eq."${event.cover_url}"`) : children.is('cover_url', null))
 
   revalidatePath(`/eventos/${event.slug ?? eventId}`)
   return { success: true, coverUrl }
@@ -802,13 +918,12 @@ export async function sendEventBroadcastAction(eventId: string, message: string)
 
   const { createNotificationAdmin } = await import('@/features/notificacoes/actions')
   const { sendEventBroadcastToParticipant } = await import('@/lib/emails')
-  const { sendPushToUser } = await import('@/lib/push')
 
   let sent = 0
   await Promise.allSettled(participants.map(async (p) => {
     const { data: profile } = await admin
       .from('profiles')
-      .select('full_name, notif_email, notif_push')
+      .select('full_name, notif_email')
       .eq('id', p.user_id)
       .single()
 
@@ -820,13 +935,6 @@ export async function sendEventBroadcastAction(eventId: string, message: string)
       data: { event_id: eventId },
     })
 
-    if (profile?.notif_push ?? true) {
-      await sendPushToUser(p.user_id, {
-        title: `Aviso: ${event.title}`,
-        body: trimmed,
-        url: `/eventos/${eventId}`,
-      }).catch(() => {})
-    }
 
     if (profile?.notif_email ?? true) {
       const { data: authUser } = await admin.auth.admin.getUserById(p.user_id)

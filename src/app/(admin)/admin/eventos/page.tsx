@@ -1,9 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { formatPrice } from '@/utils/format'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { getBRDateShortYear2 } from '@/utils/datetime'
+import { Constants } from '@/types/database'
+import { PurgeCancelledButton } from '@/features/admin/components/PurgeCancelledButton'
 
 export const dynamic = 'force-dynamic'
+
+const EVENT_STATUSES = Constants.public.Enums.event_status
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   DRAFT:       { label: 'Rascunho',           className: 'text-white/40 bg-white/5' },
@@ -37,7 +40,8 @@ export default async function AdminEventosPage({
     .range(offset, offset + pageSize - 1)
 
   if (q) query = query.ilike('title', `%${q}%`)
-  if (status) query = query.eq('status', status)
+  const statusFilter = EVENT_STATUSES.find((s) => s === status)
+  if (statusFilter) query = query.eq('status', statusFilter)
 
   const { data: events, count } = await query
   const totalPages = Math.ceil((count ?? 0) / pageSize)
@@ -49,6 +53,7 @@ export default async function AdminEventosPage({
           <h1 className="text-xl font-bold text-white">Eventos</h1>
           <p className="text-sm text-white/40 mt-0.5">{count?.toLocaleString('pt-BR') ?? 0} no total</p>
         </div>
+        <PurgeCancelledButton />
         <form method="get" className="flex gap-2">
           <input
             name="q"
@@ -99,7 +104,7 @@ export default async function AdminEventosPage({
                     @{ev.profiles?.username ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-right text-white/40 text-xs">
-                    {format(new Date(ev.starts_at), 'dd/MM/yy', { locale: ptBR })}
+                    {getBRDateShortYear2(ev.starts_at)}
                   </td>
                   <td className="px-4 py-3 text-right text-white/50 text-xs">
                     {ev.confirmed_count}/{ev.capacity}

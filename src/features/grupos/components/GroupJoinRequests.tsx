@@ -26,7 +26,7 @@ export function GroupJoinRequests({ requests: initialRequests, groupId }: Props)
   async function handleApprove(requestId: string) {
     setLoading(requestId)
     const result = await approveGroupJoinRequest(requestId)
-    if (!result?.error) {
+    if (!('error' in result)) {
       setRequests((prev) => prev.map((r) => r.id === requestId ? { ...r, status: 'APPROVED' } : r))
     }
     setLoading(null)
@@ -35,7 +35,7 @@ export function GroupJoinRequests({ requests: initialRequests, groupId }: Props)
   async function handleReject(requestId: string) {
     setLoading(requestId)
     const result = await rejectGroupJoinRequest(requestId)
-    if (!result?.error) {
+    if (!('error' in result)) {
       setRequests((prev) => prev.map((r) => r.id === requestId ? { ...r, status: 'REJECTED' } : r))
     }
     setLoading(null)

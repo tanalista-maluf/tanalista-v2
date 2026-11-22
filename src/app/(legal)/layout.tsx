@@ -15,6 +15,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
             </Link>
           </div>
           <nav className="flex items-center gap-4 text-xs text-white/40">
+            <Link href="/como-funciona" className="hover:text-white transition-colors">Como funciona</Link>
             <Link href="/termos" className="hover:text-white transition-colors">Termos</Link>
             <Link href="/privacidade" className="hover:text-white transition-colors">Privacidade</Link>
           </nav>

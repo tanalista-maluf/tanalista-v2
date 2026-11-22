@@ -21,6 +21,8 @@ export const listingSchema = z.object({
   payment_methods:  z.array(z.string()).optional(),
   contact:          z.string().max(200).optional().or(z.literal('')),
   photo_url:        z.string().url().optional().or(z.literal('')),
+  // Até 5 fotos; a primeira é a principal (vira também photo_url)
+  photo_urls:       z.array(z.string().url()).max(5, 'No máximo 5 fotos').optional(),
 })
 
 export type ListingSchema = z.infer<typeof listingSchema>

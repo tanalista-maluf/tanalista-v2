@@ -1,7 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
+import { getEventById } from '@/features/eventos/queries'
 import { EventForm } from '@/features/eventos/components/EventForm'
+import type { EventSchema } from '@/features/eventos/schemas'
 import Link from 'next/link'
+import { canCreateGroupEvents } from '@/features/grupos/roles'
 import { ChevronLeft, Users, Lock, Globe, ChevronRight, Plus } from 'lucide-react'
 
 interface Prefill {
@@ -12,6 +16,11 @@ interface Prefill {
   price?: string
   capacity?: string
   min_participants?: string
+  duplicate_from?: string
+}
+
+function centsToPriceString(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',')
 }
 
 export default async function NovoEventoPage({
@@ -24,10 +33,46 @@ export default async function NovoEventoPage({
   if (!user) redirect('/login')
 
   const params = await searchParams
-  const isStandalone = params.group_id === 'none'
-  const groupId = isStandalone ? undefined : params.group_id
 
-  const prefillDefaults = {
+  // Duplicar: copia tudo do evento de origem, menos data/horário e capa —
+  // só quem organizou o original pode duplicá-lo (ver OrganizerActions.tsx).
+  let duplicateDefaults: Partial<EventSchema> | undefined
+  let duplicateGroupId: string | null | undefined
+  if (params.duplicate_from) {
+    const source = await getEventById(params.duplicate_from, user.id)
+    if (source && source.is_organizer) {
+      const admin = createAdminClient()
+      const { data: teams } = await admin
+        .from('event_teams')
+        .select('name, capacity')
+        .eq('event_id', source.id)
+        .order('position')
+
+      duplicateDefaults = {
+        title: source.title,
+        description: source.description ?? '',
+        address: source.address,
+        city: source.city,
+        category: source.category ?? '',
+        price: centsToPriceString(source.price),
+        capacity: source.capacity,
+        min_participants: source.min_participants,
+        organizer_exempt: source.organizer_exempt,
+        visibility: (source.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
+        cancel_before_hours: (source as any).cancel_before_hours ?? null,
+        use_teams: (teams?.length ?? 0) >= 2,
+        teams: teams ?? [],
+        // createEventAction confere a organização de novo e copia a capa
+        duplicate_from: source.id,
+      }
+      duplicateGroupId = source.group_id
+    }
+  }
+
+  const isStandalone = duplicateDefaults ? !duplicateGroupId : params.group_id === 'none'
+  const groupId = duplicateDefaults ? (duplicateGroupId ?? undefined) : (isStandalone ? undefined : params.group_id)
+
+  const prefillDefaults: Partial<EventSchema> = duplicateDefaults ?? {
     title: params.title,
     address: params.address,
     city: params.city,
@@ -63,7 +108,7 @@ export default async function NovoEventoPage({
     .eq('user_id', user.id)
     .order('joined_at', { ascending: false })
 
-  const groups = (memberships ?? [])
+  const groups = ((memberships ?? [])
     .map((m: any) => ({ ...m.groups, role: m.role }))
     .filter(Boolean) as {
       id: string
@@ -73,9 +118,11 @@ export default async function NovoEventoPage({
       member_count: number
       category: string | null
       role: string
-    }[]
+    }[])
+    // No grupo, só o dono e os Gestores criam eventos
+    .filter((g) => canCreateGroupEvents(g.role))
 
-  // Se não tem nenhum grupo, vai direto pro evento avulso
+  // Sem grupo em que possa criar, vai direto pro evento avulso
   if (groups.length === 0) {
     redirect('/eventos/novo?group_id=none')
   }

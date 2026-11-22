@@ -26,3 +26,37 @@ export async function getPublicGroup(slugOrId: string) {
 }
 
 export type PublicGroup = NonNullable<Awaited<ReturnType<typeof getPublicGroup>>>
+
+// Página de um grupo para quem ainda não é membro, no app: os dados públicos e
+// a situação da pessoa (membro, pedido pendente ou nada). O grupo privado não
+// aparece pela RLS para quem está de fora; por isso a leitura é do servidor.
+export async function getGroupPreview(slugOrId: string, userId: string) {
+  const group = await getPublicGroup(slugOrId)
+  if (!group) return null
+
+  const admin = createAdminClient()
+  const [{ data: member }, { data: request }] = await Promise.all([
+    admin.from('group_members').select('id').eq('group_id', group.id).eq('user_id', userId).maybeSingle(),
+    admin
+      .from('group_join_requests')
+      .select('status')
+      .eq('group_id', group.id)
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ])
+
+  return {
+    group: {
+      id: group.id,
+      slug: group.slug,
+      name: group.name,
+      description: group.description,
+      city: group.city,
+      category: group.category,
+      avatar_url: group.avatar_url,
+      visibility: group.visibility,
+      member_count: group.member_count,
+    },
+    status: member ? ('MEMBER' as const) : request?.status === 'PENDING' ? ('REQUESTED' as const) : ('NONE' as const),
+  }
+}

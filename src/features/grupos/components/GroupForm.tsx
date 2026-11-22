@@ -179,10 +179,10 @@ export function GroupForm({ groupId, defaultValues, onSuccess }: GroupFormProps)
         </div>
 
         <div className="space-y-1.5">
-          <Label>Categoria</Label>
+          <Label>Categoria *</Label>
           <Select
             value={category || ''}
-            onValueChange={(v) => setValue('category', v || undefined)}
+            onValueChange={(v) => setValue('category', v ?? '', { shouldValidate: true })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Selecionar..." />
@@ -193,6 +193,7 @@ export function GroupForm({ groupId, defaultValues, onSuccess }: GroupFormProps)
               ))}
             </SelectContent>
           </Select>
+          {errors.category && <p className="text-xs text-destructive">{errors.category.message}</p>}
         </div>
       </div>
 

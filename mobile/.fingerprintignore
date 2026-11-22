@@ -1,0 +1,5 @@
+# Arquivos da máquina que não mudam o código nativo. Sem isso, o build do EAS
+# recusava o build: o Finder (.DS_Store) e os builds Android locais (build/
+# dentro das bibliotecas) mudavam a impressão digital calculada aqui.
+**/.DS_Store
+node_modules/**/android/build/**

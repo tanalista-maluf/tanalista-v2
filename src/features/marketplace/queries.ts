@@ -13,6 +13,7 @@ export type MarketplaceListing = {
   payment_methods: string[]
   contact: string | null
   photo_url: string | null
+  photo_urls: string[]
   status: 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'DELETED'
   published_at: string | null
   expires_at: string | null

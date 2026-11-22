@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
-import type { GroupRow, GroupMemberRow } from '@/types/database'
+import type { GroupRow, GroupMemberRow } from '@/types/rows'
+import type { GroupRole } from './roles'
 
 const PAGE_SIZE = 20
 
 export type GroupWithMeta = GroupRow & {
   is_member: boolean
   is_owner: boolean
-  user_role: 'OWNER' | 'MEMBER' | null
+  user_role: GroupRole | null
 }
 
 export async function getGroups(opts: {
@@ -35,7 +36,7 @@ export async function getGroups(opts: {
       .eq('group_members.user_id', opts.userId)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
-      .limit(PAGE_SIZE + 1)
+      .limit(PAGE_SIZE + 1) as unknown as typeof query
   }
 
   if (opts.city) query = query.ilike('city', `%${opts.city}%`)
@@ -54,7 +55,7 @@ export async function getGroups(opts: {
   const rows = has_more ? data.slice(0, PAGE_SIZE) : data
   const last = rows[rows.length - 1]
 
-  const membershipByGroupId = new Map<string, 'OWNER' | 'MEMBER'>()
+  const membershipByGroupId = new Map<string, GroupRole>()
   if (opts.userId && rows.length) {
     const { data: memberships } = await supabase
       .from('group_members')
@@ -62,7 +63,7 @@ export async function getGroups(opts: {
       .eq('user_id', opts.userId)
       .in('group_id', rows.map((g) => g.id))
     for (const m of memberships ?? []) {
-      membershipByGroupId.set(m.group_id, m.role)
+      membershipByGroupId.set(m.group_id, m.role as GroupRole)
     }
   }
 

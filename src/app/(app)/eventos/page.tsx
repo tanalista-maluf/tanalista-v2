@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { getEvents } from '@/features/eventos/queries'
 import { getUserParticipations } from '@/features/participacoes/queries'
 import { EventCard } from '@/features/eventos/components/EventCard'
+import { DraftEvents, type DraftEvent } from '@/features/eventos/components/DraftEvents'
 import { Input } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -108,6 +109,7 @@ export default async function EventosPage({
   // ── Dados por aba ─────────────────────────────────────────────────────────
   let events: Awaited<ReturnType<typeof getEvents>>['events'] = []
   let has_more = false
+  let drafts: DraftEvent[] = []
   let next_cursor: { created_at: string; id: string } | null = null
 
   // Participações do usuário (sub-aba "Participando")
@@ -151,8 +153,28 @@ export default async function EventosPage({
       cursor_created_at: params.cursor_created_at,
       cursor_id: params.cursor_id,
       onlyMine: true,
-      status: ['DRAFT', 'OPEN', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'],
+      // Os rascunhos ficam no bloco próprio, acima da lista
+      status: ['OPEN', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'],
     })
+    const { data: draftRows } = await supabase
+      .from('events')
+      .select('id, slug, title, starts_at, city, parent_event_id, recurrence_rule')
+      .eq('organizer_id', user!.id)
+      .eq('status', 'DRAFT')
+      .order('starts_at', { ascending: true })
+      .limit(200)
+    const rows = draftRows ?? []
+    drafts = rows
+      .filter((row) => !row.parent_event_id || !rows.some((other) => other.id === row.parent_event_id))
+      .map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        starts_at: row.starts_at,
+        city: row.city,
+        rule: row.recurrence_rule,
+        seriesSize: 1 + rows.filter((other) => other.parent_event_id === row.id).length,
+      }))
     const sorted = sortEventsByProximity(result.events)
     events = sorted as typeof result.events
     has_more = result.has_more
@@ -262,6 +284,8 @@ export default async function EventosPage({
           </>
         )}
       </form>
+
+      {isMeus && sub === 'organizando' && <DraftEvents drafts={drafts} />}
 
       {/* Lista */}
       {(() => {

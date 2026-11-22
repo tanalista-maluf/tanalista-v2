@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { DepositForm } from '@/features/carteira/components/DepositForm'
+import { getCardFormConfig } from '@/features/participacoes/card-config'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { buttonVariants } from '@/components/ui/button'
@@ -51,11 +52,11 @@ export default async function DepositoPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold">Adicionar saldo</h1>
-          <p className="text-sm text-white/50">Recarregue sua carteira via PIX</p>
+          <p className="text-sm text-white/50">Recarregue sua carteira via PIX ou cartão</p>
         </div>
       </div>
 
-      <DepositForm pendingPix={pendingPix} />
+      <DepositForm pendingPix={pendingPix} card={getCardFormConfig()} email={user.email} />
     </main>
   )
 }

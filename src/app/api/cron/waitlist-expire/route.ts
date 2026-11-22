@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createNotificationAdmin } from '@/features/notificacoes/actions'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPushToUser } from '@/lib/push'
 
 // Vercel Cron: a cada 15 min
 // 1. Expira entradas NOTIFIED cujo expires_at já passou
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       .eq('id', eventId)
       .single()
 
-    if (!event || event.status !== 'OPEN') continue
+    if (!event || ['CANCELLED', 'COMPLETED'].includes(event.status)) continue
 
     const spotsLeft = event.capacity - (event.confirmed_count ?? 0)
     if (spotsLeft <= 0) continue
@@ -68,20 +68,13 @@ export async function GET(request: NextRequest) {
       .eq('id', next.id)
 
     // Notificação in-app
-    await admin.from('notifications').insert({
-      user_id: next.user_id,
+    await createNotificationAdmin({
+      userId: next.user_id,
       type: 'WAITLIST_PROMOTED',
       title: 'Vaga disponível!',
       body: `Uma vaga abriu em "${event.title}". Você tem 24h para confirmar.`,
       data: { event_id: eventId },
     })
-
-    // Push notification
-    sendPushToUser(next.user_id, {
-      title: 'Vaga disponível! 🎉',
-      body: `Uma vaga abriu em "${event.title}". Confirme em 24h.`,
-      url: `/eventos/${eventId}`,
-    }).catch(() => {})
 
     promoted++
   }

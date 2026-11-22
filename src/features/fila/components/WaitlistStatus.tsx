@@ -31,7 +31,7 @@ export function WaitlistStatus({ entry, eventId, eventPrice }: WaitlistStatusPro
     setLeaving(true)
     const result = await leaveWaitlistAction(eventId)
     setLeaving(false)
-    if (result?.error) toast.error(result.error)
+    if ('error' in result) toast.error(result.error)
     else toast.success('Você saiu da fila de espera.')
   }
 

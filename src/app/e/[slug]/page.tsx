@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation'
 import { getPublicEvent } from '@/features/eventos/queries-public'
+import { buildInviteMessage } from '@/features/eventos/invite-message'
 import { EventCountdown } from '@/features/eventos/components/EventCountdown'
 import { formatPrice, formatDateTime } from '@/utils/format'
-import { MapPin, Calendar, Users, Clock, Share2 } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { getBRDateTimeLong } from '@/utils/datetime'
+import { MapPin, Calendar, Users, Clock, Share2, UserPlus } from 'lucide-react'
+import { EventLocationMap } from '@/features/eventos/components/EventLocationMap'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
@@ -55,13 +56,16 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
   }
 
   const id = event.id
-  const isOpen = event.status === 'OPEN'
+  // Confirmado não fecha inscrição — só cancelado/concluído fecham de vez.
+  const isOpen = !['CANCELLED', 'COMPLETED'].includes(event.status)
   const isFull = event.confirmed_count >= event.capacity
   const isPast = new Date(event.starts_at) < new Date()
   const spotsLeft = event.capacity - event.confirmed_count
   const occupancyPct = Math.round((event.confirmed_count / event.capacity) * 100)
 
   const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${event.slug ?? id}`
+
+  const inviteMessage = buildInviteMessage(event, shareUrl)
 
   return (
     <main className="max-w-lg mx-auto px-4 py-6 space-y-5 pb-24">
@@ -138,9 +142,20 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       </div>
 
       {/* Participantes confirmados */}
-      {event.confirmed_participants.length > 0 && (
-        <div className="card-dark rounded-2xl p-4 space-y-3">
+      <div className="card-dark rounded-2xl p-4 space-y-3">
+        <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-white/50 uppercase tracking-widest">Quem vai</p>
+          <a
+            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/15 border border-primary/30 text-[11px] font-semibold text-primary hover:bg-primary/25 transition-colors"
+          >
+            <UserPlus className="size-3.5" />
+            Convide alguém
+          </a>
+        </div>
+        {event.confirmed_participants.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {event.confirmed_participants.map((p, i) => (
               <div key={i} className="flex items-center gap-1.5">
@@ -168,8 +183,10 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
               </div>
             )}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-white/40">Ainda ninguém confirmado — seja o primeiro a convidar!</p>
+        )}
+      </div>
 
       {/* Descrição */}
       {event.description && (
@@ -178,6 +195,11 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
           <p className="text-sm text-white/80 whitespace-pre-wrap leading-relaxed">{event.description}</p>
         </div>
       )}
+
+      {/* Como chegar */}
+      <div className="card-dark rounded-2xl p-4">
+        <EventLocationMap address={event.address} city={event.city} />
+      </div>
 
       {/* Organizador */}
       {event.organizer && (
@@ -190,7 +212,9 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       {isOpen && !isPast && (
         <p className="text-xs text-white/30 text-center">
           Inscrições até{' '}
-          {format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          {event.registration_deadline
+            ? getBRDateTimeLong(event.registration_deadline)
+            : 'o início do evento'}
         </p>
       )}
 

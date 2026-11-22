@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Users, DollarSign, Wallet, CreditCard, QrCode, Gift } from 'lucide-react'
 import { ClaimPayoutButton } from '@/features/financeiro/components/ClaimPayoutButton'
 import { ExportParticipantsButton } from '@/features/financeiro/components/ExportParticipantsButton'
+import { GeneratePdfReportButton } from '@/features/financeiro/components/EventReportPdf'
 
 export const dynamic = 'force-dynamic'
 
@@ -117,7 +118,10 @@ export default async function EventFinanceiroPage({ params }: { params: Promise<
           <h2 className="text-xs font-semibold text-white/40 uppercase tracking-widest">
             Participantes ({participants.length})
           </h2>
-          <ExportParticipantsButton participants={participants} eventTitle={event.title} />
+          <div className="flex items-center gap-3">
+            <GeneratePdfReportButton event={event} participants={participants} />
+            <ExportParticipantsButton participants={participants} eventTitle={event.title} />
+          </div>
         </div>
         {participants.length === 0 ? (
           <div className="card-dark rounded-2xl p-8 text-center">

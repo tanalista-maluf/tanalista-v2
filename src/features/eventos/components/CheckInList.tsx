@@ -1,6 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { CheckCircle2, XCircle } from 'lucide-react'
-import { UserAvatar } from '@/components/ui/user-avatar'
+import { CheckInRow } from './CheckInRow'
 
 interface Props {
   eventId: string
@@ -36,34 +35,23 @@ export async function CheckInList({ eventId }: Props) {
           <span className="text-white/30"> / {participations.length}</span>
         </p>
       </div>
+      <p className="text-xs text-white/30 px-1">Sem o QR Code à mão? Toque no nome pra fazer o check-in manualmente.</p>
 
       <div className="card-dark rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
         {[...checkedIn, ...notCheckedIn].map((p) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const raw = p.profiles as any
           const profile = (Array.isArray(raw) ? raw[0] : raw) as { full_name: string | null; username: string | null; avatar_url: string | null } | null
-          const done = !!p.checked_in_at
           return (
-            <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-              <UserAvatar
-                name={profile?.full_name ?? '?'}
-                avatarUrl={profile?.avatar_url}
-                size="sm"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {profile?.full_name ?? 'Participante'}
-                </p>
-                {profile?.username && (
-                  <p className="text-xs text-white/35 truncate">@{profile.username}</p>
-                )}
-              </div>
-              {done ? (
-                <CheckCircle2 className="size-5 text-primary shrink-0" />
-              ) : (
-                <XCircle className="size-5 text-white/25 shrink-0" />
-              )}
-            </div>
+            <CheckInRow
+              key={p.id}
+              eventId={eventId}
+              participationId={p.id}
+              name={profile?.full_name ?? 'Participante'}
+              username={profile?.username ?? null}
+              avatarUrl={profile?.avatar_url ?? null}
+              checkedIn={!!p.checked_in_at}
+            />
           )
         })}
       </div>

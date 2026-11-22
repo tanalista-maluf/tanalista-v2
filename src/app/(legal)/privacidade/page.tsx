@@ -1,3 +1,6 @@
+import Link from 'next/link'
+
+
 export const metadata = {
   title: 'Política de Privacidade — TáNaLista',
   description: 'Como a TáNaLista coleta, usa e protege seus dados pessoais.',
@@ -78,9 +81,9 @@ export default function PrivacidadePage() {
           <li>Solicitar a anonimização, bloqueio ou eliminação de dados desnecessários.</li>
           <li>Solicitar a portabilidade dos seus dados.</li>
           <li>Revogar consentimento para tratamentos baseados em consentimento.</li>
-          <li>Solicitar o encerramento da conta e exclusão dos dados.</li>
+          <li>Solicitar o encerramento da conta e exclusão dos dados (veja <Link href="/excluir-conta">como excluir sua conta</Link>).</li>
         </ul>
-        <p>Para exercer seus direitos, entre em contato: <a href="mailto:privacidade@tanalista.com.br">privacidade@tanalista.com.br</a></p>
+        <p>Para exercer seus direitos, entre em contato: <a href="mailto:contato@tanalista.app">contato@tanalista.app</a></p>
       </Section>
 
       <Section title="8. Segurança">
@@ -115,7 +118,7 @@ export default function PrivacidadePage() {
       <Section title="12. Contato">
         <p>
           Para questões de privacidade:{' '}
-          <a href="mailto:privacidade@tanalista.com.br">privacidade@tanalista.com.br</a>
+          <a href="mailto:contato@tanalista.app">contato@tanalista.app</a>
         </p>
       </Section>
     </article>

@@ -4,6 +4,7 @@ import { getEventById } from '@/features/eventos/queries'
 import { EventStatusBadge } from '@/features/eventos/components/EventStatusBadge'
 import { EventRules } from '@/features/eventos/components/EventRules'
 import { OrganizerActions } from '@/features/eventos/components/OrganizerActions'
+import { EventLocationMap } from '@/features/eventos/components/EventLocationMap'
 import { ParticipantCTA } from '@/features/eventos/components/ParticipantCTA'
 import { formatDateTime, formatPrice } from '@/utils/format'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -22,7 +23,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
-import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Users, Clock, QrCode, MessageSquare, Star, Images, Navigation, ListOrdered, Link2, Globe, UserCheck, Ticket, UserPlus } from 'lucide-react'
+import { buildInviteMessage } from '@/features/eventos/invite-message'
+import { getParticipants } from '@/features/participacoes/queries'
 import { EventCoupons } from '@/features/cupons/components/EventCoupons'
 import { EventBroadcastForm } from '@/features/eventos/components/EventBroadcastForm'
 import { EventInviteButton } from '@/features/eventos/components/EventInviteButton'
@@ -39,8 +42,9 @@ import { OrganizerChecklist } from '@/features/eventos/components/OrganizerCheck
 import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload'
 import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { isGroupOwner, canCheckInEvent } from '@/features/eventos/permissions'
+import { attachProfiles } from '@/features/perfil/attach-profiles'
+import { getBRDateShort, getBRWeekday, getBRTime, getBRDateTimeLong } from '@/utils/datetime'
 import { Suspense } from 'react'
 
 export default async function EventDetailPage({
@@ -48,10 +52,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ invite?: string }>
+  searchParams: Promise<{ invite?: string; aba?: string }>
 }) {
   const { slug } = await params
-  const { invite: inviteToken } = await searchParams
+  const { invite: inviteToken, aba } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -65,19 +69,33 @@ export default async function EventDetailPage({
 
   // Canonical redirect: se veio com UUID e existe slug, redireciona
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i
-  if (UUID_RE.test(slug) && event.slug && event.slug !== slug) redirect(`/eventos/${event.slug}`)
+  if (UUID_RE.test(slug) && event.slug && event.slug !== slug) {
+    redirect(`/eventos/${event.slug}${aba ? `?aba=${encodeURIComponent(aba)}` : ''}`)
+  }
 
   const id = event.id // UUID para queries
   const eventSlug = event.slug ?? event.id // slug para URLs
 
-  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }] = await Promise.all([
+  const [initialComments, initialPolls, ratingSummary, photos, storageUsage, { data: teamsRaw }, participants] = await Promise.all([
     getEventComments(id),
     getEventPolls(id, user.id),
     getEventRatingSummary(id),
     getEventPhotos(id),
     getEventStorageUsage(id),
     supabase.from('event_teams').select('id, name, capacity, position').eq('event_id', id).order('position'),
+    getParticipants(id),
   ])
+
+  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://tanalista.app'}/e/${eventSlug}`
+  const inviteMessage = buildInviteMessage({
+    title: event.title,
+    city: event.city,
+    starts_at: event.starts_at,
+    confirmed_all: participants
+      .filter(p => p.status === 'CONFIRMED')
+      .map(p => ({ name: p.profiles?.full_name ?? '?', teamId: p.team_id })),
+    teams: (teamsRaw ?? []).map(t => ({ id: t.id, name: t.name })),
+  }, shareUrl)
 
   // Bloquear acesso a eventos restritos sem permissão
   const eventVisibility = (event as any).visibility ?? 'PUBLIC'
@@ -121,16 +139,22 @@ export default async function EventDetailPage({
     }
   }
 
+  // Uma inscrição cancelada não conta como inscrição: a pessoa pode voltar
+  const activeParticipationStatus =
+    event.user_participation_status === 'CANCELLED' ? null : event.user_participation_status
+
   const spotsLeft = event.capacity - event.confirmed_count
   const isFull = spotsLeft <= 0
-  const isOpen = event.status === 'OPEN'
-  const canJoin = isOpen && !isFull && !event.user_participation_status && !event.is_organizer
+  // Confirmado não fecha inscrição — só cancelado/concluído fecham de vez;
+  // prazo e lotação é que decidem o resto.
+  const isOpen = !['CANCELLED', 'COMPLETED'].includes(event.status)
+  const canJoin = isOpen && !isFull && !activeParticipationStatus && !event.is_organizer
 
   // Join request for non-PUBLIC events
   const eventVisibilityField = (event as any).visibility ?? 'PUBLIC'
   const admin = createAdminClient()
   let existingJoinRequest: { status: string } | null = null
-  if (eventVisibilityField !== 'PUBLIC' && !event.is_organizer && !event.user_participation_status) {
+  if (eventVisibilityField !== 'PUBLIC' && !event.is_organizer && !activeParticipationStatus) {
     const { data: req } = await admin
       .from('event_join_requests')
       .select('status')
@@ -145,11 +169,12 @@ export default async function EventDetailPage({
   if (event.is_organizer && eventVisibilityField !== 'PUBLIC') {
     const { data } = await admin
       .from('event_join_requests')
-      .select('id, user_id, status, created_at, profiles(full_name, username, avatar_url)')
+      .select('id, user_id, status, created_at')
       .eq('event_id', id)
       .eq('status', 'PENDING')
       .order('created_at', { ascending: true })
-    joinRequests = (data ?? []) as any
+    // A tabela aponta para auth.users: o perfil vem numa consulta à parte
+    joinRequests = await attachProfiles(admin, data ?? [])
   }
 
   // Cupons do evento (apenas organizador) — inclui cupons de grupo (válidos em
@@ -168,7 +193,7 @@ export default async function EventDetailPage({
   }
 
   // Organizador pode participar como inscrito — verifica se já tem participação
-  const organizerParticipationStatus = event.is_organizer ? event.user_participation_status : null
+  const organizerParticipationStatus = event.is_organizer ? activeParticipationStatus : null
   const organizerCanJoin = event.is_organizer && isOpen && !isFull && !organizerParticipationStatus
 
   const isConfirmedParticipant = event.user_participation_status === 'CONFIRMED'
@@ -176,9 +201,15 @@ export default async function EventDetailPage({
   const canRate = isConfirmedParticipant && isFinished
   const canUploadPhoto = isConfirmedParticipant || event.is_organizer
   const userRating = canRate ? await getUserRating(id, user.id) : null
+  const showRequests = event.is_organizer && eventVisibilityField !== 'PUBLIC'
+  // Dono do grupo edita e cancela os eventos dos gestores do grupo
+  const isGroupOwnerOnly = !event.is_organizer && (await isGroupOwner(supabase, event.group_id ?? null, user.id))
+  // Check-in na entrada: organizador ou qualquer dono/gestor do grupo
+  const canCheckIn = event.is_organizer || (await canCheckInEvent(supabase, { organizer_id: event.organizer_id, group_id: event.group_id ?? null }, user.id))
+  const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
 
   // Fila de espera
-  const isOnWaitlist = !event.user_participation_status && !event.is_organizer && event.waitlist_position !== null
+  const isOnWaitlist = !activeParticipationStatus && !event.is_organizer && event.waitlist_position !== null
   let waitlistEntry: { id: string; status: string; position: number; notified_at: string | null; expires_at: string | null; team_id: string | null } | null = null
   if (isOnWaitlist) {
     const { data: we } = await supabase
@@ -275,13 +306,13 @@ export default async function EventDetailPage({
         <div className="mt-4 grid grid-cols-3 divide-x divide-white/[0.06] border border-white/[0.06] rounded-2xl overflow-hidden bg-white/[0.02]">
           <div className="px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Data</p>
-            <p className="text-[12px] font-bold text-white mt-0.5">{format(new Date(event.starts_at), "dd/MM", { locale: ptBR })}</p>
-            <p className="text-[10px] text-white/40">{format(new Date(event.starts_at), "EEEE", { locale: ptBR })}</p>
+            <p className="text-[12px] font-bold text-white mt-0.5">{getBRDateShort(event.starts_at)}</p>
+            <p className="text-[10px] text-white/40">{getBRWeekday(event.starts_at)}</p>
           </div>
           <div className="px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Horário</p>
-            <p className="text-[12px] font-bold text-white mt-0.5">{format(new Date(event.starts_at), "HH:mm")}</p>
-            {event.ends_at && <p className="text-[10px] text-white/40">até {format(new Date(event.ends_at), "HH:mm")}</p>}
+            <p className="text-[12px] font-bold text-white mt-0.5">{getBRTime(event.starts_at)}</p>
+            {event.ends_at && <p className="text-[10px] text-white/40">até {getBRTime(event.ends_at)}</p>}
           </div>
           <div className="px-3 py-2.5">
             <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-white/30">Vagas</p>
@@ -330,6 +361,15 @@ export default async function EventDetailPage({
               eventId={id}
             />
             <ShareEventButton eventId={eventSlug} />
+            <a
+              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/15 border border-primary/30 text-xs font-semibold text-primary hover:bg-primary/25 transition-colors"
+            >
+              <UserPlus className="size-3.5" />
+              Convide alguém
+            </a>
           </div>
         </div>
 
@@ -345,13 +385,7 @@ export default async function EventDetailPage({
                 <OrganizerActions event={{
                   id: event.id,
                   status: event.status,
-                  title: event.title,
-                  group_id: event.group_id ?? undefined,
-                  address: event.address ?? undefined,
-                  city: event.city ?? undefined,
-                  price: event.price,
-                  capacity: event.capacity,
-                  min_participants: event.min_participants,
+                  confirmed_count: event.confirmed_count,
                 }} />
                 {/* Organizador também pode se inscrever como participante */}
                 {organizerCanJoin && (
@@ -369,7 +403,7 @@ export default async function EventDetailPage({
                   </span>
                 )}
               </>
-            ) : eventVisibilityField !== 'PUBLIC' && !event.user_participation_status ? (
+            ) : eventVisibilityField !== 'PUBLIC' && !activeParticipationStatus && existingJoinRequest?.status !== 'APPROVED' ? (
               <RequestEventJoinButton
                 eventId={id}
                 existingStatus={existingJoinRequest?.status as 'PENDING' | 'REJECTED' | null}
@@ -381,6 +415,13 @@ export default async function EventDetailPage({
                 isFull={isFull}
                 userId={user.id}
               />
+            )}
+            {isGroupOwnerOnly && (
+              <OrganizerActions event={{
+                id: event.id,
+                status: event.status,
+                confirmed_count: event.confirmed_count,
+              }} />
             )}
             {!event.is_organizer && event.user_participation_status === 'CONFIRMED' && isOpen &&
               (event as any).cancel_before_hours !== null && (event as any).cancel_before_hours !== undefined && (
@@ -398,7 +439,11 @@ export default async function EventDetailPage({
         {isOpen && (
           <p className="text-[11px] text-white/25 mt-3">
             Inscrições até{' '}
-            <span className="text-white/40">{format(new Date(event.registration_deadline), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            <span className="text-white/40">
+              {event.registration_deadline
+                ? getBRDateTimeLong(event.registration_deadline)
+                : 'o início do evento'}
+            </span>
           </p>
         )}
 
@@ -440,7 +485,6 @@ export default async function EventDetailPage({
             status: event.status,
             description: event.description,
             cover_url: (event as any).cover_url,
-            ends_at: (event as any).ends_at,
             cancel_before_hours: (event as any).cancel_before_hours,
             confirmed_count: event.confirmed_count,
             min_participants: event.min_participants,
@@ -463,18 +507,19 @@ export default async function EventDetailPage({
 
       {/* Abas */}
       <div className="px-4 pb-6 space-y-4">
-      <Tabs defaultValue={canRate && !userRating ? 'avaliacoes' : 'detalhes'}>
+      {/* A notificação de pedido de entrada abre direto em Solicitações (?aba=solicitacoes) */}
+      <Tabs key={initialTab} defaultValue={initialTab}>
         <TabsList className="w-full bg-white/[0.03] border border-white/[0.07] overflow-x-auto flex-nowrap rounded-2xl p-1 gap-1">
           <TabsTrigger value="detalhes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Detalhes</TabsTrigger>
 
           <TabsTrigger value="participantes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors">Participantes</TabsTrigger>
 
-          {event.is_organizer && (
+          {canCheckIn && (
             <TabsTrigger value="checkin" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <QrCode className="size-3" />Check-in
             </TabsTrigger>
           )}
-          {event.is_organizer && eventVisibilityField !== 'PUBLIC' && (
+          {showRequests && (
             <TabsTrigger value="solicitacoes" className="flex-1 rounded-xl text-[11px] font-semibold data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-white/40 hover:text-white/60 transition-colors flex items-center gap-1">
               <Users className="size-3" />Solicitações{joinRequests.length > 0 ? ` (${joinRequests.length})` : ''}
             </TabsTrigger>
@@ -532,6 +577,17 @@ export default async function EventDetailPage({
         </TabsList>
 
         <TabsContent value="detalhes" className="space-y-4 pt-3">
+          {showRequests && joinRequests.length > 0 && (
+            <Link
+              href={`/eventos/${eventSlug}?aba=solicitacoes`}
+              className="flex items-center gap-3 rounded-2xl border border-primary/25 bg-primary/[0.07] p-4 text-[13px] text-primary hover:bg-primary/[0.12] transition-colors"
+            >
+              <Users className="size-4 shrink-0" />
+              <span className="flex-1">
+                {joinRequests.length === 1 ? '1 pessoa pediu' : `${joinRequests.length} pessoas pediram`} para participar. Toque para aprovar ou recusar.
+              </span>
+            </Link>
+          )}
           {event.description ? (
             <p className="text-[13px] text-white/60 whitespace-pre-wrap leading-relaxed">{event.description}</p>
           ) : event.is_organizer ? (
@@ -548,6 +604,8 @@ export default async function EventDetailPage({
           ) : (
             <p className="text-[13px] text-white/25 italic">Sem descrição adicional.</p>
           )}
+
+          <EventLocationMap address={event.address} city={event.city} />
 
           {organizer && (
             <div className="text-[11px] text-white/25 border-t border-white/[0.06] pt-3">
@@ -641,14 +699,14 @@ export default async function EventDetailPage({
           </TabsContent>
         )}
 
-        {event.is_organizer && (
+        {canCheckIn && (
           <TabsContent value="checkin" className="pt-4 space-y-6">
             <CheckInScanner eventId={id} />
             <CheckInList eventId={id} />
           </TabsContent>
         )}
 
-        {event.is_organizer && eventVisibilityField !== 'PUBLIC' && (
+        {showRequests && (
           <TabsContent value="solicitacoes" className="pt-4 space-y-3">
             <p className="text-xs text-white/40">{joinRequests.length} solicitação(ões) pendente(s)</p>
             <EventJoinRequests requests={joinRequests} eventId={id} />

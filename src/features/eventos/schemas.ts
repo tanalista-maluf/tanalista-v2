@@ -29,28 +29,40 @@ export const eventSchema = z.object({
     .int()
     .min(1, 'Mínimo 1'),
   starts_at: z.string().min(1, 'Informe a data e hora'),
-  ends_at: z.string().optional().or(z.literal('')),
-  registration_deadline: z.string().min(1, 'Informe o prazo de inscrição'),
+  // Obrigatório: é o horário usado pelo repasse automático ao organizador
+  // (ver migration 20261115000001_automatic_event_payout)
+  ends_at: z.string().min(1, 'Informe o horário de término'),
+  // Opcional: em branco, inscrições ficam abertas até o início do evento
+  registration_deadline: z.string().optional().or(z.literal('')),
   organizer_exempt: z.boolean(),
   group_id: z.string().uuid('Grupo inválido').optional(),
   recurrence: z.enum(['none', 'weekly', 'biweekly', 'monthly']),
   recurrence_count: z.number().int().min(1).max(52).optional(),
   use_teams: z.boolean().optional(),
-  teams: z.array(teamSchema).optional(),
+  teams: z.array(teamSchema).max(10, 'No máximo 10 times').optional(),
+  // Salva sem publicar: só o organizador vê, até publicar
+  as_draft: z.boolean().optional(),
+  // Preenchido só quando o formulário veio de "Duplicar": createEventAction
+  // copia a capa do evento de origem pro novo (ver src/app/(app)/eventos/novo)
+  duplicate_from: z.string().uuid().optional(),
+  // Edição de rascunho pelo app: refaz times e série recorrente
+  draft_series: z.boolean().optional(),
+  // Edição de rascunho: salva e publica de uma vez
+  publish_draft: z.boolean().optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
   cancel_before_hours: z.number().int().min(0).max(720).nullable().optional(),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
-  const deadline = new Date(d.registration_deadline)
-  const ends = d.ends_at ? new Date(d.ends_at) : null
+  const deadline = d.registration_deadline ? new Date(d.registration_deadline) : null
+  const ends = new Date(d.ends_at)
 
   if (starts <= now()) {
     ctx.addIssue({ code: 'custom', path: ['starts_at'], message: 'Data de início deve ser no futuro' })
   }
-  if (deadline >= starts) {
+  if (deadline && deadline >= starts) {
     ctx.addIssue({ code: 'custom', path: ['registration_deadline'], message: 'Prazo de inscrição deve ser antes do início' })
   }
-  if (ends && ends <= starts) {
+  if (ends <= starts) {
     ctx.addIssue({ code: 'custom', path: ['ends_at'], message: 'Término deve ser após o início' })
   }
   if (d.min_participants > d.capacity) {

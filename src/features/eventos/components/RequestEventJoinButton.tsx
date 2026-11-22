@@ -37,7 +37,7 @@ export function RequestEventJoinButton({ eventId, existingStatus }: Props) {
     setStatus('loading')
     setError(null)
     const result = await requestEventJoinAction(eventId)
-    if (result?.error) {
+    if ('error' in result) {
       setError(result.error)
       setStatus('error')
     } else {

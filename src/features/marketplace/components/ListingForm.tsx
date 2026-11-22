@@ -4,7 +4,8 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { listingSchema, type ListingSchema, LISTING_TYPES, PAYMENT_METHODS } from '../schemas'
-import { createListingAction } from '../actions'
+import { createListingAction, createListingPhotoUploadAction } from '../actions'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,17 +14,18 @@ import { Loader2, AlertCircle, CheckCircle2, Wallet, ImagePlus, X } from 'lucide
 import { formatPrice, formatBalance } from '@/utils/format'
 import Image from 'next/image'
 
-async function uploadToCloudinary(file: File): Promise<string> {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!
-  const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('upload_preset', preset)
-  fd.append('folder', 'marketplace')
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: 'POST', body: fd })
-  if (!res.ok) throw new Error('Erro no upload da imagem')
-  const json = await res.json()
-  return json.secure_url as string
+const MAX_PHOTOS = 5
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024
+
+// A foto vai direto do navegador para o Storage, por um link assinado do servidor
+async function uploadPhoto(file: File): Promise<string> {
+  const slot = await createListingPhotoUploadAction({ mimeType: file.type, size: file.size })
+  if ('error' in slot) throw new Error(slot.error)
+  const { error } = await createClient()
+    .storage.from('listing-photos')
+    .uploadToSignedUrl(slot.path, slot.token, file, { contentType: file.type })
+  if (error) throw new Error('Erro ao enviar a foto. Tente novamente.')
+  return slot.url
 }
 
 interface Props {
@@ -37,7 +39,8 @@ const LISTING_COST = 100
 
 export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: Props) {
   const [serverResult, setServerResult] = useState<{ error?: string; insufficientBalance?: boolean; isDraft?: boolean } | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  // Até 5 fotos; a primeira é a principal
+  const [photos, setPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
 
   const {
@@ -65,23 +68,31 @@ export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: 
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files ?? []).slice(0, MAX_PHOTOS - photos.length)
+    e.target.value = ''
+    if (files.length === 0) return
+    const tooBig = files.filter((file) => file.size > MAX_PHOTO_BYTES).length
+    if (tooBig) setServerResult({ error: tooBig === 1 ? 'Uma foto passou de 4MB e ficou de fora.' : `${tooBig} fotos passaram de 4MB e ficaram de fora.` })
     setUploading(true)
     try {
-      const url = await uploadToCloudinary(file)
-      setValue('photo_url', url)
-      setPhotoPreview(url)
-    } catch {
-      setServerResult({ error: 'Erro ao enviar imagem. Tente novamente.' })
+      for (const file of files.filter((item) => item.size <= MAX_PHOTO_BYTES)) {
+        const url = await uploadPhoto(file)
+        setPhotos((current) => {
+          const next = [...current, url]
+          setValue('photo_urls', next)
+          return next
+        })
+      }
+    } catch (err) {
+      setServerResult({ error: err instanceof Error ? err.message : 'Erro ao enviar imagem. Tente novamente.' })
     } finally {
       setUploading(false)
     }
   }
 
-  function removePhoto() {
-    setValue('photo_url', '')
-    setPhotoPreview(null)
+  function updatePhotos(next: string[]) {
+    setPhotos(next)
+    setValue('photo_urls', next)
   }
 
   async function onSubmit(data: ListingSchema) {
@@ -239,36 +250,47 @@ export function ListingForm({ groupId, walletBalance, activeCount, onSuccess }: 
         </div>
       )}
 
-      {/* Foto */}
+      {/* Fotos */}
       <div className="space-y-1.5">
-        <Label>Foto <span className="text-white/40 text-xs">(opcional)</span></Label>
-        <input type="hidden" {...register('photo_url')} />
-        {photoPreview ? (
-          <div className="relative rounded-xl overflow-hidden h-44 w-full bg-white/5">
-            <Image src={photoPreview} alt="Preview" fill className="object-cover" />
-            <button
-              type="button"
-              onClick={removePhoto}
-              className="absolute top-2 right-2 size-7 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors"
-            >
-              <X className="size-3.5 text-white" />
-            </button>
-          </div>
-        ) : (
-          <label className={[
-            'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 h-32 cursor-pointer transition-colors hover:border-primary/30 hover:bg-primary/5',
-            uploading ? 'opacity-60 pointer-events-none' : '',
-          ].join(' ')}>
-            {uploading
-              ? <Loader2 className="size-6 text-white/40 animate-spin" />
-              : <ImagePlus className="size-6 text-white/30" />
-            }
-            <span className="text-xs text-white/40">
-              {uploading ? 'Enviando...' : 'Clique para adicionar foto'}
-            </span>
-            <input type="file" accept="image/*" className="sr-only" onChange={handlePhotoChange} disabled={uploading} />
-          </label>
-        )}
+        <Label>Fotos <span className="text-white/40 text-xs">({photos.length}/{MAX_PHOTOS}, opcional)</span></Label>
+        <div className="grid grid-cols-3 gap-2">
+          {photos.map((url, index) => (
+            <div key={url} className={['relative rounded-xl overflow-hidden aspect-square bg-white/5', index === 0 ? 'ring-2 ring-primary' : ''].join(' ')}>
+              <Image src={url} alt={`Foto ${index + 1}`} fill className="object-cover" />
+              {index === 0 ? (
+                <span className="absolute bottom-0 inset-x-0 bg-primary/90 text-background text-[10px] font-bold text-center py-0.5">Principal</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => updatePhotos([url, ...photos.filter((item) => item !== url)])}
+                  className="absolute bottom-1 inset-x-1 rounded-md bg-black/60 text-[10px] text-white py-0.5 hover:bg-black/80">
+                  Tornar principal
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label="Remover foto"
+                onClick={() => updatePhotos(photos.filter((item) => item !== url))}
+                className="absolute top-1.5 right-1.5 size-6 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors">
+                <X className="size-3 text-white" />
+              </button>
+            </div>
+          ))}
+          {photos.length < MAX_PHOTOS && (
+            <label className={[
+              'flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-white/10 aspect-square cursor-pointer transition-colors hover:border-primary/30 hover:bg-primary/5',
+              uploading ? 'opacity-60 pointer-events-none' : '',
+            ].join(' ')}>
+              {uploading
+                ? <Loader2 className="size-5 text-white/40 animate-spin" />
+                : <ImagePlus className="size-5 text-white/30" />
+              }
+              <span className="text-[11px] text-white/40">{uploading ? 'Enviando...' : 'Adicionar'}</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={handlePhotoChange} disabled={uploading} />
+            </label>
+          )}
+        </div>
+        <p className="text-xs text-white/40">Até {MAX_PHOTOS} fotos de até 4MB cada. A primeira é a principal.</p>
       </div>
 
       {/* Contato */}

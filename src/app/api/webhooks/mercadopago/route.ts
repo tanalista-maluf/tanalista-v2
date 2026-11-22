@@ -3,6 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { validateMPWebhook } from '@/lib/webhook-validation'
 import { getPlatformMPClient, Payment } from '@/lib/mercadopago'
 import { sendParticipationConfirmed } from '@/lib/emails'
+import type { Json } from '@/types/database'
+import { releaseCouponUse } from '@/lib/refunds'
+import { confirmWalletDeposit } from '@/features/carteira/wallet'
 
 // Desativar body parser automático (precisamos do rawBody para HMAC)
 export const runtime = 'nodejs'
@@ -81,8 +84,11 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
     .eq('gateway_transaction_id', mpPaymentId)
     .maybeSingle()
 
-  if (existingPayment?.status === 'APPROVED') {
-    console.log(`[WEBHOOK] Payment ${mpPaymentId} already approved — skipping`)
+  // REFUNDED também é final: o app já estornou para a carteira no cancelamento.
+  // Reprocessar voltaria o pagamento para APPROVED (o MP continua informando
+  // 'approved'), reabrindo o estorno em dobro e a confirmação sem pagamento.
+  if (existingPayment?.status === 'APPROVED' || existingPayment?.status === 'REFUNDED') {
+    console.log(`[WEBHOOK] Payment ${mpPaymentId} already ${existingPayment.status} — skipping`)
     return
   }
 
@@ -109,7 +115,7 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
       .from('payments')
       .update({
         status: newStatus,
-        gateway_response: mpPayment as unknown as Record<string, unknown>,
+        gateway_response: mpPayment as unknown as Json,
       })
       .eq('id', existingPayment.id)
   } else {
@@ -137,7 +143,7 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
       method,
       status: newStatus,
       gateway_transaction_id: mpPaymentId,
-      gateway_response: mpPayment as unknown as Record<string, unknown>,
+      gateway_response: mpPayment as unknown as Json,
     })
   }
 
@@ -146,35 +152,8 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
     const [, userId, txId] = externalRef.split(':')
 
     if (newStatus === 'APPROVED' && userId && txId) {
-      // Validar valor contra o registro original do banco (evita creditar valor manipulado)
-      const { data: pendingTx } = await admin
-        .from('wallet_transactions')
-        .select('amount')
-        .eq('id', txId)
-        .eq('user_id', userId)
-        .single()
-
-      if (!pendingTx) {
-        console.warn(`[WEBHOOK] Deposit tx ${txId} not found or already processed`)
-        return
-      }
-
-      const mpAmountCents = Math.round((mpPayment.transaction_amount ?? 0) * 100)
-      if (Math.abs(mpAmountCents - pendingTx.amount) > 1) {
-        console.error(`[WEBHOOK] Deposit amount mismatch: MP=${mpAmountCents} DB=${pendingTx.amount} — aborting`)
-        return
-      }
-
-      // Creditar saldo atomicamente via RPC usando valor do banco
-      await admin.rpc('wallet_credit', {
-        p_user_id: userId,
-        p_amount: pendingTx.amount,
-        p_type: 'DEPOSIT',
-        p_description: 'Recarga de carteira via PIX',
-      })
-
-      await admin.from('wallet_transactions').delete().eq('id', txId)
-      console.log(`[WEBHOOK] Wallet deposit for user ${userId} confirmed: ${pendingTx.amount}`)
+      const credited = await confirmWalletDeposit(userId, txId, Math.round((mpPayment.transaction_amount ?? 0) * 100))
+      if (credited) console.log(`[WEBHOOK] Wallet deposit for user ${userId} confirmed`)
     }
     return
   }
@@ -217,12 +196,29 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
     }
   }
 
-  if (newStatus === 'REJECTED' || newStatus === 'CANCELLED') {
-    await admin
+  // Cartão recusado não cancela a inscrição: ela segue pendente para a pessoa
+  // tentar outro cartão ou outro meio de pagamento (como em card-payment.ts)
+  const cardRejected = newStatus === 'REJECTED' && mpPayment.payment_method_id !== 'pix'
+
+  if ((newStatus === 'REJECTED' || newStatus === 'CANCELLED') && !cardRejected) {
+    // A inscrição cancelada devolve o cupom, como no cancelamento pelo app;
+    // senão o uso fica preso e a pessoa não consegue aplicá-lo ao tentar de novo
+    const { data: pending } = await admin
       .from('participations')
-      .update({ status: 'CANCELLED' })
+      .select('user_id, event_id, coupon_id')
       .eq('id', externalRef)
       .eq('status', 'PENDING')
+      .maybeSingle()
+
+    await admin
+      .from('participations')
+      .update({ status: 'CANCELLED', discount_cents: 0, coupon_id: null })
+      .eq('id', externalRef)
+      .eq('status', 'PENDING')
+
+    if (pending) {
+      await releaseCouponUse(admin, { couponId: pending.coupon_id, userId: pending.user_id, eventId: pending.event_id })
+    }
 
     console.log(`[WEBHOOK] Participation ${externalRef} CANCELLED (payment ${newStatus})`)
   }

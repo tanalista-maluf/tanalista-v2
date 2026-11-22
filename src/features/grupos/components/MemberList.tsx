@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { removeMemberAction } from '../actions'
+import Link from 'next/link'
+import { removeMemberAction, setGroupMemberRoleAction } from '../actions'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { X } from 'lucide-react'
+import { ShieldCheck, ShieldOff, X } from 'lucide-react'
+import { ReputationIndicatorBadge } from '@/features/reputacao/components/ReputationIndicator'
+import type { ReputationIndicator } from '@/features/reputacao/queries'
 
 interface Member {
   id: string
@@ -14,7 +17,7 @@ interface Member {
   role: string
   profiles: {
     full_name: string
-    username: string
+    username: string | null
     city: string | null
     avatar_url?: string | null
   } | null
@@ -24,12 +27,29 @@ interface MemberListProps {
   members: Member[]
   isOwner: boolean
   groupId: string
+  groupSlug: string
   currentUserId: string
+  // null = quem está vendo não é gestor (indicador nem foi buscado)
+  reputationIndicators: Record<string, ReputationIndicator> | null
 }
 
-export function MemberList({ members, isOwner, groupId, currentUserId }: MemberListProps) {
+export function MemberList({ members, isOwner, groupId, groupSlug, currentUserId, reputationIndicators }: MemberListProps) {
   const router = useRouter()
   const [removing, setRemoving] = useState<string | null>(null)
+  const [changing, setChanging] = useState<string | null>(null)
+
+  // Gestor cria e edita os próprios eventos no grupo
+  async function handleRole(memberId: string, role: 'MANAGER' | 'MEMBER') {
+    setChanging(memberId)
+    const result = await setGroupMemberRoleAction(groupId, memberId, role)
+    setChanging(null)
+    if (result?.error) {
+      toast.error(result.error)
+    } else {
+      toast.success(role === 'MANAGER' ? 'Membro promovido a gestor.' : 'Gestor voltou a ser membro.')
+      router.refresh()
+    }
+  }
 
   async function handleRemove(memberId: string) {
     setRemoving(memberId)
@@ -57,7 +77,16 @@ export function MemberList({ members, isOwner, groupId, currentUserId }: MemberL
               size="sm"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{profile?.full_name ?? 'Usuário'}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium text-white truncate">{profile?.full_name ?? 'Usuário'}</p>
+                {reputationIndicators && (
+                  reputationIndicators[m.user_id] ? (
+                    <Link href={`/grupos/${groupSlug}/reputacao/${m.user_id}`} title="Ver faltas e contribuições">
+                      <ReputationIndicatorBadge indicator={reputationIndicators[m.user_id]} />
+                    </Link>
+                  ) : null
+                )}
+              </div>
               <p className="text-xs text-white/40">@{profile?.username}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -65,6 +94,23 @@ export function MemberList({ members, isOwner, groupId, currentUserId }: MemberL
                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg border text-primary bg-primary/10 border-primary/25">
                   Dono
                 </span>
+              )}
+              {m.role === 'MANAGER' && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-lg border text-sky-300 bg-sky-400/10 border-sky-400/25">
+                  Gestor
+                </span>
+              )}
+              {isOwner && !isSelf && m.role !== 'OWNER' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[11px] text-white/50 hover:text-white"
+                  disabled={changing === m.user_id}
+                  onClick={() => handleRole(m.user_id, m.role === 'MANAGER' ? 'MEMBER' : 'MANAGER')}
+                >
+                  {m.role === 'MANAGER' ? <ShieldOff className="size-3.5" /> : <ShieldCheck className="size-3.5" />}
+                  {m.role === 'MANAGER' ? 'Remover gestor' : 'Tornar gestor'}
+                </Button>
               )}
               {isOwner && !isSelf && m.role !== 'OWNER' && (
                 <Button

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { getGroupById } from '@/features/grupos/queries'
+import { attachProfiles } from '@/features/perfil/attach-profiles'
 import { GroupForm } from '@/features/grupos/components/GroupForm'
 import { GroupAvatarUpload } from '@/features/grupos/components/GroupAvatarUpload'
 import { GroupJoinRequests } from '@/features/grupos/components/GroupJoinRequests'
@@ -39,11 +40,12 @@ export default async function GroupSettingsPage({
   if (group.visibility === 'PRIVATE') {
     const { data } = await admin
       .from('group_join_requests')
-      .select('id, user_id, status, created_at, profiles(full_name, username)')
+      .select('id, user_id, status, created_at')
       .eq('group_id', group.id)
       .eq('status', 'PENDING')
       .order('created_at', { ascending: true })
-    joinRequests = (data ?? []) as any
+    // A tabela aponta para auth.users: o perfil vem numa consulta à parte
+    joinRequests = await attachProfiles(admin, data ?? [])
   }
 
   return (

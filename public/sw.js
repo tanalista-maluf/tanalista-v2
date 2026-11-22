@@ -69,8 +69,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'TáNaLista'
   const options = {
     body: data.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-72.png',
+    icon: '/icon-192.png?v=2',
+    badge: '/badge-96.png',
     data: { url: data.url || '/' },
     vibrate: [200, 100, 200],
   }
