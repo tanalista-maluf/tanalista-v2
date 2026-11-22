@@ -72,6 +72,7 @@ export default async function PublicProfilePage({
       .from('events')
       .select('*, groups(name), participations(status)')
       .eq('organizer_id', profile.id)
+      .eq('visibility', 'PUBLIC')
       .in('status', ['OPEN', 'CONFIRMED', 'COMPLETED'])
       .order('starts_at', { ascending: false })
       .limit(6),
@@ -79,8 +80,9 @@ export default async function PublicProfilePage({
     // Grupos
     admin
       .from('group_members')
-      .select('groups(id, name, category, city)')
+      .select('groups!inner(id, name, category, city)')
       .eq('user_id', profile.id)
+      .eq('groups.visibility', 'PUBLIC')
       .limit(6),
 
     // Total eventos realizados como organizador
@@ -93,7 +95,7 @@ export default async function PublicProfilePage({
     // Últimas 5 participações confirmadas (como participante, não organizador)
     admin
       .from('participations')
-      .select('event_id, created_at, events(id, title, slug, starts_at, status, category, capacity, price, confirmed_count, cover_url, groups(name))')
+      .select('event_id, created_at, events(id, title, slug, starts_at, status, category, capacity, price, confirmed_count, cover_url, visibility, groups(name))')
       .eq('user_id', profile.id)
       .eq('status', 'CONFIRMED')
       .order('created_at', { ascending: false })
@@ -116,7 +118,7 @@ export default async function PublicProfilePage({
   // Filtra participações de eventos que a pessoa não organizou
   const attendedEvents = (participationRows ?? [])
     .map((p: any) => p.events)
-    .filter((e: any) => e && e.organizer_id !== profile.id)
+    .filter((e: any) => e && e.organizer_id !== profile.id && e.visibility === 'PUBLIC')
     .slice(0, 5)
 
   // Média de avaliação como organizador

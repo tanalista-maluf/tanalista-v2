@@ -25,7 +25,7 @@ import { useTabHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
 type Tab = 'upcoming' | 'mine'
-type ListedEvent = EventCardData & { participationStatus?: string }
+type ListedEvent = EventCardData & { participationStatus?: string; isOrganizer?: boolean }
 
 const EVENT_COLUMNS = 'id, title, starts_at, city, price, capacity, confirmed_count, visibility, groups(name)'
 
@@ -135,11 +135,13 @@ async function fetchUpcomingEvents(filter: Filter): Promise<ListedEvent[]> {
 }
 
 // Eventos por vir em que a pessoa tem inscrição confirmada ou aguardando
-// pagamento e, depois deles, os últimos concluídos de que participou (é por
-// aqui que se chega às fotos e à avaliação de um evento que já aconteceu)
+// pagamento, os últimos concluídos de que participou (é por aqui que se
+// chega às fotos e à avaliação de um evento que já aconteceu), e os eventos
+// publicados que ela mesma organiza — sem isso, um evento some da lista do
+// próprio organizador assim que deixa de ser rascunho.
 async function fetchMyEvents(userId: string): Promise<ListedEvent[]> {
   const now = new Date().toISOString()
-  const [upcoming, past] = await Promise.all([
+  const [upcoming, past, organized] = await Promise.all([
     supabase
       .from('participations')
       .select(`status, events!inner(${EVENT_COLUMNS}, status)`)
@@ -155,17 +157,34 @@ async function fetchMyEvents(userId: string): Promise<ListedEvent[]> {
       .eq('status', 'CONFIRMED')
       .eq('events.status', 'COMPLETED')
       .limit(100),
+    supabase
+      .from('events')
+      .select(`${EVENT_COLUMNS}, status`)
+      .eq('organizer_id', userId)
+      .neq('status', 'DRAFT')
+      .limit(100),
   ])
 
   if (upcoming.error) throw upcoming.error
-  const next = (upcoming.data ?? [])
-    .map((row) => ({ ...row.events, participationStatus: row.status }))
+  if (past.error) throw past.error
+  if (organized.error) throw organized.error
+
+  const next = (upcoming.data ?? []).map((row) => ({ ...row.events, participationStatus: row.status }))
+  const done = (past.data ?? []).map((row) => ({ ...row.events, participationStatus: 'COMPLETED' }))
+
+  const participatedIds = new Set([...next, ...done].map((event) => event.id))
+  const myOrganized = (organized.data ?? [])
+    .filter((event) => !participatedIds.has(event.id))
+    .map((event) => ({ ...event, isOrganizer: true }))
+
+  const finished = ['COMPLETED', 'CANCELLED']
+  const upcomingAll = [...next, ...myOrganized.filter((event) => !finished.includes(event.status))]
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
-  const done = (past.data ?? [])
-    .map((row) => ({ ...row.events, participationStatus: 'COMPLETED' }))
+  const pastAll = [...done, ...myOrganized.filter((event) => finished.includes(event.status))]
     .sort((a, b) => b.starts_at.localeCompare(a.starts_at))
     .slice(0, 10)
-  return [...next, ...done]
+
+  return [...upcomingAll, ...pastAll]
 }
 
 // Rascunho do organizador; uma série recorrente vira um item só, com quantos
@@ -200,10 +219,11 @@ function repeatLabel(rule: string | null) {
   return rule.includes('INTERVAL=2') ? 'a cada 2 semanas' : 'toda semana'
 }
 
-function participationBadge(status?: string): EventCardBadge | undefined {
-  if (status === 'CONFIRMED') return { label: 'Inscrito', tone: 'primary' }
-  if (status === 'PENDING') return { label: 'Pendente', tone: 'warning' }
-  if (status === 'COMPLETED') return { label: 'Concluído', tone: 'muted' }
+function eventBadge(item: ListedEvent): EventCardBadge | undefined {
+  if (item.isOrganizer) return { label: 'Organizador', tone: 'muted' }
+  if (item.participationStatus === 'CONFIRMED') return { label: 'Inscrito', tone: 'primary' }
+  if (item.participationStatus === 'PENDING') return { label: 'Pendente', tone: 'warning' }
+  if (item.participationStatus === 'COMPLETED') return { label: 'Concluído', tone: 'muted' }
   return undefined
 }
 
@@ -440,7 +460,7 @@ export default function EventsScreen() {
         renderItem={({ item }) => (
           <EventCard
             event={item}
-            badge={participationBadge(item.participationStatus)}
+            badge={eventBadge(item)}
             onPress={() => router.push({ pathname: '/events/[id]', params: { id: item.id } })}
           />
         )}

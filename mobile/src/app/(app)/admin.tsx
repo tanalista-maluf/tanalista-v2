@@ -232,7 +232,7 @@ export default function AdminScreen() {
                   title={withdrawal.profile?.full_name ?? '—'}
                   detail={`${formatMoney(withdrawal.net_cents)} · ${withdrawal.pix_key_type.toUpperCase()}: ${withdrawal.pix_key} · CPF ${withdrawal.cpf}`}>
                   <Badge
-                    label={withdrawal.status === 'PENDING' ? 'Pendente' : withdrawal.status === 'COMPLETED' ? 'Pago' : 'Cancelado'}
+                    label={withdrawal.status === 'PENDING' ? 'Pendente' : withdrawal.status === 'PAID' ? 'Pago' : 'Cancelado'}
                     tone={withdrawal.status === 'PENDING' ? 'warning' : 'muted'}
                   />
                 </Row>
