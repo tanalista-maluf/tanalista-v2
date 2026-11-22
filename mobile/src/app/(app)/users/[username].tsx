@@ -1,4 +1,4 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router'
+import { Link, router, Stack, useLocalSearchParams } from 'expo-router'
 import { MapPin, Star } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -6,13 +6,23 @@ import { Avatar } from '@/components/avatar'
 import { EventCard } from '@/components/event-card'
 import { GroupCard } from '@/components/group-card'
 import { Card, Screen } from '@/components/ui'
+import { useSession } from '@/ctx'
 import { fetchPublicProfile, type PublicProfile } from '@/lib/api'
 import { useHeaderInset } from '@/lib/header'
 import { colors, fonts } from '@/lib/theme'
 
+// "Membro desde 24/11/2026 às 14:30", igual ao site (src/utils/format.ts formatDate)
+function formatMemberSince(iso: string) {
+  const date = new Date(iso)
+  const day = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  return `${day} às ${time}`
+}
+
 // Perfil público: o que qualquer pessoa logada vê de outra (ou de si mesma)
 export default function PublicProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>()
+  const { profile: ownProfile } = useSession()
   const headerInset = useHeaderInset()
   const [data, setData] = useState<PublicProfile | null | undefined>(undefined)
 
@@ -46,8 +56,9 @@ export default function PublicProfileScreen() {
     )
   }
 
-  const { profile, stats, events, groups } = data
+  const { profile, stats, events, attended, groups } = data
   const name = profile.full_name ?? `@${profile.username}`
+  const isOwnProfile = ownProfile?.username === profile.username
 
   return (
     <Screen>
@@ -55,6 +66,11 @@ export default function PublicProfileScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={[styles.content, { paddingTop: 16 + headerInset }]}>
+        {isOwnProfile && (
+          <Link href="/account/edit" style={styles.editLink}>
+            Editar perfil
+          </Link>
+        )}
         <Card style={styles.hero}>
           <Avatar name={name} url={profile.avatar_url} size={72} />
           <View style={styles.heroBody}>
@@ -100,6 +116,19 @@ export default function PublicProfileScreen() {
           </View>
         )}
 
+        {attended.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.label}>Participou</Text>
+            {attended.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                onPress={() => router.push({ pathname: '/events/[id]', params: { id: event.id } })}
+              />
+            ))}
+          </View>
+        )}
+
         {groups.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.label}>Grupos</Text>
@@ -112,6 +141,8 @@ export default function PublicProfileScreen() {
             ))}
           </View>
         )}
+
+        <Text style={styles.memberSince}>Membro desde {formatMemberSince(profile.created_at)}</Text>
       </ScrollView>
     </Screen>
   )
@@ -147,4 +178,6 @@ const styles = StyleSheet.create({
   statLabel: { fontFamily: fonts.body, fontSize: 10, lineHeight: 13, color: colors.text40, textAlign: 'center' },
   section: { gap: 10 },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
+  editLink: { alignSelf: 'flex-end', fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.primary },
+  memberSince: { fontFamily: fonts.body, fontSize: 12, color: colors.text25, textAlign: 'center', paddingBottom: 8 },
 })

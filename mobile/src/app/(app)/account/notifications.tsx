@@ -105,9 +105,14 @@ export default function NotificationSettingsScreen() {
             </Card>
 
             <Text style={styles.note}>
-              Os avisos aparecem também no sino, no topo das abas. Notificações no celular (push) ainda não estão
-              disponíveis no app.
+              Os avisos aparecem também no sino, no topo das abas.
             </Text>
+
+            {preferences.notif_new_event_channel === 'WHATSAPP' && (
+              <Text style={styles.note}>
+                Notificações via WhatsApp chegam em breve — por enquanto você continua recebendo no app.
+              </Text>
+            )}
             {error && <Text style={styles.error}>{error}</Text>}
           </>
         )}

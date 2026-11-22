@@ -16,13 +16,15 @@ import {
   Shield,
   ShieldCheck,
   UserRoundPen,
+  Wallet,
 } from 'lucide-react-native'
 import { useCallback, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Avatar } from '@/components/avatar'
 import { Card, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { deleteAccount, runAction, uploadAvatar } from '@/lib/api'
+import { deleteAccount, fetchWalletBalance, runAction, uploadAvatar } from '@/lib/api'
+import { formatMoney } from '@/lib/format'
 import { useTabHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -39,12 +41,16 @@ export default function ProfileScreen() {
   const [problem, setProblem] = useState<{ message: string; blockers: string[] } | null>(null)
   // O painel de admin só aparece para quem está na lista do servidor
   const [isAdmin, setIsAdmin] = useState(false)
+  const [walletBalance, setWalletBalance] = useState<number | null>(null)
 
   useFocusEffect(
     useCallback(() => {
       let active = true
       runAction<{ admin: boolean }>('amIAdmin').then((result) => {
         if (active) setIsAdmin('ok' in result && result.ok.admin)
+      })
+      fetchWalletBalance().then((result) => {
+        if (active && !('error' in result)) setWalletBalance(result.balance)
       })
       return () => {
         active = false
@@ -191,11 +197,19 @@ export default function ProfileScreen() {
           <Text style={styles.label}>Organizador</Text>
           <Card>
             <Row
+              testID="go-wallet"
+              icon={<Wallet size={19} color={colors.primary} />}
+              title="Carteira"
+              detail={`Saldo: ${walletBalance === null ? '—' : formatMoney(walletBalance)}`}
+              onPress={() => router.navigate('/wallet')}
+            />
+            <Row
               testID="go-finance"
               icon={<BarChart3 size={19} color={colors.primary} />}
               title="Financeiro"
               detail="Receitas dos eventos que você organiza"
               onPress={() => router.push('/finance')}
+              divider
             />
             {isAdmin && (
               <Row

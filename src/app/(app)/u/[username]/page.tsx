@@ -183,7 +183,7 @@ export default async function PublicProfilePage({
         <div className="card-dark rounded-2xl p-3 text-center">
           <p className="flex items-center justify-center gap-1 text-xl font-bold text-white">
             {avgRating !== null ? (
-              <><Star className="size-3.5 text-yellow-400 fill-yellow-400" />{avgRating}</>
+              <><Star className="size-3.5 text-yellow-400 fill-yellow-400" />{String(avgRating).replace('.', ',')}</>
             ) : (
               <span className="text-white/25">—</span>
             )}

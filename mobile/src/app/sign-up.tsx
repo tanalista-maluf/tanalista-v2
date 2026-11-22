@@ -122,7 +122,6 @@ export default function SignUp() {
         textContentType={PASSWORD_CONTENT_TYPE}
         value={password}
         onChangeText={setPassword}
-        onSubmitEditing={handleSubmit}
         trailing={
           <Pressable
             onPress={() => setShowPassword((shown) => !shown)}

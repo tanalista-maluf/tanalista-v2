@@ -10,7 +10,11 @@ const emailSchema = z.object({
 })
 
 const passwordSchema = z.object({
-  password: z.string().min(8, 'Mínimo 8 caracteres.'),
+  password: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres.')
+    .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula.')
+    .regex(/[0-9]/, 'Deve conter ao menos um número.'),
   confirm: z.string(),
 }).refine((d) => d.password === d.confirm, { message: 'As senhas não coincidem.', path: ['confirm'] })
 

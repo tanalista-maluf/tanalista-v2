@@ -29,6 +29,7 @@ export default function SecurityScreen() {
   const currentEmail = session?.user.email ?? ''
 
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [passwordNotice, setPasswordNotice] = useState<Notice | null>(null)
   const [savingPassword, setSavingPassword] = useState(false)
@@ -43,6 +44,10 @@ export default function SecurityScreen() {
       setPasswordNotice({ ok: false, text: invalid })
       return
     }
+    if (password !== confirmPassword) {
+      setPasswordNotice({ ok: false, text: 'As senhas não coincidem.' })
+      return
+    }
     setSavingPassword(true)
     setPasswordNotice(null)
     const message = await updatePassword(password)
@@ -51,6 +56,7 @@ export default function SecurityScreen() {
       setPasswordNotice({ ok: false, text: message })
     } else {
       setPassword('')
+      setConfirmPassword('')
       setPasswordNotice({ ok: true, text: 'Senha alterada.' })
     }
   }
@@ -116,6 +122,14 @@ export default function SecurityScreen() {
               }
             />
             <Text style={styles.hint}>Ao menos 8 caracteres, com uma letra maiúscula e um número.</Text>
+            <Field
+              testID="security-password-confirm"
+              label="Confirmar nova senha"
+              secureTextEntry={!showPassword}
+              textContentType={PASSWORD_CONTENT_TYPE}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
             {passwordNotice && (
               <Text testID="security-password-notice" style={[styles.notice, !passwordNotice.ok && styles.noticeError]}>
                 {passwordNotice.text}

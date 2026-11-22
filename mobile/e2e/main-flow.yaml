@@ -536,6 +536,15 @@ appId: ${APP_ID}
     id: "password"
 - eraseText: 12
 - inputText: "Senha-teste-1"
+- runFlow:
+    when:
+      notVisible:
+        id: "confirm-password"
+    commands:
+      - hideKeyboard
+- tapOn:
+    id: "confirm-password"
+- inputText: "Senha-teste-1"
 - takeScreenshot: 14-cadastro
 - pressKey: Enter
 # No ambiente local o e-mail não precisa de confirmação: o cadastro já entra.

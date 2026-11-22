@@ -98,6 +98,7 @@ export async function getPublicProfile(username: string) {
     { count: participations },
     { count: groups },
     { data: ratings },
+    { data: participationRows },
   ] = await Promise.all([
     admin
       .from('events')
@@ -125,10 +126,25 @@ export async function getPublicProfile(username: string) {
       .eq('status', 'CONFIRMED'),
     admin.from('group_members').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
     admin.from('event_ratings').select('rating, events!inner(organizer_id)').eq('events.organizer_id', profile.id),
+    // Últimos eventos em que a pessoa participou, não organizou (ver abaixo)
+    admin
+      .from('participations')
+      .select(`created_at, events!inner(${EVENT_COLUMNS}, organizer_id)`)
+      .eq('user_id', profile.id)
+      .eq('status', 'CONFIRMED')
+      .eq('events.visibility', 'PUBLIC')
+      .order('created_at', { ascending: false })
+      .limit(10),
   ])
 
   const scores = (ratings ?? []).map((row) => row.rating).filter((score): score is number => !!score)
   const rating = scores.length ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10 : null
+
+  // Filtra participações de eventos que a própria pessoa organizou
+  const attended = (participationRows ?? [])
+    .map((row) => row.events)
+    .filter((event) => event.organizer_id !== profile.id)
+    .slice(0, 5)
 
   return {
     profile: {
@@ -141,6 +157,7 @@ export async function getPublicProfile(username: string) {
     },
     stats: { organized: organized ?? 0, participations: participations ?? 0, groups: groups ?? 0, rating },
     events: events ?? [],
+    attended,
     groups: (memberships ?? []).map((row) => row.groups),
   }
 }

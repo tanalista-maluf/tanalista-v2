@@ -28,7 +28,7 @@ const ACTION_LABELS: Record<string, string> = {
   PASSWORD_RESET: 'Senha redefinida',
 }
 
-type AuditLog = { id: string; action: string; created_at: string }
+type AuditLog = { id: string; action: string; table_name: string | null; created_at: string }
 
 export default function ActivityScreen() {
   const { session } = useSession()
@@ -40,10 +40,10 @@ export default function ActivityScreen() {
     let active = true
     supabase
       .from('audit_logs')
-      .select('id, action, created_at')
+      .select('id, action, table_name, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(30)
+      .limit(50)
       .then(({ data, error }) => {
         if (active) setLogs(error ? null : data)
       })
@@ -81,6 +81,7 @@ export default function ActivityScreen() {
                 <View style={styles.dot} />
                 <View style={styles.rowBody}>
                   <Text style={styles.action}>{ACTION_LABELS[log.action] ?? log.action}</Text>
+                  {log.table_name && <Text style={styles.table}>{log.table_name.replace(/_/g, ' ')}</Text>}
                   <Text style={styles.date}>{formatLongDate(log.created_at)}</Text>
                 </View>
               </View>
@@ -112,5 +113,6 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginTop: 6 },
   rowBody: { flex: 1, gap: 2 },
   action: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.text },
+  table: { fontFamily: fonts.body, fontSize: 12, color: colors.text50, textTransform: 'capitalize' },
   date: { fontFamily: fonts.body, fontSize: 13, color: colors.text50 },
 })

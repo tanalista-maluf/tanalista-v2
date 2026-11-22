@@ -299,6 +299,9 @@ appId: ${APP_ID}
     id: "security-password"
 - eraseText: 10
 - inputText: "Senha-nova-3"
+- tapOn:
+    id: "security-password-confirm"
+- inputText: "Senha-nova-3"
 - scrollUntilVisible:
     element:
       id: "security-password-submit"

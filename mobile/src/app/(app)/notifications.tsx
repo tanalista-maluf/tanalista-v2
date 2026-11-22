@@ -1,15 +1,25 @@
 import { router, Stack, useFocusEffect } from 'expo-router'
-import { Bell, BellOff } from 'lucide-react-native'
+import { AlertCircle, Bell, BellOff, Calendar, CheckCheck, Users, Wallet, type LucideIcon } from 'lucide-react-native'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { notificationTarget } from '@/lib/push'
 import { Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { markNotificationsRead } from '@/lib/api'
-import { formatRelative } from '@/lib/format'
+import { formatLongDate } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
+
+// Mesmo mapeamento do site (NotificationItem.tsx)
+const TYPE_ICON: Record<string, LucideIcon> = {
+  NEW_EVENT: Calendar,
+  WAITLIST_PROMOTED: Calendar,
+  PARTICIPATION_CONFIRMED: CheckCheck,
+  EVENT_CANCELLED: AlertCircle,
+  WAITLIST_CONFIRMED: Users,
+  PAYMENT_RECEIVED: Wallet,
+}
 
 type Notification = {
   id: string
@@ -88,7 +98,7 @@ export default function NotificationsScreen() {
           headerRight: () =>
             unread > 0 ? (
               <Pressable testID="notifications-read-all" accessibilityRole="button" onPress={markAll} hitSlop={10}>
-                <Text style={styles.readAll}>Ler todas</Text>
+                <Text style={styles.readAll}>Marcar todas como lidas</Text>
               </Pressable>
             ) : null,
         }}
@@ -133,7 +143,10 @@ export default function NotificationsScreen() {
             onPress={() => open(item)}
             style={({ pressed }) => [styles.item, !item.read && styles.itemUnread, pressed && styles.pressed]}>
             <View style={[styles.icon, !item.read && styles.iconUnread]}>
-              <Bell size={17} color={item.read ? colors.text40 : colors.primary} />
+              {(() => {
+                const Icon = TYPE_ICON[item.type] ?? Bell
+                return <Icon size={17} color={item.read ? colors.text40 : colors.primary} />
+              })()}
             </View>
             <View style={styles.body}>
               <View style={styles.titleRow}>
@@ -141,7 +154,7 @@ export default function NotificationsScreen() {
                 {!item.read && <View style={styles.dot} />}
               </View>
               <Text style={styles.text}>{item.body}</Text>
-              <Text style={styles.date}>{formatRelative(item.created_at)}</Text>
+              <Text style={styles.date}>{formatLongDate(item.created_at)}</Text>
             </View>
           </Pressable>
         )}

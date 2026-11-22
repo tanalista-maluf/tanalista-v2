@@ -261,6 +261,17 @@ export type PublicProfile = {
     visibility: string
     groups: { name: string } | null
   }[]
+  attended: {
+    id: string
+    title: string
+    starts_at: string
+    city: string
+    price: number
+    capacity: number
+    confirmed_count: number
+    visibility: string
+    groups: { name: string } | null
+  }[]
   groups: {
     id: string
     name: string

@@ -5,7 +5,7 @@ import { AvatarUpload } from '@/features/perfil/components/AvatarUpload'
 import { NotificationSettings } from '@/features/notificacoes/components/NotificationSettings'
 import { logoutAction } from '@/features/auth/actions'
 import { DeleteAccount } from '@/features/perfil/components/DeleteAccount'
-import { Wallet, BarChart2, Activity, User, KeyRound, LogOut, ChevronRight, FileText, Lock, HelpCircle, Mail } from 'lucide-react'
+import { Wallet, BarChart2, Activity, User, KeyRound, LogOut, ChevronRight, FileText, Lock, HelpCircle, Mail, CircleUserRound } from 'lucide-react'
 import Link from 'next/link'
 import { formatBalance } from '@/utils/format'
 import { CONTACT_EMAIL } from '@/features/ajuda/como-funciona'
@@ -67,6 +67,17 @@ export default async function PerfilPage() {
             <div className="flex-1">
               <p className="text-sm font-medium text-white">Senha e segurança</p>
               <p className="text-xs text-white/40">Alterar senha ou e-mail</p>
+            </div>
+            <ChevronRight className="size-4 text-white/20" />
+          </Link>
+
+          <Link href={`/u/${profile.username}`} className="card-dark rounded-2xl p-3.5 flex items-center gap-3 block">
+            <div className="size-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <CircleUserRound className="size-4 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">Perfil público</p>
+              <p className="text-xs text-white/40">Como as outras pessoas veem você</p>
             </div>
             <ChevronRight className="size-4 text-white/20" />
           </Link>

@@ -17,7 +17,8 @@ function validate(fullName: string, phone: string, city: string): string | null 
 }
 
 export default function EditProfileScreen() {
-  const { refreshProfile } = useSession()
+  const { session, refreshProfile } = useSession()
+  const email = session?.user.email ?? ''
   const insets = useSafeAreaInsets()
   const headerInset = useHeaderInset()
   const [loaded, setLoaded] = useState<boolean | null>(null)
@@ -94,6 +95,8 @@ export default function EditProfileScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}>
+          <Field testID="edit-email" label="E-mail" value={email} editable={false} />
+          <Text style={styles.hint}>Para alterar, acesse Senha e e-mail.</Text>
           <Field
             testID="edit-name"
             label="Nome completo"
@@ -151,6 +154,7 @@ const styles = StyleSheet.create({
   failed: { fontFamily: fonts.body, color: colors.muted, textAlign: 'center', marginTop: 140, fontSize: 15, padding: 24 },
   content: { padding: 16, gap: 18, paddingBottom: 24 },
   multiline: { height: 110, paddingTop: 14, textAlignVertical: 'top', borderRadius: radius.card },
+  hint: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text40, marginTop: -8 },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
   bar: {
     gap: 10,
