@@ -1,5 +1,5 @@
 import { router, Stack } from 'expo-router'
-import { CheckCheck } from 'lucide-react-native'
+import { AlertCircle, CheckCheck } from 'lucide-react-native'
 import { useEffect, useState } from 'react'
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Button, Card, Field, Screen } from '@/components/ui'
@@ -70,15 +70,21 @@ export default function WithdrawScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}>
-          {done !== null ? (
+          {balance !== null && balance < MIN_CENTS ? (
+            <View testID="withdraw-blocked" style={styles.blocked}>
+              <AlertCircle size={20} color={colors.warning} />
+              <Text style={styles.blockedText}>
+                Saldo mínimo para saque: {formatMoney(MIN_CENTS)}. Adicione saldo à sua carteira para sacar.
+              </Text>
+            </View>
+          ) : done !== null ? (
             <View testID="withdraw-done" style={styles.state}>
               <View style={styles.stateIcon}>
                 <CheckCheck size={32} color={colors.primary} />
               </View>
               <Text style={styles.stateTitle}>Saque solicitado</Text>
               <Text style={styles.hint}>
-                {formatMoney(done)} saíram da sua carteira. A transferência por PIX é feita pela nossa equipe, em geral
-                no mesmo dia útil.
+                {formatMoney(done)} saíram da sua carteira. Seu saque será processado em até 2 dias úteis via PIX.
               </Text>
               <Button testID="withdraw-back" label="Voltar à carteira" onPress={() => router.back()} style={styles.wide} />
             </View>
@@ -98,6 +104,12 @@ export default function WithdrawScreen() {
                 value={amountText}
                 onChangeText={setAmountText}
               />
+              {!!parseMoney(amountText) && (
+                <View style={styles.breakdown}>
+                  <Text style={styles.breakdownLabel}>Você receberá</Text>
+                  <Text style={styles.breakdownValue}>{formatMoney(parseMoney(amountText)!)}</Text>
+                </View>
+              )}
               <Field
                 testID="withdraw-cpf"
                 label="CPF do titular"
@@ -157,6 +169,31 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
   balance: { padding: 16, gap: 4 },
   balanceValue: { fontFamily: fonts.headingBlack, fontSize: 26, color: colors.primary },
+  breakdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: -6,
+  },
+  breakdownLabel: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
+  breakdownValue: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.primary },
+  blocked: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: 'rgba(250,204,21,0.3)',
+    backgroundColor: 'rgba(250,204,21,0.05)',
+    padding: 14,
+  },
+  blockedText: { flex: 1, fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.foreground },
   block: { gap: 10 },
   types: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {

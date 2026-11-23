@@ -260,7 +260,7 @@ appId: ${APP_ID}
     id: "deposit-submit"
 - assertVisible: "Valor mínimo para recarga: R\\$.10,00."
 - tapOn:
-    id: "deposit-quick-20"
+    id: "deposit-quick-50"
 - tapOn:
     id: "deposit-submit"
 - assertVisible:

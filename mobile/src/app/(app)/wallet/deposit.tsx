@@ -11,7 +11,7 @@ import { cardDepositCredit, parseMoney } from '@/lib/money'
 import { colors, fonts, radius } from '@/lib/theme'
 
 const POLL_INTERVAL = 3000
-const QUICK_AMOUNTS = [2000, 5000, 10000]
+const QUICK_AMOUNTS = [1000, 2500, 5000, 10000, 20000]
 // Mesmos limites do servidor (src/features/carteira/wallet.ts)
 const MIN_CENTS = 1000
 const MAX_CENTS = 500000
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
   hint: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.text50, textAlign: 'center' },
   error: { fontFamily: fonts.body, fontSize: 14, color: colors.destructive, textAlign: 'center' },
-  quick: { flexDirection: 'row', gap: 8 },
+  quick: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     flex: 1,
     minHeight: 40,
