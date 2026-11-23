@@ -86,6 +86,7 @@ type Handler = (args: unknown[], user: User) => Promise<unknown>
 const text = (value: unknown) => (typeof value === 'string' ? value : '')
 const optionalText = (value: unknown) => (typeof value === 'string' ? value : undefined)
 const textArray = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [])
+const positiveInt = (value: unknown, fallback: number) => (typeof value === 'number' && value > 0 ? Math.floor(value) : fallback)
 
 // Arquivo enviado pelo app em base64, como as ações de upload do site esperam (FormData)
 function formWithFile(fields: Record<string, string>, fileField: string, file: unknown) {
@@ -191,10 +192,10 @@ const HANDLERS: Record<string, Handler> = {
   amIAdmin: async (_, user) => ({ admin: isAdminEmail(user.email) }),
   adminDashboard: adminOnly(() => getAdminDashboard()),
   adminWithdrawals: adminOnly(() => listAdminWithdrawals()),
-  adminUsers: adminOnly(([q]) => listAdminUsers(optionalText(q))),
-  adminEvents: adminOnly(([q, status]) => listAdminEvents(optionalText(q), optionalText(status))),
+  adminUsers: adminOnly(([q, page]) => listAdminUsers(optionalText(q), positiveInt(page, 1))),
+  adminEvents: adminOnly(([q, status, page]) => listAdminEvents(optionalText(q), optionalText(status), positiveInt(page, 1))),
   adminPurgeCancelledEvents: adminOnly(() => purgeCancelledEvents()),
-  adminGroups: adminOnly(() => listAdminGroups()),
+  adminGroups: adminOnly(([q, page]) => listAdminGroups(optionalText(q), positiveInt(page, 1))),
   adminCoupons: adminOnly(() => listAdminCoupons()),
   adminCreateCoupon: adminOnly(([input]) => createCouponAction(input)),
   adminToggleCoupon: adminOnly(([id, active]) => toggleCouponAction(text(id), active === true)),

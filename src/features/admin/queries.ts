@@ -71,7 +71,7 @@ export async function listAdminWithdrawals() {
   const admin = createAdminClient()
   const { data: withdrawals } = await admin
     .from('withdrawals')
-    .select('id, user_id, amount_cents, fee_cents, net_cents, cpf, pix_key, pix_key_type, status, created_at, processed_at')
+    .select('id, user_id, amount_cents, fee_cents, net_cents, cpf, pix_key, pix_key_type, status, created_at, processed_at, admin_note')
     .order('created_at', { ascending: false })
     .limit(100)
 
@@ -105,33 +105,35 @@ export async function listAdminUsers(q?: string, page = 1) {
   return { users, total: count ?? 0, pageSize: PAGE_SIZE }
 }
 
-export async function listAdminEvents(q?: string, status?: string) {
+export async function listAdminEvents(q?: string, status?: string, page = 1) {
+  const offset = (Math.max(1, page) - 1) * PAGE_SIZE
   let query = createAdminClient()
     .from('events')
     .select('id, title, status, starts_at, price, confirmed_count, capacity, city, profiles!events_organizer_id_fkey(username)', {
       count: 'exact',
     })
     .order('created_at', { ascending: false })
-    .range(0, PAGE_SIZE - 1)
+    .range(offset, offset + PAGE_SIZE - 1)
   if (term(q)) query = query.ilike('title', `%${term(q)}%`)
   if (status && ['DRAFT', 'OPEN', 'CONFIRMED', 'PENDING', 'COMPLETED', 'CANCELLED'].includes(status)) {
     query = query.eq('status', status as 'OPEN')
   }
   const { data, count } = await query
-  return { events: data ?? [], total: count ?? 0 }
+  return { events: data ?? [], total: count ?? 0, pageSize: PAGE_SIZE }
 }
 
-export async function listAdminGroups(q?: string) {
+export async function listAdminGroups(q?: string, page = 1) {
+  const offset = (Math.max(1, page) - 1) * PAGE_SIZE
   let query = createAdminClient()
     .from('groups')
     .select('id, name, category, city, visibility, member_count, created_at, profiles!groups_owner_id_fkey(username)', {
       count: 'exact',
     })
     .order('member_count', { ascending: false })
-    .range(0, PAGE_SIZE - 1)
+    .range(offset, offset + PAGE_SIZE - 1)
   if (term(q)) query = query.ilike('name', `%${term(q)}%`)
   const { data, count } = await query
-  return { groups: data ?? [], total: count ?? 0 }
+  return { groups: data ?? [], total: count ?? 0, pageSize: PAGE_SIZE }
 }
 
 // Cupons de crédito da plataforma (os de evento e de grupo ficam com os organizadores)

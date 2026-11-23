@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard'
 import { router, Stack } from 'expo-router'
-import { Search, Trash2 } from 'lucide-react-native'
+import { Check, Search, Trash2 } from 'lucide-react-native'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
 import { Badge, Button, Card, Screen } from '@/components/ui'
@@ -9,6 +9,22 @@ import { formatLongDate, formatMoney } from '@/lib/format'
 import { STATUS_LABELS } from '@/lib/finance'
 import { useHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
+
+const EVENT_STATUSES = [
+  { value: '', label: 'Todos' },
+  { value: 'DRAFT', label: 'Rascunho' },
+  { value: 'OPEN', label: 'Aberto' },
+  { value: 'CONFIRMED', label: 'Confirmado' },
+  { value: 'PENDING', label: 'Pendente' },
+  { value: 'COMPLETED', label: 'Concluído' },
+  { value: 'CANCELLED', label: 'Cancelado' },
+]
+
+// CPF: 000.000.000-00
+function formatCpf(cpf: string) {
+  const digits = cpf.replace(/\D/g, '')
+  return digits.length === 11 ? digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : cpf
+}
 
 type Section = 'dashboard' | 'withdrawals' | 'users' | 'events' | 'groups' | 'coupons'
 
@@ -40,13 +56,23 @@ export default function AdminScreen() {
   const [section, setSection] = useState<Section>('dashboard')
   const [data, setData] = useState<Data | null | undefined>(undefined)
   const [query, setQuery] = useState('')
+  const [eventStatus, setEventStatus] = useState('')
+  const [page, setPage] = useState(1)
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
-  const [coupon, setCoupon] = useState({ code: '', value: '', maxUses: '' })
+  const [coupon, setCoupon] = useState({ code: '', value: '', maxUses: '', expiresAt: '' })
+
+  // Argumentos da ponte /api/v1/actions para cada seção (ver LOADERS)
+  function loaderArgs(which: Section, q: string, status: string, pageNum: number): unknown[] {
+    if (which === 'users') return [q || undefined, pageNum]
+    if (which === 'events') return [q || undefined, status || undefined, pageNum]
+    if (which === 'groups') return [q || undefined, pageNum]
+    return []
+  }
 
   const load = useCallback(
-    async (which: Section, q: string) => {
-      const result = await runAction<Data>(LOADERS[which], q || undefined)
+    async (which: Section, q: string, status: string, pageNum: number) => {
+      const result = await runAction<Data>(LOADERS[which], ...loaderArgs(which, q, status, pageNum))
       setData('ok' in result ? result.ok : null)
       if ('error' in result) setMessage({ ok: false, text: result.error })
     },
@@ -55,7 +81,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     let active = true
-    runAction<Data>(LOADERS[section]).then((result) => {
+    runAction<Data>(LOADERS[section], ...loaderArgs(section, query, eventStatus, page)).then((result) => {
       if (!active) return
       setData('ok' in result ? result.ok : null)
       if ('error' in result) setMessage({ ok: false, text: result.error })
@@ -63,13 +89,15 @@ export default function AdminScreen() {
     return () => {
       active = false
     }
-  }, [section])
+    // Só a troca de seção/página/status recarrega sozinha; a busca por texto é só no Enter (ver onSubmitEditing)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section, eventStatus, page])
 
   async function act(name: string, args: unknown[], success: string) {
     setMessage(null)
     const result = await runAction(name, ...args)
     setMessage('error' in result ? { ok: false, text: result.error } : { ok: true, text: success })
-    await load(section, query)
+    await load(section, query, eventStatus, page)
     return !('error' in result)
   }
 
@@ -111,7 +139,7 @@ export default function AdminScreen() {
                   (kept > 0 ? ` ${kept} ${kept === 1 ? 'ficou' : 'ficaram'} por ter inscrições.` : ''),
               })
             }
-            await load(section, query)
+            await load(section, query, eventStatus, page)
           },
         },
       ]
@@ -123,15 +151,18 @@ export default function AdminScreen() {
     const maxUses = coupon.maxUses ? Number(coupon.maxUses) : null
     if (coupon.code.trim().length < 3) return setMessage({ ok: false, text: 'O código precisa de ao menos 3 letras.' })
     if (!(cents >= 100)) return setMessage({ ok: false, text: 'Valor mínimo: R$ 1,00.' })
+    if (coupon.expiresAt && !/^\d{4}-\d{2}-\d{2}$/.test(coupon.expiresAt)) {
+      return setMessage({ ok: false, text: 'Validade inválida. Use o formato AAAA-MM-DD.' })
+    }
     const ok = await act(
       'adminCreateCoupon',
-      [{ code: coupon.code.trim(), amount_cents: cents, max_uses: maxUses, expires_at: null }],
+      [{ code: coupon.code.trim(), amount_cents: cents, max_uses: maxUses, expires_at: coupon.expiresAt || null }],
       'Cupom criado.'
     )
-    if (ok) setCoupon({ code: '', value: '', maxUses: '' })
+    if (ok) setCoupon({ code: '', value: '', maxUses: '', expiresAt: '' })
   }
 
-  const searchable = section === 'users' || section === 'events'
+  const searchable = section === 'users' || section === 'events' || section === 'groups'
 
   return (
     <Screen>
@@ -145,7 +176,7 @@ export default function AdminScreen() {
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true)
-              await load(section, query)
+              await load(section, query, eventStatus, page)
               setRefreshing(false)
             }}
             tintColor={colors.primary}
@@ -162,6 +193,8 @@ export default function AdminScreen() {
               onPress={() => {
                 if (item.key === section) return
                 setQuery('')
+                setEventStatus('')
+                setPage(1)
                 setData(undefined)
                 setMessage(null)
                 setSection(item.key)
@@ -179,14 +212,36 @@ export default function AdminScreen() {
               testID="admin-search"
               value={query}
               onChangeText={setQuery}
-              onSubmitEditing={() => load(section, query)}
-              placeholder={section === 'users' ? 'Nome, @username ou telefone' : 'Título do evento'}
+              onSubmitEditing={() => {
+                setPage(1)
+                load(section, query, eventStatus, 1)
+              }}
+              placeholder={section === 'users' ? 'Nome, @username ou telefone' : section === 'groups' ? 'Nome do grupo' : 'Título do evento'}
               placeholderTextColor={colors.text35}
               autoCorrect={false}
               autoCapitalize="none"
               returnKeyType="search"
               style={styles.searchInput}
             />
+          </View>
+        )}
+
+        {section === 'events' && (
+          <View style={styles.chips}>
+            {EVENT_STATUSES.map((item) => (
+              <Pressable
+                key={item.value}
+                testID={`admin-event-status-${item.value || 'all'}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: item.value === eventStatus }}
+                onPress={() => {
+                  setPage(1)
+                  setEventStatus(item.value)
+                }}
+                style={[styles.chip, item.value === eventStatus && styles.chipSelected]}>
+                <Text style={[styles.chipText, item.value === eventStatus && styles.chipTextSelected]}>{item.label}</Text>
+              </Pressable>
+            ))}
           </View>
         )}
 
@@ -224,81 +279,94 @@ export default function AdminScreen() {
             </Block>
           </>
         ) : section === 'withdrawals' ? (
-          <Block title={`Saques (${(data as Data[]).filter((w) => w.status === 'PENDING').length} pendentes)`}>
-            {(data as Data[]).length === 0 && <Text style={styles.detail}>Nenhum saque.</Text>}
-            {(data as Data[]).map((withdrawal, index) => (
-              <View key={withdrawal.id} style={styles.withdrawal}>
-                <Row
-                  title={withdrawal.profile?.full_name ?? '—'}
-                  detail={`${formatMoney(withdrawal.net_cents)} · ${withdrawal.pix_key_type.toUpperCase()}: ${withdrawal.pix_key} · CPF ${withdrawal.cpf}`}>
-                  <Badge
-                    label={withdrawal.status === 'PENDING' ? 'Pendente' : withdrawal.status === 'PAID' ? 'Pago' : 'Cancelado'}
-                    tone={withdrawal.status === 'PENDING' ? 'warning' : 'muted'}
-                  />
-                </Row>
-                <Text style={styles.detail}>{formatLongDate(withdrawal.created_at)}</Text>
-                {withdrawal.status === 'PENDING' && (
-                  <View style={styles.actions}>
-                    <Pressable testID={`withdrawal-cancel-${index}`} onPress={() => withdrawalAction(withdrawal.id, false)}>
-                      <Text style={styles.danger}>Cancelar</Text>
-                    </Pressable>
-                    <Pressable testID={`withdrawal-paid-${index}`} onPress={() => withdrawalAction(withdrawal.id, true)}>
-                      <Text style={styles.link}>Marcar como pago</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            ))}
-          </Block>
+          (() => {
+            const all = data as Data[]
+            const pending = all.filter((w) => w.status === 'PENDING')
+            const history = all.filter((w) => w.status !== 'PENDING')
+            const toTransfer = pending.reduce((sum, w) => sum + w.net_cents, 0)
+            const processed = history.filter((w) => w.status === 'PAID').reduce((sum, w) => sum + w.net_cents, 0)
+            return (
+              <>
+                <Card style={styles.block}>
+                  <Text style={styles.label}>Pendentes</Text>
+                  <Text style={styles.money}>{pending.length}</Text>
+                  <Text style={styles.detail}>{formatMoney(toTransfer)} a transferir</Text>
+                  <Text style={styles.label}>Processados</Text>
+                  <Text style={[styles.money, styles.warning]}>{formatMoney(processed)}</Text>
+                </Card>
+                <Block title={`Pendentes (${pending.length})`}>
+                  {pending.length === 0 && <Text style={styles.detail}>Nenhum saque pendente.</Text>}
+                  {pending.map((withdrawal, index) => (
+                    <WithdrawalRow key={withdrawal.id} withdrawal={withdrawal} index={index} onAction={withdrawalAction} />
+                  ))}
+                </Block>
+                <Block title={`Histórico (${history.length})`}>
+                  {history.length === 0 && <Text style={styles.detail}>Nenhum saque processado ainda.</Text>}
+                  {history.map((withdrawal, index) => (
+                    <WithdrawalRow key={withdrawal.id} withdrawal={withdrawal} index={index} onAction={withdrawalAction} />
+                  ))}
+                </Block>
+              </>
+            )
+          })()
         ) : section === 'users' ? (
-          <Block title={`Usuários (${data.total})`}>
-            {data.users.map((user: Data) => (
-              <View key={user.id}>
-                <Row
-                  title={user.full_name ?? '—'}
-                  detail={`@${user.username ?? '—'} · ${user.city ?? 'sem cidade'} · ${formatMoney(user.wallet_balance ?? 0)}`}
-                  onPress={() => user.username && router.push({ pathname: '/users/[username]', params: { username: user.username } })}>
-                  {!user.onboarding_completed && <Badge label="Sem perfil" tone="warning" />}
-                </Row>
-                {/* Contatos (só o admin recebe): tocar abre o e-mail ou o discador; segurar copia */}
-                <View style={styles.contacts}>
-                  <Contact value={user.email} empty="sem e-mail" url={user.email ? `mailto:${user.email}` : null} />
-                  <Contact value={user.phone} empty="sem telefone" url={user.phone ? `tel:${String(user.phone).replace(/[^\d+]/g, '')}` : null} />
+          <>
+            <Block title={`Usuários (${data.total})`}>
+              {data.users.map((user: Data) => (
+                <View key={user.id}>
+                  <Row
+                    title={user.full_name ?? '—'}
+                    detail={`@${user.username ?? '—'} · ${user.city ?? 'sem cidade'} · ${formatMoney(user.wallet_balance ?? 0)} · Cadastro: ${formatLongDate(user.created_at)}`}
+                    onPress={() => user.username && router.push({ pathname: '/users/[username]', params: { username: user.username } })}>
+                    {user.onboarding_completed ? <Check size={16} color={colors.primary} /> : <Badge label="Sem perfil" tone="warning" />}
+                  </Row>
+                  {/* Contatos (só o admin recebe): tocar abre o e-mail ou o discador; segurar copia */}
+                  <View style={styles.contacts}>
+                    <Contact value={user.email} empty="sem e-mail" url={user.email ? `mailto:${user.email}` : null} />
+                    <Contact value={user.phone} empty="sem telefone" url={user.phone ? `tel:${String(user.phone).replace(/[^\d+]/g, '')}` : null} />
+                  </View>
                 </View>
-              </View>
-            ))}
-          </Block>
+              ))}
+            </Block>
+            <Pagination page={page} total={data.total} pageSize={data.pageSize} onChange={setPage} />
+          </>
         ) : section === 'events' ? (
-          <Block title={`Eventos (${data.total})`}>
-            <Pressable
-              testID="admin-purge-cancelled"
-              accessibilityRole="button"
-              onPress={purgeCancelled}
-              style={({ pressed }) => [styles.purge, pressed && styles.dim]}>
-              <Trash2 size={16} color={colors.destructive} />
-              <Text style={styles.purgeText}>Limpar eventos cancelados</Text>
-            </Pressable>
-            {data.events.map((event: Data) => (
-              <Row
-                key={event.id}
-                title={event.title}
-                detail={`@${event.profiles?.username ?? '—'} · ${event.confirmed_count}/${event.capacity} · ${formatMoney(event.price)}`}
-                onPress={() => router.push({ pathname: '/events/[id]', params: { id: event.id } })}>
-                <Badge label={STATUS_LABELS[event.status] ?? event.status} tone="muted" />
-              </Row>
-            ))}
-          </Block>
+          <>
+            <Block title={`Eventos (${data.total})`}>
+              <Pressable
+                testID="admin-purge-cancelled"
+                accessibilityRole="button"
+                onPress={purgeCancelled}
+                style={({ pressed }) => [styles.purge, pressed && styles.dim]}>
+                <Trash2 size={16} color={colors.destructive} />
+                <Text style={styles.purgeText}>Limpar eventos cancelados</Text>
+              </Pressable>
+              {data.events.map((event: Data) => (
+                <Row
+                  key={event.id}
+                  title={event.title}
+                  detail={`@${event.profiles?.username ?? '—'} · ${event.confirmed_count}/${event.capacity} · ${formatMoney(event.price)}`}
+                  onPress={() => router.push({ pathname: '/events/[id]', params: { id: event.id } })}>
+                  <Badge label={STATUS_LABELS[event.status] ?? event.status} tone="muted" />
+                </Row>
+              ))}
+            </Block>
+            <Pagination page={page} total={data.total} pageSize={data.pageSize} onChange={setPage} />
+          </>
         ) : section === 'groups' ? (
-          <Block title={`Grupos (${data.total})`}>
-            {data.groups.map((group: Data) => (
-              <Row
-                key={group.id}
-                title={group.name}
-                detail={`@${group.profiles?.username ?? '—'} · ${group.member_count} membros · ${group.city ?? ''}`}>
-                <Badge label={group.visibility === 'PRIVATE' ? 'Privado' : 'Público'} tone="muted" />
-              </Row>
-            ))}
-          </Block>
+          <>
+            <Block title={`Grupos (${data.total})`}>
+              {data.groups.map((group: Data) => (
+                <Row
+                  key={group.id}
+                  title={group.name}
+                  detail={`@${group.profiles?.username ?? '—'} · ${group.member_count} membros · ${group.city ?? ''} · Criado em ${formatLongDate(group.created_at)}`}>
+                  <Badge label={group.visibility === 'PRIVATE' ? 'Privado' : 'Público'} tone="muted" />
+                </Row>
+              ))}
+            </Block>
+            <Pagination page={page} total={data.total} pageSize={data.pageSize} onChange={setPage} />
+          </>
         ) : (
           <>
             <Block title="Novo cupom de crédito">
@@ -332,6 +400,15 @@ export default function AdminScreen() {
                   style={[styles.input, styles.short]}
                 />
               </View>
+              <TextInput
+                testID="admin-coupon-expires"
+                value={coupon.expiresAt}
+                onChangeText={(expiresAt) => setCoupon((current) => ({ ...current, expiresAt }))}
+                placeholder="Validade (AAAA-MM-DD, opcional)"
+                placeholderTextColor={colors.text35}
+                autoCorrect={false}
+                style={styles.input}
+              />
               <Button testID="admin-coupon-create" label="Criar cupom" onPress={createCoupon} />
             </Block>
             <Block title="Cupons">
@@ -339,7 +416,7 @@ export default function AdminScreen() {
                 <Row
                   key={item.id}
                   title={item.code}
-                  detail={`${formatMoney(item.amount_cents)} · ${item.uses_count}/${item.max_uses ?? '∞'} usos`}>
+                  detail={`${formatMoney(item.amount_cents)} · ${item.uses_count}/${item.max_uses ?? '∞'} usos${item.expires_at ? ` · Validade: ${formatLongDate(item.expires_at)}` : ''}`}>
                   <Switch
                     value={item.active}
                     onValueChange={(value) => {
@@ -392,6 +469,80 @@ function Contact({ value, empty, url }: { value?: string | null; empty: string; 
         {value}
       </Text>
     </Pressable>
+  )
+}
+
+function WithdrawalRow({
+  withdrawal,
+  index,
+  onAction,
+}: {
+  withdrawal: Data
+  index: number
+  onAction: (id: string, confirm: boolean) => void
+}) {
+  return (
+    <View style={styles.withdrawal}>
+      <Row
+        title={withdrawal.profile?.full_name ?? '—'}
+        detail={`${formatMoney(withdrawal.net_cents)} · ${withdrawal.pix_key_type.toUpperCase()}: ${withdrawal.pix_key} · CPF ${formatCpf(withdrawal.cpf)}`}>
+        <Badge
+          label={withdrawal.status === 'PENDING' ? 'Pendente' : withdrawal.status === 'PAID' ? 'Pago' : 'Cancelado'}
+          tone={withdrawal.status === 'PENDING' ? 'warning' : 'muted'}
+        />
+      </Row>
+      <Text style={styles.detail}>
+        {formatLongDate(withdrawal.created_at)}
+        {withdrawal.processed_at ? ` · Processado em ${formatLongDate(withdrawal.processed_at)}` : ''}
+      </Text>
+      {withdrawal.admin_note ? <Text style={styles.detail}>Nota: {withdrawal.admin_note}</Text> : null}
+      {withdrawal.status === 'PENDING' && (
+        <View style={styles.actions}>
+          <Pressable testID={`withdrawal-cancel-${index}`} onPress={() => onAction(withdrawal.id, false)}>
+            <Text style={styles.danger}>Cancelar</Text>
+          </Pressable>
+          <Pressable testID={`withdrawal-paid-${index}`} onPress={() => onAction(withdrawal.id, true)}>
+            <Text style={styles.link}>Marcar como pago</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  )
+}
+
+function Pagination({
+  page,
+  total,
+  pageSize,
+  onChange,
+}: {
+  page: number
+  total: number
+  pageSize: number
+  onChange: (page: number) => void
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  if (totalPages <= 1) return null
+  return (
+    <View style={styles.pagination}>
+      <Pressable
+        testID="admin-page-prev"
+        disabled={page <= 1}
+        onPress={() => onChange(page - 1)}
+        style={({ pressed }) => [styles.pageButton, (page <= 1 || pressed) && styles.dim]}>
+        <Text style={styles.pageButtonText}>Anterior</Text>
+      </Pressable>
+      <Text style={styles.pageLabel}>
+        Página {page} de {totalPages}
+      </Text>
+      <Pressable
+        testID="admin-page-next"
+        disabled={page >= totalPages}
+        onPress={() => onChange(page + 1)}
+        style={({ pressed }) => [styles.pageButton, (page >= totalPages || pressed) && styles.dim]}>
+        <Text style={styles.pageButtonText}>Próxima</Text>
+      </Pressable>
+    </View>
   )
 }
 
@@ -472,4 +623,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   short: { width: 74 },
+  pagination: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  pageButton: { paddingVertical: 8, paddingHorizontal: 12 },
+  pageButtonText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.primary },
+  pageLabel: { fontFamily: fonts.body, fontSize: 12, color: colors.text50 },
 })
