@@ -5,15 +5,14 @@ import { NextResponse } from 'next/server'
 // navegador. Exige um novo build nativo (associatedDomains é um entitlement) —
 // não funciona só com OTA.
 //
-// TODO: troque TEAMID pelo Apple Team ID (Apple Developer > Membership, ou
-// `eas credentials -p ios`). O bundle id (app.tanalista) já está certo.
+// Apple Team ID (AP3ZSN49YZ) confirmado no log do build de produção do EAS.
 export async function GET() {
   return NextResponse.json({
     applinks: {
       apps: [],
       details: [
         {
-          appID: 'TEAMID.app.tanalista',
+          appID: 'AP3ZSN49YZ.app.tanalista',
           paths: ['/e/*', '/g/*', '/grupos/entrar/*'],
         },
       ],
