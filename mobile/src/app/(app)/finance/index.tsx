@@ -1,6 +1,6 @@
 import { router, Stack, useFocusEffect } from 'expo-router'
-import { ChevronRight } from 'lucide-react-native'
-import { useCallback, useState } from 'react'
+import { Calendar, ChevronRight, Ticket, TrendingUp, Users } from 'lucide-react-native'
+import { useCallback, useState, type ReactNode } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Badge, Card, Screen } from '@/components/ui'
 import { runAction } from '@/lib/api'
@@ -77,10 +77,30 @@ export default function FinanceScreen() {
               </Text>
             </Card>
             <View style={styles.stats}>
-              <Stat value={String(summary.totalEvents)} label={`Eventos · ${summary.activeEvents} ativos`} />
-              <Stat value={String(participants)} label="Participantes" />
-              <Stat value={formatMoney(ticket)} label="Ticket médio" />
-              <Stat value={`${occupancy}%`} label="Ocupação média" />
+              <Stat
+                value={String(summary.totalEvents)}
+                label={`Eventos · ${summary.activeEvents} ativos`}
+                icon={<Calendar size={16} color={statColors.blue} />}
+                tint={statColors.blue}
+              />
+              <Stat
+                value={String(participants)}
+                label="Participantes"
+                icon={<Users size={16} color={colors.primary} />}
+                tint={colors.primary}
+              />
+              <Stat
+                value={formatMoney(ticket)}
+                label="Ticket médio"
+                icon={<Ticket size={16} color={statColors.purple} />}
+                tint={statColors.purple}
+              />
+              <Stat
+                value={`${occupancy}%`}
+                label="Ocupação média"
+                icon={<TrendingUp size={16} color={colors.warning} />}
+                tint={colors.warning}
+              />
             </View>
 
             <Text style={styles.label}>Por evento</Text>
@@ -119,9 +139,13 @@ export default function FinanceScreen() {
   )
 }
 
-function Stat({ value, label }: { value: string; label: string }) {
+// Mesmas cores do site (StatCard em financeiro/page.tsx): azul, verde (primary), roxo, amarelo (warning)
+const statColors = { blue: '#60A5FA', purple: '#C084FC' }
+
+function Stat({ value, label, icon, tint }: { value: string; label: string; icon: ReactNode; tint: string }) {
   return (
     <Card style={styles.stat}>
+      <View style={[styles.statIcon, { backgroundColor: `${tint}1A`, borderColor: `${tint}33` }]}>{icon}</View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </Card>
@@ -137,7 +161,15 @@ const styles = StyleSheet.create({
   totalValue: { fontFamily: fonts.headingBlack, fontSize: 30, color: colors.primary },
   detail: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.text50 },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  stat: { flexBasis: '47%', flexGrow: 1, padding: 14, gap: 2 },
+  stat: { flexBasis: '47%', flexGrow: 1, padding: 14, gap: 6 },
+  statIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statValue: { fontFamily: fonts.headingBlack, fontSize: 19, color: colors.text },
   statLabel: { fontFamily: fonts.body, fontSize: 12, color: colors.text50 },
   event: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },

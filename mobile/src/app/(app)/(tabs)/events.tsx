@@ -109,7 +109,11 @@ async function fetchCities(): Promise<string[]> {
   return [...cities].sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }
 
-async function fetchUpcomingEvents(filter: Filter): Promise<ListedEvent[]> {
+const EVENTS_PAGE_SIZE = 50
+
+// "Carregar mais" (ver eventos/page.tsx no site): sem isso, uma cidade com
+// muitos eventos simultâneos trunca a lista em silêncio
+async function fetchUpcomingEvents(filter: Filter, offset = 0): Promise<{ events: ListedEvent[]; hasMore: boolean }> {
   const now = new Date()
   const range = filter.date ? dateRange(filter.date) : null
   const from = range && range.from > now ? range.from : now
@@ -120,7 +124,7 @@ async function fetchUpcomingEvents(filter: Filter): Promise<ListedEvent[]> {
     .in('status', ['OPEN', 'PENDING', 'CONFIRMED'])
     .gte('starts_at', from.toISOString())
     .order('starts_at', { ascending: true })
-    .limit(50)
+    .range(offset, offset + EVENTS_PAGE_SIZE - 1)
 
   // % e _ são curingas do ilike, e vírgula e parênteses separam filtros
   const term = filter.search.trim().replace(/[%_,()]/g, ' ')
@@ -131,7 +135,7 @@ async function fetchUpcomingEvents(filter: Filter): Promise<ListedEvent[]> {
 
   const { data, error } = await query
   if (error) throw error
-  return data ?? []
+  return { events: data ?? [], hasMore: (data ?? []).length === EVENTS_PAGE_SIZE }
 }
 
 // Eventos por vir em que a pessoa tem inscrição confirmada ou aguardando
@@ -235,6 +239,8 @@ export default function EventsScreen() {
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [busyDraft, setBusyDraft] = useState<string | null>(null)
   const [events, setEvents] = useState<Partial<Record<Tab, ListedEvent[]>>>({})
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const [city, setCity] = useState<string | null>(null)
@@ -255,9 +261,16 @@ export default function EventsScreen() {
   const load = useCallback(
     async (which: Tab, filter: Filter) => {
       try {
-        if (which === 'mine') setDrafts(await fetchDrafts(userId))
-        const data = which === 'mine' ? await fetchMyEvents(userId) : await fetchUpcomingEvents(filter)
-        setEvents((current) => ({ ...current, [which]: data }))
+        if (which === 'mine') {
+          setDrafts(await fetchDrafts(userId))
+          const mine = await fetchMyEvents(userId)
+          setEvents((current) => ({ ...current, mine }))
+          setHasMore(false)
+        } else {
+          const { events: data, hasMore: more } = await fetchUpcomingEvents(filter)
+          setEvents((current) => ({ ...current, upcoming: data }))
+          setHasMore(more)
+        }
         setError(false)
       } catch {
         setError(true)
@@ -265,6 +278,19 @@ export default function EventsScreen() {
     },
     [userId]
   )
+
+  async function loadMore() {
+    if (tab !== 'upcoming' || loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const { events: more, hasMore: next } = await fetchUpcomingEvents({ search, category, city, date }, (events.upcoming ?? []).length)
+      setEvents((current) => ({ ...current, upcoming: [...(current.upcoming ?? []), ...more] }))
+      setHasMore(next)
+    } catch {
+      // Mantém a lista como está; a pessoa pode puxar pra atualizar e tentar de novo
+    }
+    setLoadingMore(false)
+  }
 
   // Recarrega também ao voltar da página de um evento: a inscrição pode ter mudado.
   // Os filtros valem ao escolher; a busca, só ao enviar o campo, não a cada letra.
@@ -464,6 +490,22 @@ export default function EventsScreen() {
             onPress={() => router.push({ pathname: '/events/[id]', params: { id: item.id } })}
           />
         )}
+        ListFooterComponent={
+          tab === 'upcoming' && hasMore ? (
+            <Pressable
+              testID="events-load-more"
+              accessibilityRole="button"
+              onPress={loadMore}
+              disabled={loadingMore}
+              style={({ pressed }) => [styles.loadMore, (loadingMore || pressed) && styles.loadMoreDim]}>
+              {loadingMore ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <Text style={styles.loadMoreText}>Carregar mais</Text>
+              )}
+            </Pressable>
+          ) : null
+        }
       />
       {pickingDay && <DayPicker value={date?.day ?? new Date()} onPick={chooseDay} onCancel={() => setPickingDay(false)} />}
     </Screen>
@@ -565,6 +607,18 @@ function DayPicker({ value, onPick, onCancel }: { value: Date; onPick: (day: Dat
 
 const styles = StyleSheet.create({
   list: { padding: 16, gap: 12 },
+  loadMore: {
+    marginTop: 4,
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+  },
+  loadMoreDim: { opacity: 0.6 },
+  loadMoreText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.primary },
   header: { gap: 16, marginBottom: 4 },
   tabs: {
     flexDirection: 'row',
