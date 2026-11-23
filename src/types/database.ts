@@ -538,6 +538,8 @@ export type Database = {
           min_check_at: string
           min_participants: number
           mp_access_token: string | null
+          notify_group_on_create: boolean
+          notify_organizer_on_signup: boolean
           organizer_exempt: boolean
           organizer_id: string
           parent_event_id: string | null
@@ -575,6 +577,8 @@ export type Database = {
           min_check_at: string
           min_participants: number
           mp_access_token?: string | null
+          notify_group_on_create?: boolean
+          notify_organizer_on_signup?: boolean
           organizer_exempt?: boolean
           organizer_id: string
           parent_event_id?: string | null
@@ -612,6 +616,8 @@ export type Database = {
           min_check_at?: string
           min_participants?: number
           mp_access_token?: string | null
+          notify_group_on_create?: boolean
+          notify_organizer_on_signup?: boolean
           organizer_exempt?: boolean
           organizer_id?: string
           parent_event_id?: string | null
@@ -1770,6 +1776,7 @@ export type Database = {
         | "GROUP_ROLE_CHANGED"
         | "EVENT_MESSAGE"
         | "WAITLIST_PROMOTED"
+        | "NEW_PARTICIPANT"
       participation_status: "CONFIRMED" | "PENDING" | "CANCELLED" | "WAITLISTED"
       payment_method: "PIX" | "CREDIT_CARD" | "WALLET"
       payment_status:
@@ -1949,6 +1956,7 @@ export const Constants = {
         "GROUP_ROLE_CHANGED",
         "EVENT_MESSAGE",
         "WAITLIST_PROMOTED",
+        "NEW_PARTICIPANT",
       ],
       participation_status: ["CONFIRMED", "PENDING", "CANCELLED", "WAITLISTED"],
       payment_method: ["PIX", "CREDIT_CARD", "WALLET"],

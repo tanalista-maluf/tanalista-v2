@@ -272,6 +272,30 @@ export async function sendNewEventToGroupMember(params: {
   })
 }
 
+// ── Email: nova inscrição confirmada, aviso para o organizador ────────────────
+export async function sendNewParticipantToOrganizer(params: {
+  to: string
+  organizerName: string
+  participantName: string
+  eventTitle: string
+  eventId: string
+}) {
+  const body = base(
+    `Nova inscrição: ${params.eventTitle}`,
+    h2('Nova inscrição confirmada! 🎉') +
+    p(`Olá, <strong>${esc(params.organizerName)}</strong>! <strong>${esc(params.participantName)}</strong> acabou de confirmar inscrição no seu evento:`) +
+    infoBox([`Evento: <strong>${esc(params.eventTitle)}</strong>`]) +
+    btn('Ver evento', `${process.env.NEXT_PUBLIC_APP_URL}/eventos/${params.eventId}`)
+  )
+
+  await getResend().emails.send({
+    from: FROM,
+    to: params.to,
+    subject: `Nova inscrição: ${params.eventTitle}`,
+    html: body,
+  })
+}
+
 // ── Email: aviso do organizador para os participantes ─────────────────────────
 export async function sendEventBroadcastToParticipant(params: {
   to: string

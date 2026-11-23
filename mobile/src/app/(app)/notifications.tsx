@@ -19,6 +19,7 @@ const TYPE_ICON: Record<string, LucideIcon> = {
   EVENT_CANCELLED: AlertCircle,
   WAITLIST_CONFIRMED: Users,
   PAYMENT_RECEIVED: Wallet,
+  NEW_PARTICIPANT: Users,
 }
 
 type Notification = {

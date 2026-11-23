@@ -54,6 +54,10 @@ export const eventSchema = z.object({
   publish_draft: z.boolean().optional(),
   visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
   cancel_before_hours: z.number().int().min(0).max(720).nullable().optional(),
+  // O criador do evento pode desligar essas duas notificações (valor padrão
+  // vem do defaultValues do formulário, como organizer_exempt)
+  notify_group_on_create: z.boolean(),
+  notify_organizer_on_signup: z.boolean(),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
   const deadline = d.registration_deadline ? new Date(d.registration_deadline) : null
