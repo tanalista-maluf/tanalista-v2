@@ -1,11 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CheckInRow } from './CheckInRow'
+import { ExportCheckInListButton } from './ExportCheckInListButton'
 
 interface Props {
   eventId: string
+  eventTitle: string
 }
 
-export async function CheckInList({ eventId }: Props) {
+export async function CheckInList({ eventId, eventTitle }: Props) {
   const admin = createAdminClient()
 
   const { data: participations } = await admin
@@ -35,7 +37,18 @@ export async function CheckInList({ eventId }: Props) {
           <span className="text-white/30"> / {participations.length}</span>
         </p>
       </div>
-      <p className="text-xs text-white/30 px-1">Sem o QR Code à mão? Toque no nome pra fazer o check-in manualmente.</p>
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs text-white/30">Sem o QR Code à mão? Toque no nome pra fazer o check-in manualmente.</p>
+        <ExportCheckInListButton
+          eventTitle={eventTitle}
+          participants={[...checkedIn, ...notCheckedIn].map((p) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const raw = p.profiles as any
+            const profile = (Array.isArray(raw) ? raw[0] : raw) as { full_name: string | null; username: string | null } | null
+            return { name: profile?.full_name ?? 'Participante', username: profile?.username ?? null, checkedIn: !!p.checked_in_at }
+          })}
+        />
+      </div>
 
       <div className="card-dark rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
         {[...checkedIn, ...notCheckedIn].map((p) => {

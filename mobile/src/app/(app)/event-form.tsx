@@ -11,6 +11,7 @@ import { Button, Card, Field, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
 import { runAction } from '@/lib/api'
 import { useHeaderInset } from '@/lib/header'
+import { formatMoney } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -508,11 +509,22 @@ export default function EventFormScreen() {
               value={price}
               onChangeText={setPrice}
             />
+            {(() => {
+              const cents = Math.round(parseFloat(price.replace(',', '.')) * 100)
+              if (isNaN(cents) || cents <= 0) return null
+              const fee = Math.round(cents * 0.0599)
+              const net = cents - fee
+              return (
+                <Text style={styles.feeHint}>
+                  Taxa plataforma (5,99%): {formatMoney(fee)} · Você recebe: {formatMoney(net)}
+                </Text>
+              )
+            })()}
             <View style={styles.pair}>
               <View style={styles.flex}>
                 <Field
                   testID="form-capacity"
-                  label="Capacidade"
+                  label="Capacidade *"
                   keyboardType="number-pad"
                   value={capacity}
                   onChangeText={setCapacity}
@@ -522,7 +534,7 @@ export default function EventFormScreen() {
               <View style={styles.flex}>
                 <Field
                   testID="form-minimum"
-                  label="Mínimo"
+                  label="Mínimo *"
                   keyboardType="number-pad"
                   value={minimum}
                   onChangeText={setMinimum}
@@ -530,6 +542,7 @@ export default function EventFormScreen() {
                 />
               </View>
             </View>
+            <Text style={styles.hint}>A fila de espera é calculada automaticamente: 10% da capacidade (mínimo 1 vaga).</Text>
             <ToggleRow
               testID="form-exempt"
               title="Organizador isento"
@@ -741,6 +754,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: fonts.heading, fontSize: 16, color: colors.text },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: 'rgba(74,222,128,0.7)' },
   hint: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: colors.text40 },
+  feeHint: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15, color: colors.text35, marginTop: -8 },
   detail: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, color: colors.text50 },
   multiline: { height: 100, paddingTop: 14, textAlignVertical: 'top', borderRadius: radius.card },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

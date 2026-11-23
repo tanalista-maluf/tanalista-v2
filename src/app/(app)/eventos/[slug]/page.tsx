@@ -702,7 +702,7 @@ export default async function EventDetailPage({
         {canCheckIn && (
           <TabsContent value="checkin" className="pt-4 space-y-6">
             <CheckInScanner eventId={id} />
-            <CheckInList eventId={id} />
+            <CheckInList eventId={id} eventTitle={event.title} />
           </TabsContent>
         )}
 
