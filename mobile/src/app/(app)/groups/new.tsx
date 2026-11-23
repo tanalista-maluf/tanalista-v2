@@ -1,12 +1,14 @@
+import * as ImagePicker from 'expo-image-picker'
 import { router, Stack } from 'expo-router'
-import { Globe, Lock } from 'lucide-react-native'
+import { Camera, Globe, Lock } from 'lucide-react-native'
 import { useState, type ReactNode } from 'react'
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Dropdown } from '@/components/dropdown'
+import { GroupAvatar } from '@/components/group-card'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Button, Field, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
-import { createGroup, type GroupInput } from '@/lib/api'
+import { createGroup, runAction, type GroupInput } from '@/lib/api'
 import { useHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
 
@@ -45,8 +47,22 @@ export default function NewGroupScreen() {
   const [city, setCity] = useState(profile?.city ?? '')
   const [category, setCategory] = useState('')
   const [visibility, setVisibility] = useState<GroupInput['visibility']>('PUBLIC')
+  const [photo, setPhoto] = useState<{ base64: string; mimeType: string; preview: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+
+  async function pickPhoto() {
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.6,
+      base64: true,
+    })
+    if (picked.canceled || !picked.assets[0].base64) return
+    const asset = picked.assets[0]
+    setPhoto({ base64: asset.base64!, mimeType: asset.mimeType ?? 'image/jpeg', preview: asset.uri })
+  }
 
   async function handleSubmit() {
     const data = { name: name.trim(), description: description.trim(), city: city.trim(), category, visibility }
@@ -63,6 +79,9 @@ export default function NewGroupScreen() {
       setError(result.error)
       return
     }
+    if (photo) {
+      await runAction('uploadGroupAvatar', result.groupId, { base64: photo.base64, mimeType: photo.mimeType })
+    }
     // replace: voltar da página do grupo cai na lista, não neste formulário
     router.replace({ pathname: '/groups/[id]', params: { id: result.groupId } })
   }
@@ -75,6 +94,17 @@ export default function NewGroupScreen() {
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={[styles.content, { paddingTop: 20 + headerInset }]}>
+          <Pressable
+            testID="group-photo-picker"
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar foto do grupo"
+            onPress={pickPhoto}
+            style={styles.photo}>
+            <GroupAvatar group={{ name: name || '?', avatar_url: photo?.preview ?? null }} size={72} />
+            <View style={styles.photoBadge}>
+              <Camera size={14} color={colors.primaryForeground} />
+            </View>
+          </Pressable>
           <Field
             testID="group-name-input"
             label="Nome do grupo"
@@ -179,6 +209,20 @@ function VisibilityOption(props: {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: 16, gap: 18, paddingBottom: 24 },
+  photo: { alignSelf: 'center', width: 72, height: 72, marginBottom: 4 },
+  photoBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
   multiline: { height: 110, paddingTop: 14, textAlignVertical: 'top', borderRadius: radius.card },
   block: { gap: 10 },
   label: { fontFamily: fonts.bodyBold, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color: colors.text40 },
