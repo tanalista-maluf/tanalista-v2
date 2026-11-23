@@ -124,6 +124,10 @@ export default function MemberReputationScreen() {
       setMessage('Informe o valor.')
       return
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) {
+      setMessage('Data inválida. Use o formato AAAA-MM-DD.')
+      return
+    }
     if (await act(fieldId, 'addMemberFieldEntry', [groupId, fieldId, memberId, draft.value, draft.date])) {
       setFieldDrafts((prev) => ({ ...prev, [fieldId]: { value: '', date: todayInput() } }))
       await load()
@@ -282,13 +286,22 @@ export default function MemberReputationScreen() {
                   </View>
                 ))}
                 {f.active && (
-                  <View style={styles.rowGap}>
-                    <Field
-                      label={`Valor${f.unit ? ` (${f.unit})` : ''}`}
-                      value={draft.value}
-                      onChangeText={(v) => setFieldDrafts((prev) => ({ ...prev, [f.field_id]: { ...draft, value: v } }))}
-                      style={styles.flexInput}
-                    />
+                  <View style={styles.fieldEntryForm}>
+                    <View style={styles.rowGap}>
+                      <Field
+                        label={`Valor${f.unit ? ` (${f.unit})` : ''}`}
+                        value={draft.value}
+                        onChangeText={(v) => setFieldDrafts((prev) => ({ ...prev, [f.field_id]: { ...draft, value: v } }))}
+                        style={styles.flexInput}
+                      />
+                      <Field
+                        label="Data"
+                        placeholder="AAAA-MM-DD"
+                        value={draft.date}
+                        onChangeText={(v) => setFieldDrafts((prev) => ({ ...prev, [f.field_id]: { ...draft, date: v } }))}
+                        style={styles.dateInput}
+                      />
+                    </View>
                     <TextButton label={busy === f.field_id ? '...' : 'Adicionar'} onPress={() => addFieldEntry(f.field_id)} disabled={busy === f.field_id} />
                   </View>
                 )}
@@ -335,6 +348,8 @@ const styles = StyleSheet.create({
   memberDetail: { fontFamily: fonts.body, fontSize: 11, color: colors.text40 },
   rowGap: { flexDirection: 'row', gap: 8, alignItems: 'flex-end' },
   flexInput: { flex: 1 },
+  dateInput: { width: 110 },
+  fieldEntryForm: { gap: 8 },
   segmented: { flexDirection: 'row', gap: 8 },
   segment: {
     flex: 1,
