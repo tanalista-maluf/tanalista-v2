@@ -2,10 +2,19 @@ import { Stack } from 'expo-router'
 import { ChevronDown, ChevronUp, Mail } from 'lucide-react-native'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { WebView } from 'react-native-webview'
 import { Button, Card, Screen } from '@/components/ui'
 import { apiUrl } from '@/lib/api'
 import { useHeaderInset } from '@/lib/header'
 import { colors, fonts, radius } from '@/lib/theme'
+
+// Mesmo vídeo do site (tanalista.app/como-funciona)
+const DEMO_HTML = `
+  <html><body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100%;">
+    <video src="${apiUrl}/videos/tanalista-demo.mp4" controls playsinline webkit-playsinline
+      style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
+  </body></html>
+`
 
 // Mesmos tipos de src/features/ajuda/como-funciona.ts, de onde vem o conteúdo
 type Block =
@@ -57,6 +66,10 @@ export default function HowItWorksScreen() {
       <Stack.Screen options={{ title: 'Como funciona' }} />
       {content ? (
         <ScrollView contentContainerStyle={[styles.content, { paddingTop: headerInset + 12 }]}>
+          <View style={styles.video}>
+            <WebView source={{ html: DEMO_HTML }} allowsInlineMediaPlayback style={styles.videoPlayer} />
+          </View>
+
           <Text style={styles.intro}>
             Tudo sobre o TáNaLista, do cadastro ao check-in. Toque num tema para ver os detalhes.
           </Text>
@@ -160,6 +173,19 @@ function BlockView({ block }: { block: Block }) {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 10, paddingBottom: 40 },
+  video: {
+    alignSelf: 'center',
+    width: '70%',
+    aspectRatio: 9 / 16,
+    maxWidth: 260,
+    borderRadius: radius.card,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#000',
+    marginBottom: 8,
+  },
+  videoPlayer: { flex: 1, backgroundColor: '#000' },
   intro: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.text50, marginBottom: 4 },
   card: { padding: 0 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
