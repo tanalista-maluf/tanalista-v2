@@ -204,5 +204,10 @@ export async function createCardPayment(
     }).catch((e) => console.error('[EMAIL] sendParticipationConfirmed:', e))
   }
 
+  if (confirmed) {
+    const { notifyOrganizerNewParticipant } = await import('@/features/eventos/actions')
+    await notifyOrganizerNewParticipant(event.id, user.id)
+  }
+
   return { status: 'approved' }
 }

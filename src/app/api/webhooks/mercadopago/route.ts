@@ -193,6 +193,11 @@ async function handlePaymentEvent(mpPaymentId: string | undefined, admin: Return
           price: ev.price,
         }).catch((e) => console.error('[EMAIL] sendParticipationConfirmed:', e))
       }
+
+      if (ev) {
+        const { notifyOrganizerNewParticipant } = await import('@/features/eventos/actions')
+        await notifyOrganizerNewParticipant(ev.id, updatedParticipation.user_id)
+      }
     }
   }
 

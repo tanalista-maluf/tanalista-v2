@@ -24,6 +24,7 @@ const TYPE_ICON: Record<string, typeof Bell> = {
   EVENT_CANCELLED:        AlertCircle,
   WAITLIST_CONFIRMED:     Users,
   PAYMENT_RECEIVED:       Wallet,
+  NEW_PARTICIPANT:        Users,
 }
 
 export function NotificationItem({ notification }: { notification: Notification }) {

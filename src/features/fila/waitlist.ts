@@ -180,6 +180,8 @@ export async function confirmWaitlistSpot(
   if (isExempt || event.price === 0) {
     await saveParticipation('CONFIRMED')
     await admin.from('waitlist_entries').update({ status: 'CONFIRMED' }).eq('id', entry.id)
+    const { notifyOrganizerNewParticipant } = await import('@/features/eventos/actions')
+    await notifyOrganizerNewParticipant(eventId, userId)
     revalidatePath(`/eventos/${eventId}`)
     return { status: 'CONFIRMED' }
   }
@@ -223,6 +225,8 @@ export async function confirmWaitlistSpot(
       })
     }
 
+    const { notifyOrganizerNewParticipant } = await import('@/features/eventos/actions')
+    await notifyOrganizerNewParticipant(eventId, userId)
     revalidatePath(`/eventos/${eventId}`)
     return { status: 'CONFIRMED' }
   }
