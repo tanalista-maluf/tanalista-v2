@@ -95,7 +95,7 @@ export default async function PublicProfilePage({
     // Últimas 5 participações confirmadas (como participante, não organizador)
     admin
       .from('participations')
-      .select('event_id, created_at, events(id, title, slug, starts_at, status, category, capacity, price, confirmed_count, cover_url, visibility, groups(name))')
+      .select('event_id, created_at, events(id, title, slug, starts_at, status, category, capacity, price, confirmed_count, cover_url, visibility, organizer_id, groups(name))')
       .eq('user_id', profile.id)
       .eq('status', 'CONFIRMED')
       .order('created_at', { ascending: false })

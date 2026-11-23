@@ -97,6 +97,8 @@ export default function Onboarding() {
 
   function toggleInterest(label: string) {
     setInterests((current) => (current.includes(label) ? current.filter((c) => c !== label) : [...current, label]))
+    // Interesses mudaram: a etapa 3 precisa buscar os grupos sugeridos de novo
+    setGroups(null)
   }
 
   function handleJoin(groupId: string) {

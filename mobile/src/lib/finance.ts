@@ -16,6 +16,7 @@ export type EventFinancial = {
 }
 
 export const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Rascunho',
   OPEN: 'Aberto',
   CONFIRMED: 'Confirmado',
   PENDING: 'Pendente',
