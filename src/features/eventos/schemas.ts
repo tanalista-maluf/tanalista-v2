@@ -45,6 +45,9 @@ export const eventSchema = z.object({
   // Preenchido só quando o formulário veio de "Duplicar": createEventAction
   // copia a capa do evento de origem pro novo (ver src/app/(app)/eventos/novo)
   duplicate_from: z.string().uuid().optional(),
+  // Foto de capa escolhida já na criação (como o app já fazia); createEventAction
+  // faz o upload antes de redirecionar, em vez de exigir uma segunda visita à página
+  cover: z.object({ base64: z.string(), mimeType: z.string() }).optional(),
   // Edição de rascunho pelo app: refaz times e série recorrente
   draft_series: z.boolean().optional(),
   // Edição de rascunho: salva e publica de uma vez

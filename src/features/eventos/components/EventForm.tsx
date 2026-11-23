@@ -2,7 +2,7 @@
 
 import { useForm, Controller, useWatch, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { eventSchema, type EventSchema } from '../schemas'
 import { createEventAction, updateEventAction } from '../actions'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Repeat2, Users, Globe, UserCheck } from 'lucide-react'
+import { Loader2, Repeat2, Users, Globe, UserCheck, ImagePlus, Camera } from 'lucide-react'
+import Image from 'next/image'
 
 const CATEGORIES = [
   'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
@@ -32,6 +33,23 @@ interface EventFormProps {
 
 export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, onSuccess }: EventFormProps) {
   const [serverError, setServerError] = useState<string | null>(null)
+  const [cover, setCover] = useState<{ base64: string; mimeType: string; preview: string } | null>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
+  function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 1 * 1024 * 1024) {
+      setServerError('Imagem deve ter no máximo 1 MB.')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string
+      setCover({ base64: result.split(',')[1], mimeType: file.type, preview: result })
+    }
+    reader.readAsDataURL(file)
+  }
 
   const {
     register,
@@ -89,7 +107,7 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
       ? isDraft
         ? { ...data, draft_series: true, publish_draft: !asDraft }
         : data
-      : { ...data, as_draft: asDraft }
+      : { ...data, as_draft: asDraft, cover: cover ? { base64: cover.base64, mimeType: cover.mimeType } : undefined }
     const result = eventId ? await updateEventAction(eventId, payload) : await createEventAction(payload)
 
     if (result?.error) {
@@ -110,6 +128,36 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
       )}
 
       {groupId && <input type="hidden" {...register('group_id')} />}
+
+      {!eventId && (
+        <section className="space-y-1.5">
+          <Label>Foto de capa</Label>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleCoverChange}
+          />
+          <div
+            onClick={() => coverInputRef.current?.click()}
+            className="relative aspect-[16/9] rounded-xl overflow-hidden bg-white/5 border border-white/10 cursor-pointer group flex items-center justify-center"
+          >
+            {cover ? (
+              <Image src={cover.preview} alt="Capa do evento" fill unoptimized className="object-cover" />
+            ) : (
+              <div className="flex flex-col items-center gap-1 text-white/30 group-hover:text-white/50 transition-colors">
+                <ImagePlus className="size-6" />
+                <span className="text-xs">Adicionar foto de capa</span>
+              </div>
+            )}
+            <div className="absolute bottom-2 right-2 size-7 rounded-full bg-primary flex items-center justify-center">
+              <Camera className="size-3.5 text-background" />
+            </div>
+          </div>
+          <p className="text-xs text-white/30">Opcional. Aparece no topo do evento.</p>
+        </section>
+      )}
 
       {/* Informações básicas */}
       <section className="space-y-4">

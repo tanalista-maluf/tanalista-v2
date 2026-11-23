@@ -236,6 +236,26 @@ async function duplicateEventCover(sourceEventId: string, newEventId: string, us
   await admin.from('events').update({ cover_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', newEventId)
 }
 
+// Capa escolhida já no formulário de criação (como o app já fazia): mesmo
+// bucket/pasta do upload normal (ver uploadEventCoverAction), sem exigir uma
+// segunda visita à página do evento. Falha aqui não impede a criação do evento.
+async function uploadEventCoverFile(eventId: string, base64: string, mimeType: string) {
+  const buffer = Buffer.from(base64, 'base64')
+  if (buffer.length === 0 || buffer.length > 1 * 1024 * 1024) return
+
+  const ext = (mimeType.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg')
+  const path = `event-covers/${eventId}/cover.${ext}`
+
+  const admin = createAdminClient()
+  const { error: upError } = await admin.storage
+    .from('avatars')
+    .upload(path, buffer, { upsert: true, contentType: mimeType })
+  if (upError) return
+
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(path)
+  await admin.from('events').update({ cover_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', eventId)
+}
+
 export async function createEventAction(input: EventSchema) {
   const data = withUtcDates(input)
   const supabase = await createClient()
@@ -293,8 +313,11 @@ export async function createEventAction(input: EventSchema) {
 
   await replaceEventTeams(event.id, data)
 
-  // Duplicar: copia o arquivo da capa do evento de origem pro novo
-  if (data.duplicate_from) {
+  // Foto de capa escolhida já no formulário de criação
+  if (data.cover) {
+    await uploadEventCoverFile(event.id, data.cover.base64, data.cover.mimeType)
+  } else if (data.duplicate_from) {
+    // Duplicar: copia o arquivo da capa do evento de origem pro novo
     await duplicateEventCover(data.duplicate_from, event.id, user.id)
   }
 
