@@ -65,6 +65,12 @@ function RootNavigator() {
       </Stack.Protected>
 
       <Stack.Screen name="auth/callback" />
+
+      {/* Links públicos (tanalista.app/e/…, /g/…, /grupos/entrar/…): abrem com
+          ou sem sessão, iguais às páginas públicas do site */}
+      <Stack.Screen name="e/[slug]" />
+      <Stack.Screen name="g/[slug]" />
+      <Stack.Screen name="grupos/entrar/[token]" />
     </Stack>
   )
 }

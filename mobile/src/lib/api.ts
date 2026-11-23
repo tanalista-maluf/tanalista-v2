@@ -35,6 +35,55 @@ export function apiGet<T>(path: string) {
   return apiRequest<T>('GET', path)
 }
 
+// Pros links públicos (/e/[slug], /g/[slug]) que abrem sem sessão — ver
+// src/app/api/v1/public no site
+async function apiGetPublic<T>(path: string): Promise<T | { error: string }> {
+  try {
+    const response = await fetch(`${apiUrl}${path}`)
+    return await response.json()
+  } catch {
+    return { error: 'Não foi possível falar com o servidor. Verifique sua conexão.' }
+  }
+}
+
+export type PublicEventPreview = {
+  id: string
+  slug: string
+  title: string
+  description: string | null
+  address: string
+  city: string
+  price: number
+  capacity: number
+  starts_at: string
+  registration_deadline: string | null
+  cover_url: string | null
+  confirmed_count: number
+  groups: { id: string; name: string } | null
+  organizer: { full_name: string; username: string } | null
+}
+
+export function fetchPublicEvent(slug: string) {
+  return apiGetPublic<PublicEventPreview | { error: string }>(`/api/v1/public/events/${encodeURIComponent(slug)}`)
+}
+
+export type PublicGroupPreview = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  city: string | null
+  category: string | null
+  avatar_url: string | null
+  visibility: 'PUBLIC' | 'PRIVATE'
+  member_count: number
+  upcoming_events: { id: string; slug: string; title: string; starts_at: string; price: number; cover_url: string | null }[]
+}
+
+export function fetchPublicGroup(slug: string) {
+  return apiGetPublic<PublicGroupPreview | { error: string }>(`/api/v1/public/groups/${encodeURIComponent(slug)}`)
+}
+
 export type JoinEventResponse =
   | { error: string; code?: 'FULL' | 'INSUFFICIENT_BALANCE' | 'PAYMENT_OPEN' }
   | { status: 'CONFIRMED' }

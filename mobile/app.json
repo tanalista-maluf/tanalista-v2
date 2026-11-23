@@ -10,6 +10,9 @@
     "ios": {
       "bundleIdentifier": "app.tanalista",
       "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:www.tanalista.app"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,6 +28,18 @@
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "www.tanalista.app", "pathPrefix": "/e" },
+            { "scheme": "https", "host": "www.tanalista.app", "pathPrefix": "/g" },
+            { "scheme": "https", "host": "www.tanalista.app", "pathPrefix": "/grupos/entrar" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {
