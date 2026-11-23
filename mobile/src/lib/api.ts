@@ -395,6 +395,13 @@ export function createDeposit(amountCents: number) {
   return apiPost<PixPayment | { error: string }>('/api/v1/me/wallet/deposit', { amount_cents: amountCents })
 }
 
+// PIX de recarga pendente dos últimos 30 min, pra retomar em vez de gerar um novo
+export function fetchPendingDeposit() {
+  return apiGet<{ pending: (PixPayment & { amount: number }) | null } | { error: string }>(
+    '/api/v1/me/wallet/deposit/pending'
+  )
+}
+
 // Recarga com cartão: o crédito é o valor menos a taxa (3% à vista, 5% parcelado)
 export function createCardDeposit(amountCents: number, card: CardToken) {
   return apiPost<{ status: 'approved' | 'in_process'; credited: number } | { error: string }>(

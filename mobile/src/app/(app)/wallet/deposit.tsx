@@ -4,7 +4,7 @@ import { CheckCheck, Copy, CreditCard, QrCode, TriangleAlert } from 'lucide-reac
 import { useEffect, useState } from 'react'
 import { Image, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Button, Card, Field, Screen } from '@/components/ui'
-import { createDeposit, fetchWalletBalance, type PixPayment } from '@/lib/api'
+import { createDeposit, fetchPendingDeposit, fetchWalletBalance, type PixPayment } from '@/lib/api'
 import { formatMoney } from '@/lib/format'
 import { useHeaderInset } from '@/lib/header'
 import { cardDepositCredit, parseMoney } from '@/lib/money'
@@ -28,6 +28,19 @@ export default function DepositScreen() {
   const [pix, setPix] = useState<{ payment: PixPayment; amount: number; startBalance: number } | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  // Retoma um PIX de recarga ainda não pago, em vez de gerar um novo
+  useEffect(() => {
+    fetchPendingDeposit().then(async (result) => {
+      if (!('pending' in result) || !result.pending) return
+      const balance = await fetchWalletBalance()
+      setPix({
+        payment: result.pending,
+        amount: result.pending.amount,
+        startBalance: 'balance' in balance ? balance.balance : 0,
+      })
+    })
+  }, [])
 
   async function handleCreate() {
     const amount = parseMoney(amountText)
@@ -97,7 +110,21 @@ export default function DepositScreen() {
                 <Text testID="deposit-amount-value" style={styles.amount}>
                   {formatMoney(pix.amount)}
                 </Text>
+                {pix.payment.expires_at && (
+                  <Text style={styles.expiresText}>
+                    Expira às {new Date(pix.payment.expires_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                )}
               </View>
+              {pix.payment.qr_code_base64 ? (
+                <View style={styles.qr}>
+                  <Image
+                    source={{ uri: `data:image/png;base64,${pix.payment.qr_code_base64}` }}
+                    style={styles.qrImage}
+                    accessibilityLabel="QR Code PIX"
+                  />
+                </View>
+              ) : null}
               <Card style={styles.codeCard}>
                 <Text style={styles.label}>PIX Copia e Cola</Text>
                 <Text testID="pix-code" style={styles.code} numberOfLines={3} selectable>
@@ -116,19 +143,12 @@ export default function DepositScreen() {
                   onPress={copyCode}
                 />
               </Card>
-              <Text style={styles.hint}>
-                Pague no app do seu banco em até 30 minutos. O saldo aparece aqui sozinho quando o pagamento for
-                confirmado.
-              </Text>
-              {pix.payment.qr_code_base64 ? (
-                <View style={styles.qr}>
-                  <Image
-                    source={{ uri: `data:image/png;base64,${pix.payment.qr_code_base64}` }}
-                    style={styles.qrImage}
-                    accessibilityLabel="QR Code PIX"
-                  />
-                </View>
-              ) : null}
+              <View style={styles.steps}>
+                <Text style={styles.step}>1. Abra o app do seu banco</Text>
+                <Text style={styles.step}>2. Acesse a área PIX → Ler QR Code</Text>
+                <Text style={styles.step}>3. Confirme o pagamento</Text>
+                <Text style={styles.step}>4. O saldo será creditado automaticamente</Text>
+              </View>
             </>
           ) : (
             <>
@@ -296,6 +316,9 @@ const styles = StyleSheet.create({
   chipText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.text70 },
   summary: { alignItems: 'center', gap: 6 },
   amount: { fontFamily: fonts.headingBlack, fontSize: 32, color: colors.primary },
+  expiresText: { fontFamily: fonts.body, fontSize: 12, color: colors.text35, marginTop: -2 },
+  steps: { gap: 6 },
+  step: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.text50 },
   codeCard: { padding: 16, gap: 12 },
   code: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: colors.text70 },
   qr: { alignSelf: 'center', padding: 12, borderRadius: 14, backgroundColor: '#FFFFFF' },
