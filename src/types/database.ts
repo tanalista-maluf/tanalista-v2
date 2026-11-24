@@ -544,6 +544,9 @@ export type Database = {
           organizer_id: string
           parent_event_id: string | null
           payout_claimed_at: string | null
+          post_signup_message: string | null
+          post_signup_message_enabled: boolean
+          post_signup_message_image_url: string | null
           price: number
           rating_average: number | null
           rating_count: number | null
@@ -583,6 +586,9 @@ export type Database = {
           organizer_id: string
           parent_event_id?: string | null
           payout_claimed_at?: string | null
+          post_signup_message?: string | null
+          post_signup_message_enabled?: boolean
+          post_signup_message_image_url?: string | null
           price: number
           rating_average?: number | null
           rating_count?: number | null
@@ -622,6 +628,9 @@ export type Database = {
           organizer_id?: string
           parent_event_id?: string | null
           payout_claimed_at?: string | null
+          post_signup_message?: string | null
+          post_signup_message_enabled?: boolean
+          post_signup_message_image_url?: string | null
           price?: number
           rating_average?: number | null
           rating_count?: number | null

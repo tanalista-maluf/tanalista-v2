@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Loader2, Repeat2, Users, Globe, UserCheck, ImagePlus, Camera } from 'lucide-react'
 import Image from 'next/image'
+import { PostSignupMessageImageUpload } from './PostSignupMessageImageUpload'
 
 const CATEGORIES = [
   'Futebol', 'Basquete', 'Vôlei', 'Airsoft & Paintball', 'Corrida & Trilha',
@@ -32,10 +33,15 @@ interface EventFormProps {
   // nova inscrição (o dono/gestor do grupo pode editar o evento sem ser
   // quem recebe esse aviso). Na criação é sempre o próprio organizador.
   isOrganizer?: boolean
+  // Imagem atual do popup pós-inscrição: o upload é imediato (fora do submit
+  // do form, como a capa), então vem de fora como prop
+  postSignupMessageImageUrl?: string | null
   onSuccess?: () => void
 }
 
-export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, isOrganizer = true, onSuccess }: EventFormProps) {
+export function EventForm({
+  eventId, groupId, defaultValues, isLocked, isDraft, isOrganizer = true, postSignupMessageImageUrl, onSuccess,
+}: EventFormProps) {
   const [serverError, setServerError] = useState<string | null>(null)
   const [cover, setCover] = useState<{ base64: string; mimeType: string; preview: string } | null>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -69,6 +75,8 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
       organizer_exempt: true,
       notify_group_on_create: true,
       notify_organizer_on_signup: true,
+      post_signup_message_enabled: false,
+      post_signup_message: '',
       recurrence: 'none',
       recurrence_count: 4,
       ...defaultValues,
@@ -80,6 +88,8 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
   const category = useWatch({ control, name: 'category' })
   const useTeams = useWatch({ control, name: 'use_teams' })
   const priceRaw = useWatch({ control, name: 'price' })
+  const postSignupMessageEnabled = useWatch({ control, name: 'post_signup_message_enabled' })
+  const postSignupMessageValue = useWatch({ control, name: 'post_signup_message' })
   // Times e repetição: ao criar e num rascunho
   const canShape = !eventId || !!isDraft
 
@@ -405,6 +415,51 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
               </div>
             )}
           />
+        )}
+
+        {/* Só depois que o evento existe: o organizador ativa quando quiser */}
+        {eventId && (
+          <div className="space-y-2 rounded-xl border border-white/10 p-3">
+            <Controller
+              name="post_signup_message_enabled"
+              control={control}
+              render={({ field }) => (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="post_signup_message_enabled"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                  <Label htmlFor="post_signup_message_enabled" className="font-normal cursor-pointer">
+                    Mostrar mensagem após a inscrição
+                  </Label>
+                </div>
+              )}
+            />
+            <p className="text-xs text-white/40">
+              Aparece pra quem acabou de confirmar inscrição: regras, como chegar, avisos etc.
+            </p>
+            {postSignupMessageEnabled && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="post_signup_message">Mensagem</Label>
+                  <span className={`text-xs tabular-nums ${(postSignupMessageValue?.length ?? 0) >= 500 ? 'text-destructive' : 'text-white/30'}`}>
+                    {postSignupMessageValue?.length ?? 0}/500
+                  </span>
+                </div>
+                <Textarea
+                  id="post_signup_message"
+                  placeholder="Ex: Chegue 15 min antes. Estacionamento na rua ao lado."
+                  maxLength={500}
+                  aria-invalid={!!errors.post_signup_message}
+                  {...register('post_signup_message')}
+                />
+                {errors.post_signup_message && <p className="text-xs text-destructive">{errors.post_signup_message.message}</p>}
+                <Label className="text-white/60">Ou personalize com uma imagem</Label>
+                <PostSignupMessageImageUpload eventId={eventId!} currentImageUrl={postSignupMessageImageUrl ?? null} />
+              </div>
+            )}
+          </div>
         )}
 
         <Controller

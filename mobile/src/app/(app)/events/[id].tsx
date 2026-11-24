@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from 'lucide-react-native'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ import {
   View,
 } from 'react-native'
 import { CancelEventDialog } from '@/components/cancel-event-dialog'
+import { PostSignupMessageDialog } from '@/components/post-signup-message-dialog'
 import { headerActions } from '@/components/header-actions'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -89,6 +90,9 @@ type EventDetail = {
   cover_url: string | null
   min_participants: number
   custom_rules: string | null
+  post_signup_message_enabled: boolean
+  post_signup_message: string | null
+  post_signup_message_image_url: string | null
   groups: { name: string } | null
   profiles: { full_name: string } | null
 }
@@ -109,7 +113,7 @@ async function fetchEvent(eventId: string, userId: string) {
     supabase
       .from('events')
       .select(
-        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, group_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, groups(name), profiles!events_organizer_id_fkey(full_name)'
+        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, group_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, post_signup_message_enabled, post_signup_message, post_signup_message_image_url, groups(name), profiles!events_organizer_id_fkey(full_name)'
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -182,8 +186,26 @@ export default function EventScreen() {
   const [isGroupOwner, setIsGroupOwner] = useState(false)
   const [canCheckIn, setCanCheckIn] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [postSignupMsgOpen, setPostSignupMsgOpen] = useState(false)
+  // Detecta a TRANSIÇÃO pra CONFIRMED (join gratuito ou volta da tela de
+  // pagamento), pra não reabrir o popup toda vez que a tela recarrega
+  const wasConfirmedRef = useRef(false)
+  const hasLoadedOnceRef = useRef(false)
 
   const apply = useCallback((result: Awaited<ReturnType<typeof fetchEvent>>) => {
+    const isConfirmed = result.participation?.status === 'CONFIRMED'
+    if (
+      hasLoadedOnceRef.current &&
+      isConfirmed &&
+      !wasConfirmedRef.current &&
+      result.event?.post_signup_message_enabled &&
+      (result.event.post_signup_message || result.event.post_signup_message_image_url)
+    ) {
+      setPostSignupMsgOpen(true)
+    }
+    wasConfirmedRef.current = isConfirmed
+    hasLoadedOnceRef.current = true
+
     setEvent(result.event)
     setIsGroupOwner(result.isGroupOwner)
     setCanCheckIn(result.canCheckIn)
@@ -844,6 +866,14 @@ export default function EventScreen() {
           refundLabel={null}
           onClose={() => setCancelOpen(false)}
           onConfirm={cancelAsOwner}
+        />
+      )}
+      {(event.post_signup_message || event.post_signup_message_image_url) && (
+        <PostSignupMessageDialog
+          visible={postSignupMsgOpen}
+          message={event.post_signup_message}
+          imageUrl={event.post_signup_message_image_url}
+          onClose={() => setPostSignupMsgOpen(false)}
         />
       )}
     </Screen>

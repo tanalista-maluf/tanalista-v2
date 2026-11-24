@@ -140,6 +140,10 @@ async function createRecurringChildren(
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
       cancel_before_hours: data.cancel_before_hours ?? null,
+      notify_group_on_create: data.notify_group_on_create ?? true,
+      notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
+      post_signup_message_enabled: data.post_signup_message_enabled ?? false,
+      post_signup_message: data.post_signup_message || null,
       status,
       parent_event_id: parentId,
       recurrence_rule: rrule,
@@ -283,6 +287,33 @@ async function duplicateEventCover(sourceEventId: string, newEventId: string, us
   await admin.from('events').update({ cover_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', newEventId)
 }
 
+// Mesma lógica de duplicateEventCover, pra imagem do popup pós-inscrição:
+// duplicar um evento que já tem uma copia a configuração inteira, imagem incluída
+async function duplicatePostSignupMessageImage(sourceEventId: string, newEventId: string, userId: string) {
+  const admin = createAdminClient()
+
+  const { data: source } = await admin
+    .from('events')
+    .select('organizer_id, post_signup_message_image_url')
+    .eq('id', sourceEventId)
+    .maybeSingle()
+
+  if (!source || source.organizer_id !== userId || !source.post_signup_message_image_url) return
+
+  const marker = '/avatars/'
+  const idx = source.post_signup_message_image_url.indexOf(marker)
+  if (idx === -1) return
+  const sourcePath = source.post_signup_message_image_url.slice(idx + marker.length).split('?')[0]
+  const ext = sourcePath.includes('.') ? sourcePath.split('.').pop() : 'jpg'
+  const destPath = `post-signup-messages/${newEventId}/image.${ext}`
+
+  const { error: copyError } = await admin.storage.from('avatars').copy(sourcePath, destPath)
+  if (copyError) return
+
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(destPath)
+  await admin.from('events').update({ post_signup_message_image_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', newEventId)
+}
+
 // Capa escolhida já no formulário de criação (como o app já fazia): mesmo
 // bucket/pasta do upload normal (ver uploadEventCoverAction), sem exigir uma
 // segunda visita à página do evento. Falha aqui não impede a criação do evento.
@@ -358,6 +389,8 @@ export async function createEventAction(input: EventSchema) {
       cancel_before_hours: data.cancel_before_hours ?? null,
       notify_group_on_create: data.notify_group_on_create ?? true,
       notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
+      post_signup_message_enabled: data.post_signup_message_enabled ?? false,
+      post_signup_message: data.post_signup_message || null,
       status: data.as_draft ? 'DRAFT' : 'OPEN',
     })
     .select('id, slug')
@@ -373,6 +406,9 @@ export async function createEventAction(input: EventSchema) {
   } else if (data.duplicate_from) {
     // Duplicar: copia o arquivo da capa do evento de origem pro novo
     await duplicateEventCover(data.duplicate_from, event.id, user.id)
+  }
+  if (data.duplicate_from) {
+    await duplicatePostSignupMessageImage(data.duplicate_from, event.id, user.id)
   }
 
   // Eventos seguintes da série recorrente, no mesmo estado do principal
@@ -450,7 +486,18 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
 
     const { error } = await supabase
       .from('events')
-      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', cancel_before_hours: data.cancel_before_hours ?? null, notify_group_on_create: data.notify_group_on_create ?? true, notify_organizer_on_signup: data.notify_organizer_on_signup ?? true, slug: newSlug, price: newPrice })
+      .update({
+        description: data.description || null,
+        address: data.address,
+        visibility: data.visibility ?? 'PUBLIC',
+        cancel_before_hours: data.cancel_before_hours ?? null,
+        notify_group_on_create: data.notify_group_on_create ?? true,
+        notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
+        post_signup_message_enabled: data.post_signup_message_enabled ?? false,
+        post_signup_message: data.post_signup_message || null,
+        slug: newSlug,
+        price: newPrice,
+      })
       .eq('id', eventId)
     if (error) return { error: 'Erro ao atualizar evento.' }
 
@@ -531,6 +578,8 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
       cancel_before_hours: data.cancel_before_hours ?? null,
       notify_group_on_create: data.notify_group_on_create ?? true,
       notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
+      post_signup_message_enabled: data.post_signup_message_enabled ?? false,
+      post_signup_message: data.post_signup_message || null,
     })
     .eq('id', eventId)
 
@@ -969,6 +1018,73 @@ export async function uploadEventCoverAction(formData: FormData) {
 
   revalidatePath(`/eventos/${event.slug ?? eventId}`)
   return { success: true, coverUrl }
+}
+
+// Imagem do popup pós-inscrição: alternativa (ou complemento) ao texto, pra
+// quem quiser personalizar além de texto corrido — mesmo bucket da capa
+export async function uploadPostSignupMessageImageAction(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const eventId = formData.get('eventId') as string
+  const file = formData.get('image') as File | null
+
+  if (!file || file.size === 0) return { error: 'Nenhum arquivo enviado.' }
+  if (file.size > 1 * 1024 * 1024) return { error: 'Imagem deve ter no máximo 1 MB.' }
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('organizer_id, group_id, slug')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || !(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
+
+  const ext = file.name.includes('.')
+    ? file.name.split('.').pop()!.toLowerCase()
+    : (file.type.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg')
+  const path = `post-signup-messages/${eventId}/image.${ext}`
+
+  const admin = createAdminClient()
+  const { error: upError } = await admin.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type })
+
+  if (upError) return { error: 'Erro ao fazer upload.' }
+
+  const { data: urlData } = admin.storage.from('avatars').getPublicUrl(path)
+  const imageUrl = `${urlData.publicUrl}?t=${Date.now()}`
+
+  const { error: dbError } = await admin
+    .from('events')
+    .update({ post_signup_message_image_url: imageUrl })
+    .eq('id', eventId)
+
+  if (dbError) return { error: 'Erro ao salvar a imagem.' }
+
+  revalidatePath(`/eventos/${event.slug ?? eventId}`)
+  return { success: true, imageUrl }
+}
+
+export async function removePostSignupMessageImageAction(eventId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado.' }
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('organizer_id, group_id, slug')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || !(await canEditEvent(supabase, event, user.id))) return { error: 'Sem permissão.' }
+
+  const admin = createAdminClient()
+  await admin.from('events').update({ post_signup_message_image_url: null }).eq('id', eventId)
+
+  revalidatePath(`/eventos/${event.slug ?? eventId}`)
+  return { success: true }
 }
 
 // ── Aviso do organizador para os participantes confirmados ──────────────────

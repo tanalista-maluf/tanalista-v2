@@ -70,6 +70,7 @@ export default async function EditarEventoPage({
         isLocked={isLocked}
         isDraft={isDraft}
         isOrganizer={event.is_organizer}
+        postSignupMessageImageUrl={event.post_signup_message_image_url}
         defaultValues={{
           title: event.title,
           description: event.description ?? '',
@@ -85,6 +86,8 @@ export default async function EditarEventoPage({
           organizer_exempt: event.organizer_exempt,
           notify_group_on_create: event.notify_group_on_create ?? true,
           notify_organizer_on_signup: event.notify_organizer_on_signup ?? true,
+          post_signup_message_enabled: event.post_signup_message_enabled ?? false,
+          post_signup_message: event.post_signup_message ?? '',
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
           group_id: event.group_id ?? undefined,

@@ -41,6 +41,7 @@ import { CancelParticipationButton } from '@/features/participacoes/components/C
 import { OrganizerChecklist } from '@/features/eventos/components/OrganizerChecklist'
 import { EventCoverUpload } from '@/features/eventos/components/EventCoverUpload'
 import { EventRulesEditor } from '@/features/eventos/components/EventRulesEditor'
+import { PostSignupMessageDialog } from '@/features/eventos/components/PostSignupMessageDialog'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isGroupOwner, canCheckInEvent } from '@/features/eventos/permissions'
 import { attachProfiles } from '@/features/perfil/attach-profiles'
@@ -253,6 +254,9 @@ export default async function EventDetailPage({
 
   return (
     <main className="flex-1 max-w-2xl mx-auto w-full">
+      {event.post_signup_message_enabled && (event.post_signup_message || event.post_signup_message_image_url) && (
+        <PostSignupMessageDialog message={event.post_signup_message} imageUrl={event.post_signup_message_image_url} />
+      )}
       {/* Cabeçalho — nav + categoria/status + título, sempre em fundo simples */}
       <div
         className="relative px-4 pt-4 pb-5"

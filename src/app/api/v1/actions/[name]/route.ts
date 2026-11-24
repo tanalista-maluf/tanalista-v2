@@ -17,6 +17,8 @@ import {
   updateEventAction,
   updateEventRulesAction,
   uploadEventCoverAction,
+  uploadPostSignupMessageImageAction,
+  removePostSignupMessageImageAction,
 } from '@/features/eventos/actions'
 import {
   completeOnboardingAction,
@@ -117,6 +119,9 @@ const HANDLERS: Record<string, Handler> = {
   cancelEvent: ([eventId, reason]) => cancelEventAction(text(eventId), optionalText(reason)),
   updateEventRules: ([eventId, rules]) => updateEventRulesAction(text(eventId), text(rules)),
   uploadEventCover: ([eventId, file]) => uploadEventCoverAction(formWithFile({ eventId: text(eventId) }, 'cover', file)),
+  uploadPostSignupMessageImage: ([eventId, file]) =>
+    uploadPostSignupMessageImageAction(formWithFile({ eventId: text(eventId) }, 'image', file)),
+  removePostSignupMessageImage: ([eventId]) => removePostSignupMessageImageAction(text(eventId)),
   regenerateEventInvite: ([eventId]) => regenerateEventInviteAction(text(eventId)),
   approveEventJoinRequest: ([requestId]) => approveEventJoinRequest(text(requestId)),
   rejectEventJoinRequest: ([requestId]) => rejectEventJoinRequest(text(requestId)),

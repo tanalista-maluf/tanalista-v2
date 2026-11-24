@@ -117,6 +117,10 @@ export default function EventFormScreen() {
   const [exempt, setExempt] = useState(true)
   const [notifyGroup, setNotifyGroup] = useState(true)
   const [notifySignup, setNotifySignup] = useState(true)
+  const [postMsgEnabled, setPostMsgEnabled] = useState(false)
+  const [postMsgText, setPostMsgText] = useState('')
+  const [postMsgImageUrl, setPostMsgImageUrl] = useState<string | null>(null)
+  const [postMsgImage, setPostMsgImage] = useState<Cover | null>(null)
   // Só quem criou o evento vê o toggle de aviso de nova inscrição — ao criar
   // ou duplicar, é sempre a própria pessoa; ao editar, confere o organizer_id
   const [isOrganizer, setIsOrganizer] = useState(true)
@@ -148,7 +152,7 @@ export default function EventFormScreen() {
     supabase
       .from('events')
       .select(
-        'organizer_id, title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, notify_group_on_create, notify_organizer_on_signup, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
+        'organizer_id, title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, notify_group_on_create, notify_organizer_on_signup, post_signup_message_enabled, post_signup_message, post_signup_message_image_url, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
       )
       .eq('id', params.eventId)
       .maybeSingle()
@@ -172,6 +176,11 @@ export default function EventFormScreen() {
               .sort((a, b) => a.position - b.position)
               .map((team) => ({ name: team.name, capacity: String(team.capacity) }))
           )
+          // Mensagem pós-inscrição: duplicar copia a configuração inteira,
+          // texto incluído, mesmo sem mostrar o campo fora do modo de edição
+          setPostMsgEnabled(data.post_signup_message_enabled)
+          setPostMsgText(data.post_signup_message ?? '')
+          setPostMsgImageUrl(data.post_signup_message_image_url)
           // Duplicar também mostra a capa de origem: se a pessoa não trocar,
           // o servidor copia o arquivo pro novo evento (ver duplicate_from)
           if (mode === 'duplicate') setCoverUrl(data.cover_url)
@@ -227,6 +236,30 @@ export default function EventFormScreen() {
     const result = await runAction('uploadEventCover', eventId, { base64: cover.base64, mimeType: cover.mimeType })
     if ('error' in result) {
       Alert.alert('Evento salvo, mas a capa não foi enviada', `${result.error} Tente de novo em Gerenciar evento > Capa.`)
+    }
+  }
+
+  async function pickPostMsgImage() {
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.4,
+      base64: true,
+    })
+    if (picked.canceled || !picked.assets[0].base64) return
+    const asset = picked.assets[0]
+    setPostMsgImage({ uri: asset.uri, base64: asset.base64!, mimeType: asset.mimeType ?? 'image/jpeg' })
+  }
+
+  async function uploadPostMsgImage(eventId: string | null) {
+    if (!postMsgImage || !eventId) return
+    const result = await runAction('uploadPostSignupMessageImage', eventId, {
+      base64: postMsgImage.base64,
+      mimeType: postMsgImage.mimeType,
+    })
+    if ('error' in result) {
+      Alert.alert('Evento salvo, mas a imagem do popup não foi enviada', `${result.error} Tente de novo na edição do evento.`)
     }
   }
 
@@ -288,6 +321,8 @@ export default function EventFormScreen() {
       organizer_exempt: exempt,
       notify_group_on_create: notifyGroup,
       notify_organizer_on_signup: notifySignup,
+      post_signup_message_enabled: postMsgEnabled,
+      post_signup_message: postMsgText.trim(),
       ...(groupId ? { group_id: groupId } : {}),
       recurrence: canShape ? recurrence : 'none',
       recurrence_count: recurrenceCount,
@@ -309,6 +344,7 @@ export default function EventFormScreen() {
 
     const eventId = mode === 'edit' ? params.eventId! : await eventIdFrom(result.redirect)
     await uploadCover(eventId)
+    await uploadPostMsgImage(eventId)
 
     // Rascunho editado e publicado de uma vez
     if (editingDraft && !asDraft) {
@@ -578,6 +614,55 @@ export default function EventFormScreen() {
                 value={notifySignup}
                 onChange={setNotifySignup}
               />
+            )}
+            {/* Só depois que o evento existe: ativa quando quiser, na edição */}
+            {mode === 'edit' && (
+              <>
+                <ToggleRow
+                  testID="form-notify-postsignup"
+                  title="Mostrar mensagem após a inscrição"
+                  detail="Aparece pra quem acabou de confirmar: regras, como chegar, avisos etc."
+                  value={postMsgEnabled}
+                  onChange={setPostMsgEnabled}
+                />
+                {postMsgEnabled && (
+                  <Field
+                    testID="form-postsignup-message"
+                    label={`Mensagem (${postMsgText.length}/500)`}
+                    placeholder="Ex: Chegue 15 min antes. Estacionamento na rua ao lado."
+                    value={postMsgText}
+                    onChangeText={setPostMsgText}
+                    maxLength={500}
+                    multiline
+                    style={styles.multiline}
+                  />
+                )}
+                {postMsgEnabled && (
+                  <>
+                    <Text style={styles.label}>Ou personalize com uma imagem</Text>
+                    <Pressable
+                      testID="form-postsignup-image"
+                      accessibilityRole="button"
+                      accessibilityLabel={postMsgImage || postMsgImageUrl ? 'Trocar imagem do popup' : 'Adicionar imagem do popup'}
+                      onPress={pickPostMsgImage}>
+                      {postMsgImage || postMsgImageUrl ? (
+                        <View>
+                          <Image source={postMsgImage?.uri ?? postMsgImageUrl} style={styles.cover} contentFit="cover" />
+                          <View style={styles.coverBadge}>
+                            <ImagePlus size={14} color="#FFFFFF" />
+                            <Text style={styles.coverBadgeText}>Trocar</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={[styles.cover, styles.coverEmpty]}>
+                          <ImagePlus size={22} color={colors.primary} />
+                          <Text style={styles.coverText}>Adicionar imagem (opcional)</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  </>
+                )}
+              </>
             )}
           </Section>
 

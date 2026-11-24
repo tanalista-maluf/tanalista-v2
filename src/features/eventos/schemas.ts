@@ -58,6 +58,11 @@ export const eventSchema = z.object({
   // vem do defaultValues do formulário, como organizer_exempt)
   notify_group_on_create: z.boolean(),
   notify_organizer_on_signup: z.boolean(),
+  // Popup mostrado ao participante assim que a inscrição é confirmada
+  // (regras, como chegar, etc). Desativado por padrão; só editável depois
+  // que o evento já existe (ver EventForm, seção só visível em edição)
+  post_signup_message_enabled: z.boolean().optional(),
+  post_signup_message: z.string().max(500, 'Máximo 500 caracteres').optional().or(z.literal('')),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
   const deadline = d.registration_deadline ? new Date(d.registration_deadline) : null
