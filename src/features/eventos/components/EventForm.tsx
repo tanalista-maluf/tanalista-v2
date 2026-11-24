@@ -63,6 +63,8 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
     defaultValues: {
       group_id: groupId,
       organizer_exempt: true,
+      notify_group_on_create: true,
+      notify_organizer_on_signup: true,
       recurrence: 'none',
       recurrence_count: 4,
       ...defaultValues,
@@ -358,6 +360,42 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
               />
               <Label htmlFor="organizer_exempt" className="font-normal cursor-pointer">
                 Organizador isento do pagamento de inscrição
+              </Label>
+            </div>
+          )}
+        />
+
+        {groupId && (
+          <Controller
+            name="notify_group_on_create"
+            control={control}
+            render={({ field }) => (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="notify_group_on_create"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+                <Label htmlFor="notify_group_on_create" className="font-normal cursor-pointer">
+                  Notificar o grupo quando este evento for publicado
+                </Label>
+              </div>
+            )}
+          />
+        )}
+
+        <Controller
+          name="notify_organizer_on_signup"
+          control={control}
+          render={({ field }) => (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="notify_organizer_on_signup"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+              <Label htmlFor="notify_organizer_on_signup" className="font-normal cursor-pointer">
+                Notificar a cada nova inscrição confirmada
               </Label>
             </div>
           )}

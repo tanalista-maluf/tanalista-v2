@@ -5,6 +5,7 @@ import { calculateFees } from '@/lib/mercadopago'
 import { releaseCouponUse, releaseStaleCouponUses } from '@/lib/refunds'
 import type { Database } from '@/types/database'
 import { checkTeamForJoin } from '@/features/eventos/teams'
+import { notifyOrganizerNewParticipant } from '@/features/eventos/actions'
 import { getOpenPayment, OPEN_PAYMENT_ERROR } from './card-payment'
 
 // Regra de inscrição em evento, sem nada de transporte: é chamada pela server
@@ -133,6 +134,7 @@ export async function joinEvent(
         ...(teamId ? { team_id: teamId } : {}),
       })
     }
+    await notifyOrganizerNewParticipant(eventId, userId)
     revalidatePath(`/eventos/${eventId}`)
     return { status: 'CONFIRMED' }
   }
@@ -248,6 +250,7 @@ export async function joinEvent(
       })
     }
 
+    await notifyOrganizerNewParticipant(eventId, userId)
     revalidatePath(`/eventos/${eventId}`)
     return { status: 'CONFIRMED' }
   }

@@ -192,7 +192,7 @@ async function notifyGroupNewEvent(params: {
   // E-mail para quem prefere ser avisado por e-mail (WhatsApp ainda não está disponível)
   const { sendNewEventToGroupMember } = await import('@/lib/emails')
   const emailMembers = members.filter((m) => ((m.profiles as any)?.notif_new_event_channel ?? 'EMAIL') === 'EMAIL')
-  await Promise.allSettled(
+  const emailResults = await Promise.allSettled(
     emailMembers.map(async (m) => {
       const { data: authUser } = await adminClient.auth.admin.getUserById(m.user_id)
       if (!authUser?.user?.email) return
@@ -206,6 +206,53 @@ async function notifyGroupNewEvent(params: {
       })
     })
   )
+  emailResults.forEach((r, i) => {
+    if (r.status === 'rejected') console.error('[EMAIL] sendNewEventToGroupMember:', emailMembers[i].user_id, r.reason)
+  })
+}
+
+// Avisa o organizador quando alguém confirma inscrição no evento (chamado
+// pelos quatro caminhos que confirmam uma participation: join-event.ts,
+// webhooks/mercadopago, card-payment.ts e fila/waitlist.ts)
+export async function notifyOrganizerNewParticipant(eventId: string, participantUserId: string) {
+  const admin = createAdminClient()
+
+  const { data: event } = await admin
+    .from('events')
+    .select('organizer_id, title, slug, notify_organizer_on_signup')
+    .eq('id', eventId)
+    .maybeSingle()
+
+  if (!event || !event.notify_organizer_on_signup || event.organizer_id === participantUserId) return
+
+  const { data: participant } = await admin
+    .from('profiles')
+    .select('full_name')
+    .eq('id', participantUserId)
+    .maybeSingle()
+
+  const participantName = participant?.full_name ?? 'Um participante'
+
+  await createNotificationAdmin({
+    userId: event.organizer_id,
+    type: 'NEW_PARTICIPANT',
+    title: 'Nova inscrição',
+    body: `${participantName} se inscreveu em "${event.title}"`,
+    data: { event_id: eventId },
+  })
+
+  const { data: organizerAuth } = await admin.auth.admin.getUserById(event.organizer_id)
+  if (!organizerAuth?.user?.email) return
+  const { data: organizerProfile } = await admin.from('profiles').select('full_name').eq('id', event.organizer_id).maybeSingle()
+
+  const { sendNewParticipantToOrganizer } = await import('@/lib/emails')
+  await sendNewParticipantToOrganizer({
+    to: organizerAuth.user.email,
+    organizerName: organizerProfile?.full_name ?? 'Organizador',
+    participantName,
+    eventTitle: event.title,
+    eventId: event.slug ?? eventId,
+  }).catch((e) => console.error('[EMAIL] sendNewParticipantToOrganizer:', e))
 }
 
 // Duplicar evento: copia o arquivo da capa (mesmo bucket/pasta do upload
@@ -309,6 +356,8 @@ export async function createEventAction(input: EventSchema) {
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
       cancel_before_hours: data.cancel_before_hours ?? null,
+      notify_group_on_create: data.notify_group_on_create ?? true,
+      notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
       status: data.as_draft ? 'DRAFT' : 'OPEN',
     })
     .select('id, slug')
@@ -330,7 +379,7 @@ export async function createEventAction(input: EventSchema) {
   await createRecurringChildren(event.id, user.id, data, data.as_draft ? 'DRAFT' : 'OPEN')
 
   // Rascunho não avisa ninguém: o aviso sai quando for publicado
-  if (!data.as_draft && data.group_id) {
+  if (!data.as_draft && data.group_id && (data.notify_group_on_create ?? true)) {
     await notifyGroupNewEvent({
       groupId: data.group_id,
       organizerId: user.id,
@@ -401,7 +450,7 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
 
     const { error } = await supabase
       .from('events')
-      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', cancel_before_hours: data.cancel_before_hours ?? null, slug: newSlug, price: newPrice })
+      .update({ description: data.description || null, address: data.address, visibility: data.visibility ?? 'PUBLIC', cancel_before_hours: data.cancel_before_hours ?? null, notify_group_on_create: data.notify_group_on_create ?? true, notify_organizer_on_signup: data.notify_organizer_on_signup ?? true, slug: newSlug, price: newPrice })
       .eq('id', eventId)
     if (error) return { error: 'Erro ao atualizar evento.' }
 
@@ -480,6 +529,8 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
       organizer_exempt: data.organizer_exempt,
       visibility: data.visibility ?? 'PUBLIC',
       cancel_before_hours: data.cancel_before_hours ?? null,
+      notify_group_on_create: data.notify_group_on_create ?? true,
+      notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
     })
     .eq('id', eventId)
 
@@ -541,7 +592,7 @@ export async function publishEventAction(eventId: string) {
   const admin = createAdminClient()
   const { data: event } = await admin
     .from('events')
-    .select('id, slug, title, starts_at, registration_deadline, city, group_id, organizer_id, status')
+    .select('id, slug, title, starts_at, registration_deadline, city, group_id, organizer_id, status, notify_group_on_create')
     .eq('id', eventId)
     .maybeSingle()
 
@@ -575,7 +626,7 @@ export async function publishEventAction(eventId: string) {
     .eq('status', 'DRAFT')
     .or(`registration_deadline.gt.${nowIso},and(registration_deadline.is.null,starts_at.gt.${nowIso})`)
 
-  if (event.group_id) {
+  if (event.group_id && event.notify_group_on_create) {
     await notifyGroupNewEvent({ groupId: event.group_id, organizerId: user.id, event })
   }
 
