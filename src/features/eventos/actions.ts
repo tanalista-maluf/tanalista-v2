@@ -257,7 +257,12 @@ async function uploadEventCoverFile(eventId: string, base64: string, mimeType: s
 }
 
 export async function createEventAction(input: EventSchema) {
-  const data = withUtcDates(input)
+  let data: EventSchema
+  try {
+    data = withUtcDates(input)
+  } catch {
+    return { error: 'Data ou horário inválido. Verifique os campos de início, término e prazo de inscrição.' }
+  }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }
@@ -338,7 +343,12 @@ export async function createEventAction(input: EventSchema) {
 }
 
 export async function updateEventAction(eventId: string, input: EventSchema) {
-  const data = withUtcDates(input)
+  let data: EventSchema
+  try {
+    data = withUtcDates(input)
+  } catch {
+    return { error: 'Data ou horário inválido. Verifique os campos de início, término e prazo de inscrição.' }
+  }
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado.' }

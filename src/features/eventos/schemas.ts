@@ -59,13 +59,19 @@ export const eventSchema = z.object({
   const deadline = d.registration_deadline ? new Date(d.registration_deadline) : null
   const ends = new Date(d.ends_at)
 
-  if (starts <= now()) {
+  if (Number.isNaN(starts.getTime())) {
+    ctx.addIssue({ code: 'custom', path: ['starts_at'], message: 'Data de início inválida' })
+  } else if (starts <= now()) {
     ctx.addIssue({ code: 'custom', path: ['starts_at'], message: 'Data de início deve ser no futuro' })
   }
-  if (deadline && deadline >= starts) {
+  if (deadline && Number.isNaN(deadline.getTime())) {
+    ctx.addIssue({ code: 'custom', path: ['registration_deadline'], message: 'Prazo de inscrição inválido' })
+  } else if (deadline && deadline >= starts) {
     ctx.addIssue({ code: 'custom', path: ['registration_deadline'], message: 'Prazo de inscrição deve ser antes do início' })
   }
-  if (ends <= starts) {
+  if (Number.isNaN(ends.getTime())) {
+    ctx.addIssue({ code: 'custom', path: ['ends_at'], message: 'Data de término inválida' })
+  } else if (ends <= starts) {
     ctx.addIssue({ code: 'custom', path: ['ends_at'], message: 'Término deve ser após o início' })
   }
   if (d.min_participants > d.capacity) {
