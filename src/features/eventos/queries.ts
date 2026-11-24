@@ -12,7 +12,8 @@ const EVENT_COLUMNS = `
   starts_at, ends_at, registration_deadline, min_check_at, organizer_exempt,
   visibility, invite_token, confirmed_count, rating_average, rating_count,
   cancel_before_hours, custom_rules, recurrence_rule, parent_event_id,
-  recurrence_index, payout_claimed_at, created_at, updated_at
+  recurrence_index, payout_claimed_at, created_at, updated_at,
+  notify_group_on_create, notify_organizer_on_signup
 `
 
 export type EventWithMeta = EventRow & {

@@ -28,10 +28,14 @@ interface EventFormProps {
   isLocked?: boolean // campos críticos travados (status != DRAFT)
   // Editando um rascunho: times e repetição também mudam, e dá para publicar
   isDraft?: boolean
+  // Quem criou o evento — só o organizador vê o toggle de notificação de
+  // nova inscrição (o dono/gestor do grupo pode editar o evento sem ser
+  // quem recebe esse aviso). Na criação é sempre o próprio organizador.
+  isOrganizer?: boolean
   onSuccess?: () => void
 }
 
-export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, onSuccess }: EventFormProps) {
+export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, isOrganizer = true, onSuccess }: EventFormProps) {
   const [serverError, setServerError] = useState<string | null>(null)
   const [cover, setCover] = useState<{ base64: string; mimeType: string; preview: string } | null>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -384,22 +388,24 @@ export function EventForm({ eventId, groupId, defaultValues, isLocked, isDraft, 
           />
         )}
 
-        <Controller
-          name="notify_organizer_on_signup"
-          control={control}
-          render={({ field }) => (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="notify_organizer_on_signup"
-                checked={field.value}
-                onCheckedChange={field.onChange}
-              />
-              <Label htmlFor="notify_organizer_on_signup" className="font-normal cursor-pointer">
-                Notificar a cada nova inscrição confirmada
-              </Label>
-            </div>
-          )}
-        />
+        {isOrganizer && (
+          <Controller
+            name="notify_organizer_on_signup"
+            control={control}
+            render={({ field }) => (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="notify_organizer_on_signup"
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+                <Label htmlFor="notify_organizer_on_signup" className="font-normal cursor-pointer">
+                  Notificar a cada nova inscrição confirmada
+                </Label>
+              </div>
+            )}
+          />
+        )}
 
         <Controller
           name="visibility"

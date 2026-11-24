@@ -69,6 +69,7 @@ export default async function EditarEventoPage({
         groupId={event.group_id ?? undefined}
         isLocked={isLocked}
         isDraft={isDraft}
+        isOrganizer={event.is_organizer}
         defaultValues={{
           title: event.title,
           description: event.description ?? '',
@@ -82,6 +83,8 @@ export default async function EditarEventoPage({
           ends_at: event.ends_at ? toLocalInput(event.ends_at) : '',
           registration_deadline: event.registration_deadline ? toLocalInput(event.registration_deadline) : '',
           organizer_exempt: event.organizer_exempt,
+          notify_group_on_create: event.notify_group_on_create ?? true,
+          notify_organizer_on_signup: event.notify_organizer_on_signup ?? true,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
           group_id: event.group_id ?? undefined,

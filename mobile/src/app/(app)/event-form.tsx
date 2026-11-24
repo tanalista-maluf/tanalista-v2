@@ -115,6 +115,11 @@ export default function EventFormScreen() {
   const [endsAt, setEndsAt] = useState<Date | null>(null)
   const [deadline, setDeadline] = useState<Date | null>(() => new Date(defaultStart().getTime() - 2 * 60 * 60 * 1000))
   const [exempt, setExempt] = useState(true)
+  const [notifyGroup, setNotifyGroup] = useState(true)
+  const [notifySignup, setNotifySignup] = useState(true)
+  // Só quem criou o evento vê o toggle de aviso de nova inscrição — ao criar
+  // ou duplicar, é sempre a própria pessoa; ao editar, confere o organizer_id
+  const [isOrganizer, setIsOrganizer] = useState(true)
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC')
   const [cancelPolicy, setCancelPolicy] = useState<number | null>(24)
   const [recurrence, setRecurrence] = useState<(typeof RECURRENCES)[number]['value']>('none')
@@ -143,7 +148,7 @@ export default function EventFormScreen() {
     supabase
       .from('events')
       .select(
-        'title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
+        'organizer_id, title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, notify_group_on_create, notify_organizer_on_signup, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
       )
       .eq('id', params.eventId)
       .maybeSingle()
@@ -177,6 +182,9 @@ export default function EventFormScreen() {
             setCoverUrl(data.cover_url)
             setLocked(data.status !== 'DRAFT')
             setIsDraft(data.status === 'DRAFT')
+            setNotifyGroup(data.notify_group_on_create)
+            setNotifySignup(data.notify_organizer_on_signup)
+            setIsOrganizer(data.organizer_id === session!.user.id)
             // Rascunho de série: a repetição volta como foi salva
             if (data.status === 'DRAFT' && data.recurrence_rule) {
               const { count } = await supabase
@@ -278,6 +286,8 @@ export default function EventFormScreen() {
       ends_at: endsAt!.toISOString(),
       registration_deadline: deadline ? deadline.toISOString() : '',
       organizer_exempt: exempt,
+      notify_group_on_create: notifyGroup,
+      notify_organizer_on_signup: notifySignup,
       ...(groupId ? { group_id: groupId } : {}),
       recurrence: canShape ? recurrence : 'none',
       recurrence_count: recurrenceCount,
@@ -551,6 +561,24 @@ export default function EventFormScreen() {
               onChange={setExempt}
               disabled={locked}
             />
+            {groupId && (
+              <ToggleRow
+                testID="form-notify-group"
+                title="Notificar o grupo"
+                detail="Avisa o grupo quando este evento for publicado"
+                value={notifyGroup}
+                onChange={setNotifyGroup}
+              />
+            )}
+            {isOrganizer && (
+              <ToggleRow
+                testID="form-notify-signup"
+                title="Notificar novas inscrições"
+                detail="Avisa você a cada nova inscrição confirmada"
+                value={notifySignup}
+                onChange={setNotifySignup}
+              />
+            )}
           </Section>
 
           {canShape && (
