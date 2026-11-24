@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import Image from 'next/image'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,11 +30,11 @@ export function PostSignupMessageDialog({ message, imageUrl }: { message?: strin
 
   return (
     <AlertDialog open={open} onOpenChange={(value) => { if (!value) close() }}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-h-[85vh] overflow-y-auto">
         {imageUrl && (
-          <div className="relative w-full h-40 rounded-lg overflow-hidden -mt-2">
-            <Image src={imageUrl} alt="" fill className="object-cover" unoptimized />
-          </div>
+          // Sem crop: a imagem (regras, infográfico, etc.) pode ter qualquer
+          // proporção, e cortar seria esconder parte do conteúdo
+          <img src={imageUrl} alt="" className="w-full max-h-[60vh] rounded-lg object-contain -mt-2" />
         )}
         <AlertDialogHeader>
           <AlertDialogTitle>Inscrição confirmada!</AlertDialogTitle>

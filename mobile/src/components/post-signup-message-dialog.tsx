@@ -1,4 +1,5 @@
 import { Image } from 'expo-image'
+import { useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Button } from '@/components/ui'
 import { colors, fonts, radius } from '@/lib/theme'
@@ -14,18 +15,27 @@ type Props = {
 // pagamento aprovado) — texto e/ou imagem que o organizador escolhe na
 // edição do evento: regras, como chegar, avisos etc. Igual ao popup do site.
 export function PostSignupMessageDialog({ visible, message, imageUrl, onClose }: Props) {
+  // Proporção real da imagem (só sabida depois que ela carrega): sem isso,
+  // uma altura fixa cortaria regras/infográficos mais altos que largos
+  const [aspectRatio, setAspectRatio] = useState(16 / 9)
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Fechar" />
         <View style={styles.box} testID="post-signup-message-dialog">
-          {imageUrl && <Image source={imageUrl} style={styles.image} contentFit="cover" />}
-          <Text style={styles.title}>Inscrição confirmada!</Text>
-          {message && (
-            <ScrollView style={styles.scroll}>
-              <Text style={styles.message}>{message}</Text>
-            </ScrollView>
-          )}
+          <ScrollView style={styles.scroll}>
+            {imageUrl && (
+              <Image
+                source={imageUrl}
+                style={[styles.image, { aspectRatio }]}
+                contentFit="contain"
+                onLoad={(e) => setAspectRatio(e.source.width / e.source.height)}
+              />
+            )}
+            <Text style={styles.title}>Inscrição confirmada!</Text>
+            {message && <Text style={styles.message}>{message}</Text>}
+          </ScrollView>
           <Button testID="post-signup-message-close" label="Entendi" onPress={onClose} />
         </View>
       </View>
@@ -38,14 +48,14 @@ const styles = StyleSheet.create({
   box: {
     gap: 14,
     padding: 20,
-    maxHeight: '70%',
+    maxHeight: '80%',
     borderRadius: radius.card,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     backgroundColor: colors.surface,
   },
-  image: { width: '100%', height: 150, borderRadius: 12, backgroundColor: colors.input },
-  title: { fontFamily: fonts.heading, fontSize: 18, color: colors.text },
+  image: { width: '100%', borderRadius: 12, backgroundColor: colors.input, marginBottom: 10 },
+  title: { fontFamily: fonts.heading, fontSize: 18, color: colors.text, marginBottom: 6 },
   scroll: { flexGrow: 0 },
   message: { fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.text70 },
 })
