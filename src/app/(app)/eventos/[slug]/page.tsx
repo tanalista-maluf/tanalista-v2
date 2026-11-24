@@ -53,10 +53,10 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ invite?: string; aba?: string }>
+  searchParams: Promise<{ invite?: string; aba?: string; joined?: string }>
 }) {
   const { slug } = await params
-  const { invite: inviteToken, aba } = await searchParams
+  const { invite: inviteToken, aba, joined } = await searchParams
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -68,10 +68,16 @@ export default async function EventDetailPage({
   const event = await getEventById(slug, user.id)
   if (!event) notFound()
 
-  // Canonical redirect: se veio com UUID e existe slug, redireciona
+  // Canonical redirect: se veio com UUID e existe slug, redireciona mantendo
+  // os query params (ex.: ?joined=1 do redirect pós-inscrição, ou ?aba=)
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i
   if (UUID_RE.test(slug) && event.slug && event.slug !== slug) {
-    redirect(`/eventos/${event.slug}${aba ? `?aba=${encodeURIComponent(aba)}` : ''}`)
+    const qs = new URLSearchParams()
+    if (aba) qs.set('aba', aba)
+    if (joined) qs.set('joined', joined)
+    if (inviteToken) qs.set('invite', inviteToken)
+    const query = qs.toString()
+    redirect(`/eventos/${event.slug}${query ? `?${query}` : ''}`)
   }
 
   const id = event.id // UUID para queries
