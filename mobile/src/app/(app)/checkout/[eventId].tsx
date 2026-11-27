@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { RulesAgreement } from '@/components/rules-agreement'
 import { Button, Card, Screen } from '@/components/ui'
 import {
   confirmWaitlistSpot,
@@ -27,11 +28,15 @@ import { useHeaderInset } from '@/lib/header'
 import { supabase } from '@/lib/supabase'
 import { colors, fonts, radius } from '@/lib/theme'
 
-type CheckoutEvent = { title: string; price: number }
+type CheckoutEvent = { title: string; price: number; rules_confirmation_required: boolean }
 
 async function fetchCheckout(eventId: string) {
   const [{ data: event }, wallet, methods] = await Promise.all([
-    supabase.from('events').select('title, price').eq('id', eventId).maybeSingle(),
+    supabase
+      .from('events')
+      .select('title, price, rules_confirmation_required')
+      .eq('id', eventId)
+      .maybeSingle(),
     fetchWalletBalance(),
     fetchPaymentMethods(),
   ])
@@ -63,6 +68,7 @@ export default function CheckoutScreen() {
   const [applying, setApplying] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [agreedToRules, setAgreedToRules] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -96,6 +102,10 @@ export default function CheckoutScreen() {
   }
 
   async function handleSubmit(total: number) {
+    if (event?.rules_confirmation_required && !agreedToRules) {
+      setError('Marque que leu e concorda com as diretrizes antes de confirmar.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     // Com cupom de 100% não há o que cobrar: o servidor confirma pelo caminho da carteira
@@ -143,7 +153,8 @@ export default function CheckoutScreen() {
   const total = Math.max(0, event.price - (coupon?.discount ?? 0))
   const free = total === 0
   const insufficient = balance < total
-  const blocked = !free && method === 'WALLET' && insufficient
+  const blockedByRules = event.rules_confirmation_required && !agreedToRules
+  const blocked = (!free && method === 'WALLET' && insufficient) || blockedByRules
 
   return (
     <Screen>
@@ -253,6 +264,16 @@ export default function CheckoutScreen() {
             <View style={styles.divider} />
             <Row label="Total" value={formatMoney(total)} strong testID="checkout-total" />
           </Card>
+
+          {event.rules_confirmation_required && (
+            <RulesAgreement
+              checked={agreedToRules}
+              onToggle={() => setAgreedToRules((v) => !v)}
+              onViewRules={() =>
+                router.push({ pathname: '/events/[id]', params: { id: eventId, section: 'rules' } })
+              }
+            />
+          )}
         </ScrollView>
 
         <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>

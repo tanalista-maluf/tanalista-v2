@@ -121,6 +121,8 @@ export default function EventFormScreen() {
   const [postMsgText, setPostMsgText] = useState('')
   const [postMsgImageUrl, setPostMsgImageUrl] = useState<string | null>(null)
   const [postMsgImage, setPostMsgImage] = useState<Cover | null>(null)
+  const [rulesText, setRulesText] = useState('')
+  const [rulesRequired, setRulesRequired] = useState(false)
   // Só quem criou o evento vê o toggle de aviso de nova inscrição — ao criar
   // ou duplicar, é sempre a própria pessoa; ao editar, confere o organizer_id
   const [isOrganizer, setIsOrganizer] = useState(true)
@@ -152,7 +154,7 @@ export default function EventFormScreen() {
     supabase
       .from('events')
       .select(
-        'organizer_id, title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, notify_group_on_create, notify_organizer_on_signup, post_signup_message_enabled, post_signup_message, post_signup_message_image_url, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
+        'organizer_id, title, description, address, city, category, price, cover_url, capacity, min_participants, starts_at, ends_at, registration_deadline, organizer_exempt, notify_group_on_create, notify_organizer_on_signup, post_signup_message_enabled, post_signup_message, post_signup_message_image_url, custom_rules, rules_confirmation_required, visibility, cancel_before_hours, status, group_id, recurrence_rule, groups(name), event_teams(name, capacity, position)'
       )
       .eq('id', params.eventId)
       .maybeSingle()
@@ -181,6 +183,8 @@ export default function EventFormScreen() {
           setPostMsgEnabled(data.post_signup_message_enabled)
           setPostMsgText(data.post_signup_message ?? '')
           setPostMsgImageUrl(data.post_signup_message_image_url)
+          setRulesText(data.custom_rules ?? '')
+          setRulesRequired(data.rules_confirmation_required ?? false)
           // Duplicar também mostra a capa de origem: se a pessoa não trocar,
           // o servidor copia o arquivo pro novo evento (ver duplicate_from)
           if (mode === 'duplicate') setCoverUrl(data.cover_url)
@@ -283,6 +287,7 @@ export default function EventFormScreen() {
       const names = new Set(teams.map((team) => team.name.trim().toLowerCase()))
       if (names.size < teams.length) return 'Os times precisam ter nomes diferentes.'
     }
+    if (rulesRequired && !rulesText.trim()) return 'Escreva as regras antes de exigir a confirmação de leitura.'
     return null
   }
 
@@ -323,6 +328,8 @@ export default function EventFormScreen() {
       notify_organizer_on_signup: notifySignup,
       post_signup_message_enabled: postMsgEnabled,
       post_signup_message: postMsgText.trim(),
+      custom_rules: rulesText.trim(),
+      rules_confirmation_required: rulesRequired,
       ...(groupId ? { group_id: groupId } : {}),
       recurrence: canShape ? recurrence : 'none',
       recurrence_count: recurrenceCount,
@@ -664,6 +671,29 @@ export default function EventFormScreen() {
                 )}
               </>
             )}
+          </Section>
+
+          <Section title="Regras e diretrizes">
+            <Field
+              testID="form-rules"
+              label={`Regras personalizadas (opcional) (${rulesText.length}/8000)`}
+              placeholder={'Ex:\n• Chegue com 15 minutos de antecedência\n• Traje esportivo obrigatório'}
+              value={rulesText}
+              onChangeText={setRulesText}
+              maxLength={8000}
+              multiline
+              style={styles.multiline}
+            />
+            <Text style={styles.hint}>
+              Se preenchido, substitui o texto padrão na aba Regras. Em branco, mantém o padrão.
+            </Text>
+            <ToggleRow
+              testID="form-rules-required"
+              title="Exigir confirmação de leitura"
+              detail="Participante só consegue se inscrever depois de marcar que leu e concorda"
+              value={rulesRequired}
+              onChange={setRulesRequired}
+            />
           </Section>
 
           {canShape && (

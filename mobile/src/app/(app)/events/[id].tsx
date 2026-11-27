@@ -41,6 +41,7 @@ import {
   RulesSection,
   TicketSection,
 } from '@/components/event-sections'
+import { RulesAgreement } from '@/components/rules-agreement'
 import { TeamPicker } from '@/components/team-picker'
 import { Button, Card, OccupancyBar, Screen } from '@/components/ui'
 import { useSession } from '@/ctx'
@@ -90,6 +91,7 @@ type EventDetail = {
   cover_url: string | null
   min_participants: number
   custom_rules: string | null
+  rules_confirmation_required: boolean
   post_signup_message_enabled: boolean
   post_signup_message: string | null
   post_signup_message_image_url: string | null
@@ -113,7 +115,7 @@ async function fetchEvent(eventId: string, userId: string) {
     supabase
       .from('events')
       .select(
-        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, group_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, post_signup_message_enabled, post_signup_message, post_signup_message_image_url, groups(name), profiles!events_organizer_id_fkey(full_name)'
+        'id, slug, title, description, category, address, city, starts_at, ends_at, registration_deadline, price, capacity, confirmed_count, status, visibility, organizer_id, group_id, cancel_before_hours, organizer_exempt, cover_url, min_participants, custom_rules, rules_confirmation_required, post_signup_message_enabled, post_signup_message, post_signup_message_image_url, groups(name), profiles!events_organizer_id_fkey(full_name)'
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -165,7 +167,7 @@ async function fetchEvent(eventId: string, userId: string) {
 }
 
 export default function EventScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, section: initialSection } = useLocalSearchParams<{ id: string; section?: string }>()
   const { session } = useSession()
   const insets = useSafeAreaInsets()
   const headerInset = useHeaderInset()
@@ -176,7 +178,8 @@ export default function EventScreen() {
   const [entry, setEntry] = useState<WaitlistEntry | null>(null)
   const [teams, setTeams] = useState<EventTeam[]>([])
   const [extras, setExtras] = useState<EventExtras | null>(null)
-  const [section, setSection] = useState<Section>('details')
+  // Vem de /checkout com ?section=rules: o link "diretrizes" abre direto na aba Regras
+  const [section, setSection] = useState<Section>((initialSection as Section) ?? 'details')
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
   // Trocando de time (inscrito) ou de fila (aguardando)
   const [changingTeam, setChangingTeam] = useState(false)
@@ -187,6 +190,7 @@ export default function EventScreen() {
   const [canCheckIn, setCanCheckIn] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [postSignupMsgOpen, setPostSignupMsgOpen] = useState(false)
+  const [agreedToRules, setAgreedToRules] = useState(false)
   // Detecta a TRANSIÇÃO pra CONFIRMED (join gratuito ou volta da tela de
   // pagamento), pra não reabrir o popup toda vez que a tela recarrega
   const wasConfirmedRef = useRef(false)
@@ -261,10 +265,16 @@ export default function EventScreen() {
     }
     const teamId = selectedTeam ?? undefined
 
-    // Evento pago (para quem não é o organizador isento): cupom e meio de pagamento
-    // são escolhidos no checkout. Gratuito confirma direto daqui.
+    // Evento pago (para quem não é o organizador isento): cupom, meio de
+    // pagamento e a confirmação de regras são escolhidos no checkout.
+    // Gratuito/isento confirma direto daqui, e por isso exige a confirmação aqui.
     if (event && event.price > 0 && !(event.organizer_id === userId && event.organizer_exempt)) {
       router.push({ pathname: '/checkout/[eventId]', params: { eventId: id, ...(teamId && { teamId }) } })
+      return
+    }
+
+    if (event?.rules_confirmation_required && !agreedToRules) {
+      setMessage('Marque que leu e concorda com as diretrizes antes de se inscrever.')
       return
     }
 
@@ -277,6 +287,10 @@ export default function EventScreen() {
   }
 
   async function handleJoinWaitlist() {
+    if (event?.rules_confirmation_required && !agreedToRules) {
+      setMessage('Marque que leu e concorda com as diretrizes antes de entrar na fila.')
+      return
+    }
     if (teams.length > 0 && !selectedTeam) {
       setMessage('Escolha o time em que você quer a vaga.')
       return
@@ -333,6 +347,10 @@ export default function EventScreen() {
   async function handleConfirmSpot() {
     if (event && event.price > 0 && !(event.organizer_id === userId && event.organizer_exempt)) {
       router.push({ pathname: '/checkout/[eventId]', params: { eventId: id, waitlist: '1' } })
+      return
+    }
+    if (event?.rules_confirmation_required && !agreedToRules) {
+      setMessage('Marque que leu e concorda com as diretrizes antes de confirmar a vaga.')
       return
     }
     setJoining(true)
@@ -440,6 +458,11 @@ export default function EventScreen() {
 
   const isOrganizer = event.organizer_id === userId
   const action = resolveAction(event, participation?.status ?? null, entry, isOrganizer, extras?.joinRequest ?? null)
+  // Gratuito ou organizador isento: confirma direto nesta tela (exige a
+  // concordância das regras aqui). Pago: vai pro checkout, que tem sua
+  // própria confirmação de regras — esta tela não bloqueia nesse caso.
+  const isDirectJoin = event.price === 0 || (isOrganizer && event.organizer_exempt)
+  const blockedByRules = event.rules_confirmation_required && !agreedToRules
   const finished = event.status === 'COMPLETED'
   const sections = availableSections(extras, finished, action.kind === 'confirmed')
   // A seção escolhida pode deixar de existir (ex.: o ingresso, ao cancelar a inscrição)
@@ -788,6 +811,14 @@ export default function EventScreen() {
               </Pressable>
             </>
           )}
+          {event.rules_confirmation_required &&
+            (action.kind === 'waitlist' || ((action.kind === 'join' || action.kind === 'spot') && isDirectJoin)) && (
+              <RulesAgreement
+                checked={agreedToRules}
+                onToggle={() => setAgreedToRules((v) => !v)}
+                onViewRules={() => setSection('rules')}
+              />
+            )}
           {message && <Text style={styles.error}>{message}</Text>}
         </ScrollView>
 
@@ -797,7 +828,14 @@ export default function EventScreen() {
             <Text style={styles.priceCaption}>{event.price === 0 ? 'Sem custo' : 'por pessoa'}</Text>
           </View>
           {action.kind === 'join' && (
-            <Button testID="join" label="Inscrever-se" onPress={handleJoin} loading={joining} style={styles.barButton} />
+            <Button
+              testID="join"
+              label="Inscrever-se"
+              onPress={handleJoin}
+              loading={joining}
+              disabled={isDirectJoin && blockedByRules}
+              style={styles.barButton}
+            />
           )}
           {action.kind === 'waitlist' && (
             <Button
@@ -805,6 +843,7 @@ export default function EventScreen() {
               label="Entrar na fila"
               onPress={handleJoinWaitlist}
               loading={joining}
+              disabled={blockedByRules}
               style={styles.barButton}
             />
           )}
@@ -814,6 +853,7 @@ export default function EventScreen() {
               label="Confirmar vaga"
               onPress={handleConfirmSpot}
               loading={joining}
+              disabled={isDirectJoin && blockedByRules}
               style={styles.barButton}
             />
           )}
