@@ -1,19 +1,25 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Lock, Clock, XCircle } from 'lucide-react'
 import { requestEventJoinAction } from '../actions'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 
 interface Props {
   eventId: string
+  eventSlug: string
+  rulesRequired: boolean
   existingStatus?: 'PENDING' | 'REJECTED' | null
 }
 
-export function RequestEventJoinButton({ eventId, existingStatus }: Props) {
+export function RequestEventJoinButton({ eventId, eventSlug, rulesRequired, existingStatus }: Props) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>(
     existingStatus === 'PENDING' ? 'done' : 'idle'
   )
   const [error, setError] = useState<string | null>(null)
+  const [agreedToRules, setAgreedToRules] = useState(false)
 
   if (existingStatus === 'REJECTED') {
     return (
@@ -45,11 +51,37 @@ export function RequestEventJoinButton({ eventId, existingStatus }: Props) {
     }
   }
 
+  const blocked = rulesRequired && !agreedToRules
+
   return (
     <div className="space-y-2">
+      {rulesRequired && (
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="request-rules-agreement"
+            checked={agreedToRules}
+            onCheckedChange={(v) => setAgreedToRules(v === true)}
+          />
+          <Label
+            htmlFor="request-rules-agreement"
+            className="font-normal cursor-pointer text-xs text-white/60 leading-relaxed"
+          >
+            Li e concordo com{' '}
+            <Link
+              href={`/eventos/${eventSlug}?aba=regras`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              as diretrizes
+            </Link>{' '}
+            do evento
+          </Label>
+        </div>
+      )}
       <button
         onClick={handleRequest}
-        disabled={status === 'loading'}
+        disabled={status === 'loading' || blocked}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/15 border border-primary/30 text-primary font-semibold text-sm hover:bg-primary/20 transition-all disabled:opacity-60"
       >
         <Lock className="size-4" />

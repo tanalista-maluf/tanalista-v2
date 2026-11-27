@@ -309,6 +309,10 @@ export default function EventScreen() {
   }
 
   async function handleRequestJoin() {
+    if (event?.rules_confirmation_required && !agreedToRules) {
+      setMessage('Marque que leu e concorda com as diretrizes antes de solicitar participação.')
+      return
+    }
     setJoining(true)
     setMessage(null)
     const requested = await requestEventJoin(id)
@@ -812,7 +816,9 @@ export default function EventScreen() {
             </>
           )}
           {event.rules_confirmation_required &&
-            (action.kind === 'waitlist' || ((action.kind === 'join' || action.kind === 'spot') && isDirectJoin)) && (
+            (action.kind === 'waitlist' ||
+              ((action.kind === 'join' || action.kind === 'spot') && isDirectJoin) ||
+              (action.kind === 'request' && action.status !== 'PENDING')) && (
               <RulesAgreement
                 checked={agreedToRules}
                 onToggle={() => setAgreedToRules((v) => !v)}
@@ -868,6 +874,7 @@ export default function EventScreen() {
               label="Pedir entrada"
               onPress={handleRequestJoin}
               loading={joining}
+              disabled={blockedByRules}
               style={styles.barButton}
             />
           )}

@@ -59,11 +59,13 @@ export function CancelParticipationButton({
         </AlertDialogHeader>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Manter inscrição</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading} className="grow basis-0 !shrink !whitespace-normal">
+            Manter inscrição
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCancel}
             disabled={loading}
-            className="bg-destructive text-white hover:bg-destructive/80"
+            className="grow basis-0 !shrink !whitespace-normal bg-destructive text-white hover:bg-destructive/80"
           >
             {loading && <Loader2 className="size-4 animate-spin" />}
             Confirmar cancelamento

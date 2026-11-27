@@ -416,6 +416,8 @@ export default async function EventDetailPage({
             ) : eventVisibilityField !== 'PUBLIC' && !activeParticipationStatus && existingJoinRequest?.status !== 'APPROVED' ? (
               <RequestEventJoinButton
                 eventId={id}
+                eventSlug={eventSlug}
+                rulesRequired={(event as any).rules_confirmation_required ?? false}
                 existingStatus={existingJoinRequest?.status as 'PENDING' | 'REJECTED' | null}
               />
             ) : (
