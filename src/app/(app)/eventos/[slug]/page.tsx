@@ -654,18 +654,22 @@ export default async function EventDetailPage({
         </TabsContent>
 
         <TabsContent value="regras" className="pt-4 space-y-6">
-          <EventRules event={event} />
-          {/* Regras e diretrizes personalizadas */}
-          <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-white/30">Regras e diretrizes</p>
-            {event.is_organizer ? (
-              <EventRulesEditor eventId={id} initialRules={(event as any).custom_rules ?? null} />
-            ) : (event as any).custom_rules ? (
+          {/* Regras personalizadas substituem o texto padrão quando preenchidas;
+              em branco, mantém o padrão (preço, capacidade, cancelamento etc.) */}
+          {(event as any).custom_rules ? (
+            <div className="card-dark rounded-2xl p-5 space-y-2 text-sm">
+              <h3 className="font-semibold text-white">Regras do evento</h3>
               <p className="text-sm text-white/70 whitespace-pre-wrap leading-relaxed">{(event as any).custom_rules}</p>
-            ) : (
-              <p className="text-sm text-white/25 italic">Nenhuma regra definida pelo organizador.</p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <EventRules event={event} />
+          )}
+          {event.is_organizer && (
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-[0.08em] text-white/30">Regras e diretrizes</p>
+              <EventRulesEditor eventId={id} initialRules={(event as any).custom_rules ?? null} />
+            </div>
+          )}
         </TabsContent>
 
         {isConfirmedParticipant && (

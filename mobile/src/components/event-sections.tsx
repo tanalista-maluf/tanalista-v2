@@ -280,8 +280,21 @@ export type RulesEvent = {
   custom_rules: string | null
 }
 
-// Mesmo texto do site (src/features/eventos/components/EventRules.tsx)
+// Mesmo texto do site (src/features/eventos/components/EventRules.tsx).
+// Regras personalizadas substituem o texto padrão quando preenchidas; em
+// branco, mantém o padrão (preço, capacidade, cancelamento etc.)
 export function RulesSection({ event }: { event: RulesEvent }) {
+  if (event.custom_rules) {
+    return (
+      <Card style={styles.padded}>
+        <Text style={styles.label}>Regras do evento</Text>
+        <Text testID="custom-rules" style={styles.ruleText}>
+          {event.custom_rules}
+        </Text>
+      </Card>
+    )
+  }
+
   const rules = [
     `Valor da inscrição: ${formatPrice(event.price)}`,
     `Mínimo de participantes para confirmação: ${event.min_participants}`,
@@ -294,23 +307,15 @@ export function RulesSection({ event }: { event: RulesEvent }) {
   ]
 
   return (
-    <View style={styles.stack}>
-      <Card style={styles.padded}>
-        <Text style={styles.label}>Regras do evento</Text>
-        {rules.map((rule) => (
-          <View key={rule} style={styles.rule}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.ruleText}>{rule}</Text>
-          </View>
-        ))}
-      </Card>
-      <Card style={styles.padded}>
-        <Text style={styles.label}>Regras e diretrizes do organizador</Text>
-        <Text testID="custom-rules" style={event.custom_rules ? styles.ruleText : styles.rowDetail}>
-          {event.custom_rules ?? 'Nenhuma regra definida pelo organizador.'}
-        </Text>
-      </Card>
-    </View>
+    <Card style={styles.padded}>
+      <Text style={styles.label}>Regras do evento</Text>
+      {rules.map((rule) => (
+        <View key={rule} style={styles.rule}>
+          <Text style={styles.bullet}>•</Text>
+          <Text style={styles.ruleText}>{rule}</Text>
+        </View>
+      ))}
+    </Card>
   )
 }
 
