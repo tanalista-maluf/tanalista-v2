@@ -90,6 +90,8 @@ export function EventForm({
   const priceRaw = useWatch({ control, name: 'price' })
   const postSignupMessageEnabled = useWatch({ control, name: 'post_signup_message_enabled' })
   const postSignupMessageValue = useWatch({ control, name: 'post_signup_message' })
+  const customRulesValue = useWatch({ control, name: 'custom_rules' })
+  const rulesConfirmationRequired = useWatch({ control, name: 'rules_confirmation_required' })
   // Times e repetição: ao criar e num rascunho
   const canShape = !eventId || !!isDraft
 
@@ -548,6 +550,57 @@ export function EventForm({
             )
           }}
         />
+      </section>
+
+      <Separator />
+
+      {/* Regras e diretrizes: texto livre que substitui o padrão na aba
+          Regras, e a opção de exigir confirmação de leitura antes de
+          inscrever-se. Disponível na criação e na edição. */}
+      <section className="space-y-4">
+        <h3 className="font-semibold text-sm">Regras e diretrizes</h3>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="custom_rules">Regras personalizadas (opcional)</Label>
+            <span className={`text-xs tabular-nums ${(customRulesValue?.length ?? 0) >= 8000 ? 'text-destructive' : 'text-white/30'}`}>
+              {customRulesValue?.length ?? 0}/8000
+            </span>
+          </div>
+          <Textarea
+            id="custom_rules"
+            placeholder={`Ex:\n• Chegue com 15 minutos de antecedência\n• Traje esportivo obrigatório\n• Proibido fumar no local`}
+            rows={5}
+            maxLength={8000}
+            aria-invalid={!!errors.custom_rules}
+            {...register('custom_rules')}
+          />
+          {errors.custom_rules && <p className="text-xs text-destructive">{errors.custom_rules.message}</p>}
+          <p className="text-xs text-white/50">
+            Se preenchido, substitui o texto padrão na aba Regras. Em branco, mantém o padrão.
+          </p>
+        </div>
+
+        <Controller
+          name="rules_confirmation_required"
+          control={control}
+          render={({ field }) => (
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="rules_confirmation_required"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+              <Label htmlFor="rules_confirmation_required" className="font-normal cursor-pointer">
+                Exigir confirmação de leitura antes de ativar a inscrição
+              </Label>
+            </div>
+          )}
+        />
+        {rulesConfirmationRequired && (
+          <p className="text-xs text-white/40">
+            O participante só consegue se inscrever depois de marcar &quot;Li e concordo com as diretrizes&quot;.
+          </p>
+        )}
       </section>
 
       {/* Times: de 2 a 10, em qualquer categoria; ao criar e num rascunho */}

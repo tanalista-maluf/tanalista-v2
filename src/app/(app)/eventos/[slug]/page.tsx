@@ -213,7 +213,7 @@ export default async function EventDetailPage({
   const isGroupOwnerOnly = !event.is_organizer && (await isGroupOwner(supabase, event.group_id ?? null, user.id))
   // Check-in na entrada: organizador ou qualquer dono/gestor do grupo
   const canCheckIn = event.is_organizer || (await canCheckInEvent(supabase, { organizer_id: event.organizer_id, group_id: event.group_id ?? null }, user.id))
-  const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
+  const initialTab = showRequests && aba === 'solicitacoes' ? 'solicitacoes' : aba === 'regras' ? 'regras' : canRate && !userRating ? 'avaliacoes' : 'detalhes'
 
   // Fila de espera
   const isOnWaitlist = !activeParticipationStatus && !event.is_organizer && event.waitlist_position !== null

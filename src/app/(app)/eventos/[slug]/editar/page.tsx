@@ -88,6 +88,8 @@ export default async function EditarEventoPage({
           notify_organizer_on_signup: event.notify_organizer_on_signup ?? true,
           post_signup_message_enabled: event.post_signup_message_enabled ?? false,
           post_signup_message: event.post_signup_message ?? '',
+          custom_rules: event.custom_rules ?? '',
+          rules_confirmation_required: event.rules_confirmation_required ?? false,
           visibility: (event.visibility as 'PUBLIC' | 'PRIVATE') ?? 'PUBLIC',
           cancel_before_hours: (event as any).cancel_before_hours ?? null,
           group_id: event.group_id ?? undefined,

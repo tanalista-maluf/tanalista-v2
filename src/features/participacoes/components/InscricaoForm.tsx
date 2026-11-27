@@ -2,9 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { joinEventAction, joinWaitlistAction } from '../actions'
 import { validateCouponForEventAction } from '@/features/cupons/actions'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Loader2, Wallet, QrCode, CreditCard, ListPlus, Tag, Check, X } from 'lucide-react'
 import { formatPrice, formatBalance } from '@/utils/format'
 import { toast } from 'sonner'
@@ -21,6 +24,7 @@ interface Team {
 
 interface InscricaoFormProps {
   eventId: string
+  eventSlug: string
   eventPrice: number
   walletBalance: number
   isOrganizer: boolean
@@ -30,6 +34,8 @@ interface InscricaoFormProps {
   teams?: Team[]
   // O cartão depende da chave pública do Mercado Pago estar configurada
   cardEnabled: boolean
+  // Organizador exigiu confirmação de leitura das regras antes de inscrever
+  rulesRequired: boolean
 }
 
 const METHODS: { id: PaymentMethod; label: string; icon: React.ElementType; desc: string }[] = [
@@ -39,7 +45,7 @@ const METHODS: { id: PaymentMethod; label: string; icon: React.ElementType; desc
 ]
 
 export function InscricaoForm({
-  eventId, eventPrice, walletBalance, isOrganizer, organizerExempt, wantWaitlist, isFull, teams, cardEnabled,
+  eventId, eventSlug, eventPrice, walletBalance, isOrganizer, organizerExempt, wantWaitlist, isFull, teams, cardEnabled, rulesRequired,
 }: InscricaoFormProps) {
   const router = useRouter()
   const [selected, setSelected] = useState<PaymentMethod>('PIX')
@@ -50,12 +56,36 @@ export function InscricaoForm({
   const [couponDiscount, setCouponDiscount] = useState(0)
   const [couponApplied, setCouponApplied] = useState(false)
   const [couponError, setCouponError] = useState('')
+  const [agreedToRules, setAgreedToRules] = useState(false)
 
   const isExempt = isOrganizer && organizerExempt
   const isFree = eventPrice === 0
   const hasTeams = teams && teams.length > 0
   const finalPrice = Math.max(0, eventPrice - couponDiscount)
   const isCouponFree = couponApplied && finalPrice === 0
+  const blockedByRules = rulesRequired && !agreedToRules
+
+  const rulesAgreement = rulesRequired ? (
+    <div className="flex items-start gap-2">
+      <Checkbox
+        id="rules_agreement"
+        checked={agreedToRules}
+        onCheckedChange={(v) => setAgreedToRules(v === true)}
+      />
+      <Label htmlFor="rules_agreement" className="font-normal cursor-pointer text-xs text-white/60 leading-relaxed">
+        Li e concordo com{' '}
+        <Link
+          href={`/eventos/${eventSlug}?aba=regras`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2 hover:text-primary/80"
+        >
+          as diretrizes
+        </Link>{' '}
+        do evento
+      </Label>
+    </div>
+  ) : null
 
   async function applyCoupon() {
     if (!couponCode.trim()) return
@@ -97,9 +127,11 @@ export function InscricaoForm({
           <p className="text-xs text-yellow-400">Escolha um time para entrar na fila.</p>
         )}
 
+        {rulesAgreement}
+
         <Button
           className="w-full"
-          disabled={loading || (hasTeams && !selectedTeamId)}
+          disabled={loading || (hasTeams && !selectedTeamId) || blockedByRules}
           onClick={async () => {
             setLoading(true)
             const result = await joinWaitlistAction(eventId, selectedTeamId ?? undefined)
@@ -138,9 +170,11 @@ export function InscricaoForm({
           />
         )}
 
+        {rulesAgreement}
+
         <Button
           className="w-full"
-          disabled={loading || (hasTeams && !selectedTeamId)}
+          disabled={loading || (hasTeams && !selectedTeamId) || blockedByRules}
           onClick={async () => {
             setLoading(true)
             const result = await joinEventAction(eventId, 'WALLET', selectedTeamId ?? undefined)
@@ -275,9 +309,11 @@ export function InscricaoForm({
         </div>
       </div>
 
+      {rulesAgreement}
+
       <Button
         className="w-full"
-        disabled={loading || (hasTeams && !selectedTeamId)}
+        disabled={loading || (hasTeams && !selectedTeamId) || blockedByRules}
         onClick={async () => {
           setLoading(true)
           const result = await joinEventAction(eventId, isCouponFree ? 'WALLET' : selected, selectedTeamId ?? undefined, couponApplied ? couponCode : undefined)

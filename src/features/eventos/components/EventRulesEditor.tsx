@@ -58,12 +58,12 @@ export function EventRulesEditor({ eventId, initialRules }: Props) {
         onChange={e => setValue(e.target.value)}
         placeholder={`Ex:\n• Chegue com 15 minutos de antecedência\n• Traje esportivo obrigatório\n• Proibido fumar no local\n• Bebidas alcoólicas não permitidas`}
         rows={6}
-        maxLength={2000}
+        maxLength={8000}
         autoFocus
         className="w-full rounded-xl bg-white/[0.05] border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-primary/40 resize-none transition-colors leading-relaxed"
       />
       <div className="flex items-center justify-between">
-        <span className="text-xs text-white/25">{value.length}/2000</span>
+        <span className="text-xs text-white/25">{value.length}/8000</span>
         <div className="flex gap-2">
           <button
             onClick={handleCancel}

@@ -95,6 +95,7 @@ export default async function InscricaoPage({
       {/* Formulário de inscrição */}
       <InscricaoForm
         eventId={event.id}
+        eventSlug={eventSlug}
         eventPrice={event.price}
         walletBalance={walletBalance}
         isOrganizer={event.is_organizer}
@@ -103,6 +104,7 @@ export default async function InscricaoPage({
         isFull={event.confirmed_count >= event.capacity}
         teams={teams.length > 0 ? teams : undefined}
         cardEnabled={isCardPaymentEnabled()}
+        rulesRequired={(event as any).rules_confirmation_required ?? false}
       />
     </main>
   )

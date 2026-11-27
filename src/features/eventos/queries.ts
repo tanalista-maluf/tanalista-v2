@@ -11,7 +11,7 @@ const EVENT_COLUMNS = `
   city, category, status, price, capacity, min_participants, waitlist_capacity,
   starts_at, ends_at, registration_deadline, min_check_at, organizer_exempt,
   visibility, invite_token, confirmed_count, rating_average, rating_count,
-  cancel_before_hours, custom_rules, recurrence_rule, parent_event_id,
+  cancel_before_hours, custom_rules, rules_confirmation_required, recurrence_rule, parent_event_id,
   recurrence_index, payout_claimed_at, created_at, updated_at,
   notify_group_on_create, notify_organizer_on_signup,
   post_signup_message_enabled, post_signup_message, post_signup_message_image_url

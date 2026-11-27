@@ -553,6 +553,7 @@ export type Database = {
           recurrence_index: number | null
           recurrence_rule: string | null
           registration_deadline: string | null
+          rules_confirmation_required: boolean
           search_vec: unknown
           slug: string
           starts_at: string
@@ -595,6 +596,7 @@ export type Database = {
           recurrence_index?: number | null
           recurrence_rule?: string | null
           registration_deadline?: string | null
+          rules_confirmation_required?: boolean
           search_vec?: unknown
           slug: string
           starts_at: string
@@ -637,6 +639,7 @@ export type Database = {
           recurrence_index?: number | null
           recurrence_rule?: string | null
           registration_deadline?: string | null
+          rules_confirmation_required?: boolean
           search_vec?: unknown
           slug?: string
           starts_at?: string

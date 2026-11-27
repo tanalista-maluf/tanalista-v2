@@ -63,6 +63,11 @@ export const eventSchema = z.object({
   // que o evento já existe (ver EventForm, seção só visível em edição)
   post_signup_message_enabled: z.boolean().optional(),
   post_signup_message: z.string().max(500, 'Máximo 500 caracteres').optional().or(z.literal('')),
+  // Regras/diretrizes personalizadas do evento (aba "Regras"). Se preenchidas,
+  // substituem o texto padrão. rules_confirmation_required liga a exigência
+  // de marcar "Li e concordo" antes do botão de inscrição ativar.
+  custom_rules: z.string().max(8000, 'Máximo 8.000 caracteres').optional().or(z.literal('')),
+  rules_confirmation_required: z.boolean().optional(),
 }).superRefine((d, ctx) => {
   const starts = new Date(d.starts_at)
   const deadline = d.registration_deadline ? new Date(d.registration_deadline) : null
@@ -85,6 +90,9 @@ export const eventSchema = z.object({
   }
   if (d.min_participants > d.capacity) {
     ctx.addIssue({ code: 'custom', path: ['min_participants'], message: 'Mínimo não pode ser maior que a capacidade' })
+  }
+  if (d.rules_confirmation_required && !d.custom_rules?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['custom_rules'], message: 'Escreva as regras antes de exigir a confirmação de leitura' })
   }
 })
 

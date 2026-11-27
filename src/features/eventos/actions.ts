@@ -391,6 +391,8 @@ export async function createEventAction(input: EventSchema) {
       notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
       post_signup_message_enabled: data.post_signup_message_enabled ?? false,
       post_signup_message: data.post_signup_message || null,
+      custom_rules: data.custom_rules?.trim() || null,
+      rules_confirmation_required: data.rules_confirmation_required ?? false,
       status: data.as_draft ? 'DRAFT' : 'OPEN',
     })
     .select('id, slug')
@@ -495,6 +497,8 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
         notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
         post_signup_message_enabled: data.post_signup_message_enabled ?? false,
         post_signup_message: data.post_signup_message || null,
+        custom_rules: data.custom_rules?.trim() || null,
+        rules_confirmation_required: data.rules_confirmation_required ?? false,
         slug: newSlug,
         price: newPrice,
       })
@@ -580,6 +584,8 @@ export async function updateEventAction(eventId: string, input: EventSchema) {
       notify_organizer_on_signup: data.notify_organizer_on_signup ?? true,
       post_signup_message_enabled: data.post_signup_message_enabled ?? false,
       post_signup_message: data.post_signup_message || null,
+      custom_rules: data.custom_rules?.trim() || null,
+      rules_confirmation_required: data.rules_confirmation_required ?? false,
     })
     .eq('id', eventId)
 

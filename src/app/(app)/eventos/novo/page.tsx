@@ -62,6 +62,8 @@ export default async function NovoEventoPage({
         cancel_before_hours: (source as any).cancel_before_hours ?? null,
         post_signup_message_enabled: source.post_signup_message_enabled ?? false,
         post_signup_message: source.post_signup_message ?? '',
+        custom_rules: source.custom_rules ?? '',
+        rules_confirmation_required: source.rules_confirmation_required ?? false,
         use_teams: (teams?.length ?? 0) >= 2,
         teams: teams ?? [],
         // createEventAction confere a organização de novo e copia a capa
